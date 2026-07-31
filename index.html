@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16191F">
+<meta name="color-scheme" content="dark">
+<title>Daily Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;700&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#16191F; --panel:#1E232B; --panel-2:#232935; --line:#2E3540;
+  --ink:#E6E8EA; --dim:#8A929C; --dimmer:#5C6470;
+  --done:#5BC8C0; --live:#F0798F; --live-soft:rgba(240,121,143,.14); --opt:#7C89F0; --warn:#F2795E;
+  --pad:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{margin:0;padding:0;background:#16191F;min-height:100%;}
+body{margin:0;padding:0;background:#16191F;min-height:100vh;}
+/* Lock the palette regardless of what the OS or browser prefers. */
+@media (prefers-color-scheme:light){
+  html,body{background:#16191F!important;color:#E6E8EA!important;}
+}
+body{
+  background:var(--ground)!important; color:var(--ink)!important;
+  font-family:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:16px; line-height:1.35; padding-bottom:120px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:680px;margin:0 auto;padding:0 var(--pad);}
+
+header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);}
+.hbar{max-width:680px;margin:0 auto;padding:12px var(--pad);display:flex;align-items:center;gap:14px;}
+.title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;
+  letter-spacing:-.02em;margin:0;}
+.title span{color:var(--dimmer);font-weight:400;}
+.hstats{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.stat{text-align:right;}
+.stat b{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;
+  font-variant-numeric:tabular-nums;display:block;line-height:1.1;}
+.stat i{font-style:normal;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);}
+.streak b{color:var(--live);} .count b{color:var(--done);}
+.bar{height:2px;background:var(--line);}
+.bar div{height:100%;width:0;background:var(--done);transition:width .3s ease;}
+
+.controls{display:flex;gap:8px;flex-wrap:wrap;padding:16px 0 4px;}
+.ctl{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;background:var(--panel);border:1px solid var(--line);
+  color:var(--dim);padding:9px 12px;border-radius:6px;cursor:pointer;}
+.ctl[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
+.ctl:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+
+#shelf,#guide,#money,#plan{margin-top:28px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);overflow:hidden;opacity:.62;transition:opacity .2s;}
+#shelf.open,#shelf:hover,#shelf:focus-within,
+#guide.open,#guide:hover,#guide:focus-within,
+#money.open,#money:hover,#money:focus-within,
+#plan.open,#plan:hover,#plan:focus-within{opacity:1;}
+#plan .shelfbody{display:none;padding:0 16px 16px;}
+#plan.open .shelfbody{display:block;}
+#weekgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:0 0 20px;}
+.wcol{background:var(--ground);border:1px solid var(--line);border-radius:6px;
+  padding:7px 4px;min-height:96px;}
+.wcol.now{border-color:var(--done);}
+.wcol h4{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dimmer);margin:0 0 6px;text-align:center;}
+.wcol.now h4{color:var(--done);}
+.wcol ul{list-style:none;margin:0;padding:0;}
+.wcol li{font-size:8.5px;line-height:1.3;color:var(--dim);margin-bottom:4px;
+  word-break:break-word;}
+.wcol li.floaty{color:var(--dimmer);font-style:italic;}
+.pgroup{margin-bottom:20px;}
+.pgroup h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
+  margin:0 0 2px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+.pitem{padding:12px 0;border-bottom:1px solid var(--line);}
+.pitem:last-child{border-bottom:none;}
+.pitem .pname{font-size:14px;}
+.pitem .pstat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--live);}
+.pitem .pstat.ok{color:var(--dimmer);}
+.mrow{display:flex;gap:4px;margin-top:9px;flex-wrap:wrap;}
+.mbtn{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dimmer);padding:7px 9px;border-radius:5px;cursor:pointer;min-height:32px;}
+.mbtn[aria-pressed="true"]{border-color:var(--opt);color:var(--opt);}
+.dowrow{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;align-items:center;}
+.dowbtn{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.04em;
+  background:var(--ground);border:1px solid var(--line);color:var(--dimmer);
+  min-width:34px;min-height:32px;border-radius:5px;cursor:pointer;}
+.dowbtn[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
+.nrow{display:flex;gap:6px;align-items:center;margin-top:8px;
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--dimmer);}
+.nrow input.dt{width:auto;min-width:140px;text-align:left;font-size:11.5px;}
+.hint{font-size:11px;color:var(--dimmer);line-height:1.45;margin-top:6px;
+  padding-left:9px;border-left:2px solid var(--line);}
+.nrow input{width:64px;min-height:32px;padding:5px 7px;font-size:12px;text-align:right;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
+  font-family:'JetBrains Mono',monospace;}
+.nrow button{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dim);padding:6px 9px;border-radius:5px;cursor:pointer;min-height:32px;}
+@media (max-width:560px){
+  #weekgrid{grid-template-columns:repeat(7,1fr);gap:3px;}
+  .wcol{padding:5px 2px;min-height:80px;}
+  .wcol li{font-size:7.5px;}
+}
+#money .shelfbody{display:none;padding:0 16px 16px;}
+#money.open .shelfbody{display:block;}
+#mtotal{font-family:'JetBrains Mono',monospace;color:var(--live);font-size:12px;}
+.tier{margin-bottom:22px;}
+.tierhead{padding:12px 0 8px;border-bottom:1px solid var(--line);}
+.tierhead h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
+  margin:0 0 4px;letter-spacing:-.01em;}
+.tierhead .tsum{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--live);
+  font-variant-numeric:tabular-nums;}
+.tierhead .tsum span{color:var(--dimmer);}
+.tierhead p{margin:6px 0 0;font-size:12.5px;line-height:1.5;color:var(--dim);}
+.cost{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:11px 0;border-bottom:1px solid var(--line);}
+.cost:last-child{border-bottom:none;}
+.cost .cname{flex:1 1 150px;min-width:0;font-size:14px;}
+.cost .cname i{font-style:normal;display:block;font-size:11px;color:var(--dimmer);margin-top:2px;}
+.cost .cname i.off{color:var(--warn);}
+.cost input{width:74px;flex:0 0 auto;text-align:right;font-size:13px;
+  min-height:38px;padding:8px;}
+.cost .x{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dimmer);}
+.cost .per{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;
+  color:var(--done);min-width:62px;text-align:right;font-variant-numeric:tabular-nums;}
+.cost.unset .per{color:var(--dimmer);}
+.ctip{font-size:12px;color:var(--dim);line-height:1.45;flex:1 1 100%;margin-top:2px;
+  padding-left:9px;border-left:2px solid var(--line);}
+.vtabs{display:flex;gap:6px;margin:0 0 16px;flex-wrap:wrap;}
+.vtab{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dim);padding:8px 11px;border-radius:6px;cursor:pointer;}
+.vtab[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
+.vbadge{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:2px 5px;border-radius:3px;margin-left:6px;
+  vertical-align:1px;white-space:nowrap;border:1px solid;}
+.vb-commodity{color:var(--opt);border-color:rgba(124,137,240,.45);}
+.vb-formulation{color:var(--done);border-color:rgba(91,200,192,.45);}
+.vb-preference{color:var(--dimmer);border-color:var(--line);}
+.over{color:var(--warn)!important;}
+.ceil{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dimmer);
+  flex:1 1 100%;margin-top:3px;}
+.ceil b{color:var(--warn);font-weight:700;}
+.plog{flex:1 1 100%;display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;}
+.plog button{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dim);padding:6px 9px;border-radius:5px;cursor:pointer;min-height:32px;}
+.plog button:hover{border-color:var(--done);color:var(--done);}
+.plog .state{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dimmer);}
+.plog .state b{color:var(--done);font-weight:700;}
+.meas{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--done);border:1px solid rgba(91,200,192,.45);
+  padding:2px 5px;border-radius:3px;margin-left:6px;vertical-align:1px;}
+.est{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dimmer);border:1px solid var(--line);
+  padding:2px 5px;border-radius:3px;margin-left:6px;vertical-align:1px;}
+.ceil .cin{width:58px;min-height:28px;padding:3px 6px;font-size:11px;text-align:right;
+  background:var(--ground);border:1px solid var(--line);color:var(--dim);
+  -webkit-text-fill-color:var(--dim);color-scheme:dark;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;margin:0 2px;}
+#swaps{margin-top:8px;padding-top:16px;border-top:1px solid var(--line);}
+#swaps h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;margin:0 0 8px;}
+#swaps p{font-size:13px;line-height:1.55;color:var(--dim);margin:0 0 10px;}
+#swaps b{color:var(--ink);}
+#guide .shelfbody,#shelf .shelfbody{display:none;padding:0 16px 16px;}
+#guide.open .shelfbody{display:block;}
+.gitem{padding:16px 0;border-bottom:1px solid var(--line);}
+.gitem:last-child{border-bottom:none;}
+.gitem h3{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;
+  letter-spacing:-.01em;margin:0 0 3px;}
+.gitem .mine{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--done);margin-bottom:8px;}
+.gitem .mine.empty{color:var(--dimmer);}
+.gitem p{margin:0 0 8px;font-size:13.5px;line-height:1.5;color:var(--ink);}
+.gitem p:last-child{margin-bottom:0;}
+.gitem .lead{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dimmer);display:block;margin-bottom:2px;}
+.gitem .whyp{color:var(--dim);}
+.shelfhead{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;}
+.shelfhead h2{font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;margin:0;color:var(--dim);}
+.shelfhead .caret{margin-left:auto;color:var(--dimmer);font-family:'JetBrains Mono',monospace;font-size:11px;}
+.shelfbody{display:none;padding:0 16px 16px;}
+#shelf.open .shelfbody{display:block;}
+.shelfnote{font-size:12.5px;color:var(--dim);line-height:1.5;margin:0 0 16px;
+  padding-top:12px;border-top:1px solid var(--line);}
+.shelfnote b{color:var(--ink);font-weight:600;}
+.slot{padding:12px 0;border-bottom:1px solid var(--line);}
+.slot:last-child{border-bottom:none;}
+.slot > label{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);margin-bottom:7px;}
+.slot .fields{display:flex;gap:8px;flex-wrap:wrap;}
+.slot textarea{width:100%;margin-top:8px;font-family:'Inter Tight',sans-serif;font-size:13px;
+  background:var(--ground);border:1px dashed var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;
+  padding:9px;border-radius:6px;resize:vertical;line-height:1.4;}
+.slot textarea:focus-visible{outline:2px solid var(--done);outline-offset:1px;border-style:solid;}
+.slot textarea::placeholder{color:var(--dimmer);}
+.mine-note{font-size:11px;color:var(--opt);margin-top:5px;font-family:'JetBrains Mono',monospace;
+  letter-spacing:.06em;text-transform:uppercase;}
+.slot select,.slot input,.cost input{
+  font-family:'Inter Tight',sans-serif;font-size:14px;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;appearance:none;
+  padding:10px;border-radius:6px;min-height:42px;}
+.slot select{flex:1 1 210px;min-width:0;}
+.slot input{flex:1 1 150px;min-width:0;}
+.slot select:focus-visible,.slot input:focus-visible{outline:2px solid var(--done);outline-offset:1px;}
+.slot .eff{font-size:11.5px;color:var(--live);margin-top:7px;
+  font-family:'JetBrains Mono',monospace;line-height:1.5;display:none;}
+.slot .eff.on{display:block;}
+
+.phase{margin:30px 0 0;}
+.phead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px;
+  border-bottom:1px solid var(--line);margin-bottom:2px;}
+.phead h2{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;margin:0;}
+.phead em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--dimmer);margin-left:auto;font-variant-numeric:tabular-nums;}
+
+.step{position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:12px;
+  min-height:64px;padding:14px 12px 14px 10px;border-bottom:1px solid var(--line);
+  cursor:pointer;transition:background .12s;}
+.step:active{background:var(--panel);}
+.step.big{min-height:76px;padding:18px 12px 18px 10px;}
+.step>.sweep{position:absolute;inset:0;width:0;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,
+    rgba(240,121,143,.03) 0%,
+    rgba(240,121,143,.13) 60%,
+    rgba(240,121,143,.22) 96%,
+    rgba(240,121,143,.55) 100%);
+  box-shadow:0 0 22px rgba(240,121,143,.16);}
+.step>*:not(.sweep){position:relative;z-index:1;}
+.num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  color:var(--dimmer);width:28px;flex:0 0 28px;padding-top:3px;font-variant-numeric:tabular-nums;}
+.box{width:24px;height:24px;flex:0 0 24px;border:2px solid var(--dimmer);border-radius:5px;
+  display:grid;place-items:center;transition:border-color .12s,background .12s;}
+.box svg{width:14px;height:14px;stroke:var(--ground);stroke-width:3.5;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);
+  transition:opacity .12s,transform .12s;}
+.body{flex:1;min-width:0;}
+.label{font-size:15.5px;font-weight:500;letter-spacing:-.01em;}
+.prod{color:var(--done);font-weight:600;}
+.note{font-size:12.5px;color:var(--dim);margin-top:3px;line-height:1.4;}
+.warn{font-size:12px;color:var(--warn);margin-top:6px;line-height:1.4;
+  padding-left:9px;border-left:2px solid var(--warn);}
+.tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--opt);border:1px solid rgba(124,137,240,.4);
+  padding:1px 5px;border-radius:3px;margin-left:7px;vertical-align:2px;white-space:nowrap;}
+.skip{position:absolute;top:6px;right:6px;z-index:2;
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;
+  text-transform:uppercase;background:transparent;border:1px solid var(--line);
+  color:var(--dimmer);padding:3px 6px;border-radius:4px;cursor:pointer;opacity:.55;}
+.skip:hover,.skip:focus-visible{opacity:1;border-color:var(--warn);color:var(--warn);}
+.step.off .skip{opacity:1;border-color:var(--opt);color:var(--opt);}
+.step.off{opacity:.34;}
+.step.off .box{border-style:dashed;}
+.step.off .timer{display:none;}
+.step.off:active{background:transparent;}
+.step.routine .num{color:var(--opt);}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+.sched{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--line);
+  padding:2px 6px;border-radius:3px;white-space:nowrap;}
+.rstat{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--live);border:1px solid rgba(240,121,143,.4);
+  padding:2px 6px;border-radius:3px;white-space:nowrap;}
+.rstat.ok{color:var(--dimmer);border-color:var(--line);}
+.step.done .rstat,.step.done .sched{color:var(--dimmer);border-color:var(--line);}
+.noprod{display:inline-block;margin-top:7px;font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
+  border-left:2px solid var(--line);padding:1px 0 1px 8px;}
+.step.done .noprod{opacity:.5;}
+
+.timer{--p:0;flex:0 0 auto;align-self:center;margin-top:16px;position:relative;
+  width:54px;height:54px;border-radius:50%;border:none;background:transparent;padding:0;
+  cursor:pointer;display:grid;place-items:center;
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+  font-variant-numeric:tabular-nums;color:var(--dim);transition:color .2s;}
+.timer::before{content:'';position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from -90deg,var(--live) calc(var(--p)*1%),var(--line) 0);
+  -webkit-mask:radial-gradient(farthest-side,#0000 calc(100% - 2.5px),#000 calc(100% - 2.5px));
+          mask:radial-gradient(farthest-side,#0000 calc(100% - 2.5px),#000 calc(100% - 2.5px));}
+.timer::after{content:'';position:absolute;inset:4px;border-radius:50%;
+  background:var(--panel);transition:background .2s;}
+.timer > span{position:relative;z-index:1;letter-spacing:-.02em;}
+.timer:focus-visible{outline:2px solid var(--live);outline-offset:3px;}
+.timer:hover{color:var(--ink);}
+.step.running .timer{color:var(--live);}
+.step.running .timer::after{background:var(--panel-2);}
+.step.rang .timer{--p:100;color:var(--done);}
+.step.rang .timer::before{background:conic-gradient(var(--done) 0 100%);}
+
+.golink{flex:0 0 auto;align-self:center;margin-top:16px;display:grid;place-items:center;
+  gap:3px;width:54px;min-height:54px;padding:6px 2px;border-radius:10px;
+  border:1px solid var(--opt);background:rgba(124,137,240,.08);
+  color:var(--opt);text-decoration:none;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.08em;
+  text-transform:uppercase;text-align:center;line-height:1.15;}
+.golink svg{width:17px;height:17px;stroke:var(--opt);stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;}
+.golink:active{background:rgba(124,137,240,.2);}
+.golink:focus-visible{outline:2px solid var(--opt);outline-offset:3px;}
+.step.done .golink{opacity:.5;}
+.step.off .golink{display:none;}
+.lrow{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.lrow input.url{flex:1 1 200px;min-width:0;min-height:36px;padding:7px 9px;font-size:12px;
+  text-align:left;background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
+  font-family:'JetBrains Mono',monospace;}
+.lrow input.url::placeholder{color:var(--dimmer);text-transform:none;}
+.lrow button{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dim);padding:7px 9px;border-radius:5px;cursor:pointer;min-height:36px;}
+.lrow button:hover{border-color:var(--opt);color:var(--opt);}
+.lrow .lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dimmer);
+  letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;}
+.lrow .app{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;color:var(--dimmer);letter-spacing:.04em;text-transform:uppercase;cursor:pointer;}
+.lrow .app input{width:16px;height:16px;min-height:0;accent-color:var(--opt);}
+.lrow input.name{flex:1 1 120px;min-width:0;min-height:36px;padding:7px 9px;font-size:12px;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
+  font-family:'Inter Tight',sans-serif;}
+.alert{margin:16px 0 0;padding:13px 14px;border:1px solid var(--warn);border-radius:9px;
+  background:rgba(242,121,94,.09);}
+.alert h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
+  margin:0 0 5px;color:var(--warn);letter-spacing:-.01em;}
+.alert p{margin:0;font-size:12.5px;line-height:1.5;color:var(--ink);}
+.alert p+p{margin-top:7px;color:var(--dim);}
+#backup{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+#backup p{font-size:12px;color:var(--dim);line-height:1.5;margin:0 0 9px;}
+#bkarea{width:100%;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.4;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;padding:9px;border-radius:6px;
+  resize:vertical;}
+.step.done .label{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--dimmer);}
+.step.done .label .prod{color:var(--dim);}
+.step.done .note,.step.done .warn{color:var(--dimmer);}
+.step.done .warn{border-left-color:var(--dimmer);}
+.step.done .num{color:var(--done);}
+.step.done .box{background:var(--done);border-color:var(--done);}
+.step.done .box svg{opacity:1;transform:scale(1);}
+body.hideopt .step.optional{display:none;}
+.step.hidden{display:none;}
+
+.foot{margin-top:36px;padding:18px 0 0;border-top:1px solid var(--line);
+  color:var(--dimmer);font-size:12.5px;line-height:1.6;}
+.foot b{color:var(--dim);font-weight:600;}
+.reset{margin-top:14px;background:none;border:1px solid var(--line);color:var(--dimmer);
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;padding:8px 12px;border-radius:6px;cursor:pointer;}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);
+  background:var(--live);color:#1A0D11;font-family:'JetBrains Mono',monospace;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:12px 18px;border-radius:8px;z-index:99;
+  transition:transform .28s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#toast.up{transform:translate(-50%,0);}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+@media (max-width:420px){.label{font-size:15px;}.note{font-size:12px;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <h1 class="title">Daily Protocol <span id="daylabel"></span></h1>
+    <div class="hstats">
+      <div class="stat count"><b id="cnum">0/0</b><i>Done</i></div>
+      <div class="stat streak"><b id="snum">0</b><i>Day streak</i></div>
+    </div>
+  </div>
+  <div class="bar"><div id="prog"></div></div>
+</header>
+
+<div class="wrap">
+  <div id="alertmount"></div>
+  <div class="controls">
+    <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
+    <button class="ctl" id="jump">Jump to next unchecked</button>
+  </div>
+
+  <main id="list"></main>
+
+  <div class="foot">
+    <b>Not in here on purpose.</b> Pillowcase, sheets, towel, nails, toothbrush, haircut, dentist — those stay in Microsoft To Do. They're calendar-shaped, and To Do already does them well.<br><br>
+    <b>Timers.</b> The amber button starts the dwell. The row fills as it runs. A check says you shampooed; the timer says you left it on long enough.<br><br>
+    <b>Resets at midnight.</b> Streak counts days where every core step got checked.
+    <button class="reset" id="reset">Reset today</button>
+    <button class="reset" id="backupbtn">Backup / restore</button>
+    <div id="backup" style="display:none">
+      <p>Everything this file knows about you \u2014 checks, streak, schedules, products, prices, links \u2014 as one block of text. Copy it somewhere safe before you move to a new copy of the file, then paste it back in here and hit Restore.</p>
+      <textarea id="bkarea" rows="4" spellcheck="false" placeholder="Paste a backup here to restore it"></textarea>
+      <button class="reset" id="bkcopy">Copy backup</button>
+      <button class="reset" id="bkrestore">Restore from box</button>
+    </div>
+  </div>
+
+  <section id="plan">
+    <div class="shelfhead" id="planhead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Full schedule</h2>
+      <span class="caret" id="pcaret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Everything that isn't daily, whether or not it's due today. This is the verification view — the week grid shows what lands on each day, and the list below lets you change the days without waiting on a rebuilt file.</p>
+      <div id="weekgrid"></div>
+      <div id="planlist"></div>
+      <button class="reset" id="schedreset">Reset all schedules to file defaults</button>
+    </div>
+  </section>
+
+  <section id="money">
+    <div class="shelfhead" id="moneyhead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Monthly cost</h2>
+      <span class="caret" id="mcaret"><b id="mtotal">$0</b>/mo · Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Grouped by what happens if you cut it. <b>Every price and duration is editable</b> — these are ballpark drugstore figures, not live prices. Put in what you actually pay and the math becomes yours. Duration is months per unit at daily use.</p>
+      <p class="shelfnote" style="border-top:none;padding-top:0;margin-top:-8px;">There is no single correct price — the same 8oz Living Proof bottle sells for $14 to $40 depending on seller, and the cheap end is usually marketplace resellers where haircare gets diverted or counterfeited. Prices here are <b>brand-direct anchors</b>. Overwrite with what you actually paid.<br><br>Duration is the number that matters more and the one nobody can look up. Hit <b>Opened one today</b> when you start a bottle and <b>Ran out</b> when it's done — after one cycle the estimate becomes measured, and the monthly figure becomes real.<br><br>Ceilings are <b>generic category defaults</b> and they are the weakest numbers here — they can’t know that your hair type or skin puts you in a sub-category with a higher floor. When a research chat establishes what a category actually costs for you, overwrite the ceiling. That’s the number that makes the orange flags mean something.</p>
+      <div class="vtabs">
+        <button class="vtab" data-mode="value" aria-pressed="true">Group: where money buys you more</button>
+        <button class="vtab" data-mode="tier" aria-pressed="false">Group: what to cut first</button>
+      </div>
+      <div id="tierlist"></div>
+      <div id="swaps"></div>
+    </div>
+  </section>
+
+  <section id="guide">
+    <div class="shelfhead" id="guidehead" role="button" tabindex="0" aria-expanded="false">
+      <h2>What these products are</h2>
+      <span class="caret" id="gcaret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">What each thing actually is, what it's for, and why it earns a step. Read once — you shouldn't need it twice.</p>
+      <div id="guidelist"></div>
+    </div>
+  </section>
+
+  <section id="shelf">
+    <div class="shelfhead" id="shelfhead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Products</h2>
+      <span class="caret" id="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">These are baked in — you shouldn't need this. It's here for the night you swap something and don't want to wait on a rebuilt file. The <b>type</b> is what rewrites the instructions, sets the timers, and decides which steps exist; the name is just so the step says what's in your hand.</p>
+      <div id="slots"></div>
+      <button class="reset" id="reseed">Reload products from file</button>
+      <button class="reset" id="wipeprod">Clear all products</button>
+    </div>
+  </section>
+</div>
+
+<div id="toast">Time</div>
+
+<script>
+/* =========================================================
+   THE SHELF — product type drives instructions, timers, steps
+   ========================================================= */
+const SLOTS = [
+ {id:'floss', label:'Floss', classes:[
+   {id:'string', name:'String floss', note:"C-shape around each tooth, slightly under the gumline. Before brushing, not after — it opens the gaps so the fluoride can get in."},
+   {id:'picks', name:'Floss picks', note:"Wrap it around the tooth rather than snapping straight down. Before brushing. A pick you'll use beats string you won't."},
+   {id:'water', name:'Water flosser', note:"Lean over the sink, lips closed, start on low. Before brushing. Good on gums — not a full substitute for string between tight contacts."}
+ ]},
+ {id:'mouthwash', label:'Mouthwash', classes:[
+   {id:'antiseptic', name:'Antiseptic (Listerine-type)', note:"Goes here, before brushing — it knocks down bacteria and clears debris so the toothpaste hits clean enamel."},
+   {id:'oxygenating', name:'Oxygenating / breath (TheraBreath-type)', note:"90 seconds, per the bottle \u2014 that's the contact time their formula was tested at. Gargle the last 20 so it reaches the back of the throat, where the sulfur bacteria actually live. Nothing to eat or drink for 5 minutes after.", timer:90},
+   {id:'fluoride', name:'Fluoride rinse', note:"Wrong slot for this one — see below.", flags:['fluorideRinse']}
+ ]},
+ {id:'toothpaste', label:'Toothpaste', classes:[
+   {id:'stannous', name:'Stannous fluoride', note:"Two minutes. Soft bristles, 45° into the gumline, small circles, pea-sized. Stannous does more than cavity duty — gums and sensitivity too."},
+   {id:'sodium', name:'Sodium fluoride', note:"Two minutes. Soft bristles, 45° into the gumline, small circles, pea-sized."},
+   {id:'whitening', name:'Whitening', note:"Two minutes, and go lighter on pressure — an abrasive formula plus scrubbing is how enamel goes. Soft bristles, 45°, small circles."},
+   {id:'nofluoride', name:'Fluoride-free', note:"Two minutes, soft bristles, 45°, small circles.", flags:['noFluoride']}
+ ]},
+ {id:'shampoo', label:'Shampoo', classes:[
+   {id:'antidandruff', name:'Anti-dandruff (zinc pyrithione / ketoconazole / selenium sulfide)', note:"Scalp only, fingertips not nails. The active is doing chemistry on your scalp — the length of your hair isn't the target.", timer:90, dwellNote:"The whole ballgame. The active needs contact time. Lather-and-rinse-immediately is functionally the same as using nothing.", flags:['dwell']},
+   {id:'volumizing', name:'Volumizing / silicone-free', note:"Scalp only, fingertips. No dwell needed — this is a cleanser, not a treatment. The length gets clean from runoff on the way down."},
+   {id:'clarifying', name:'Clarifying / deep clean', note:"Scalp and length. Strong surfactant — this is a rotation shampoo, not a daily.", flags:['harshShampoo']},
+   {id:'gentle', name:'Gentle daily / amino acid', note:"Scalp only, fingertips. Gentle enough for daily. No dwell needed."}
+ ]},
+ {id:'conditioner', label:'Conditioner', classes:[
+   {id:'rinse', name:'Rinse-out', note:"Mid-length to ends. Never the scalp. Squeeze the water out of your hair first so you're not diluting it.", timer:120, flags:['condDwell']},
+   {id:'leavein', name:'Leave-in', note:"Mid-length to ends, damp hair, and it stays in. No dwell, no rinse."},
+   {id:'none', name:'None', note:"", flags:['noCond']}
+ ]},
+ {id:'bodywash', label:'Body wash', classes:[
+   {id:'acid', name:'Exfoliating acid (salicylic / lactic / glycolic)', note:"Hands only, no scrubber — this IS your exfoliant. Give it a moment on the rough spots rather than scrubbing it in. Use it where it's needed, not head to toe.", flags:['exfoliant']},
+   {id:'plain', name:'Plain / moisturizing', note:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms."},
+   {id:'bar', name:'Bar soap', note:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms. Rinse the bar and stand it somewhere it can dry out."}
+ ]},
+ {id:'scrubber', label:'Scrubber / exfoliating tool', classes:[
+   {id:'tool', name:'Scrubber, brush, or washcloth', note:"Light pressure. The tool does the work — pressing harder just irritates."},
+   {id:'none', name:'None', note:"", flags:['noScrub']}
+ ]},
+ {id:'facecleanser', label:'Face cleanser', classes:[
+   {id:'hydrating', name:'Hydrating / non-foaming', note:"Fingertips, 20–30 seconds. Doesn't lather much — that's the design, not a defect."},
+   {id:'foaming', name:'Foaming / gel', note:"Fingertips, 20–30 seconds. If your face feels tight after, that's too much cleanser for your skin."},
+   {id:'bar', name:'Cleansing bar', note:"Fingertips, 20–30 seconds, and keep it away from the eye area."}
+ ]},
+ {id:'oilcleanser', label:'First cleanse (oil / balm)', classes:[
+   {id:'balm', name:'Oil or balm cleanser', note:"Onto DRY skin with DRY hands, massage, then add water to emulsify. Sunscreen and grease are oil-based — foaming cleanser slides right off them.", timer:30},
+   {id:'combo', name:'Oil-to-foam (one-step)', note:"Onto DRY skin, massage, then add water and it foams. Rinses clean on its own — no second cleanse unless your face still feels coated.", timer:30, flags:['singleCleanse']},
+   {id:'none', name:'None — single cleanse only', note:"", flags:['noOil']}
+ ]},
+ {id:'moisturizer', label:'Face moisturizer', classes:[
+   {id:'cream', name:'Cream (heavier)', note:"While the face is still slightly damp. That's what traps the water instead of sitting on top of dry skin."},
+   {id:'lotion', name:'Lotion (lighter)', note:"While the face is still slightly damp. Lighter formulas layer under SPF without pilling."},
+   {id:'gel', name:'Gel', note:"While the face is still slightly damp. Absorbs fast — give it a second before the next layer."}
+ ]},
+ {id:'spf', label:'SPF', classes:[
+   {id:'dedicated', name:'Dedicated sunscreen', note:"Face, ears, neck, back of the neck. A quarter-teaspoon for the face — most people use half that and get a fraction of the number on the bottle."},
+   {id:'combo', name:'Moisturizer + SPF combo', note:"This replaces the moisturizer step — it is your moisturizer. Quarter-teaspoon for the face, plus ears and neck.", flags:['spfCombo']},
+   {id:'mineral', name:'Mineral / zinc', note:"Face, ears, neck, back of the neck. Quarter-teaspoon. Mineral needs more rubbing in — give it the extra ten seconds."}
+ ]},
+ {id:'bodylotion', label:'Body lotion', classes:[
+   {id:'lotion', name:'Lotion or cream', note:"Within about 3 minutes of getting out, on damp skin. Shins, forearms, anywhere the exfoliant touched."},
+   {id:'none', name:'None', note:"", flags:['noBodyLotion']}
+ ]},
+ {id:'deodorant', label:'Deodorant', classes:[
+   {id:'naturalscented', name:'Aluminum-free, scented', note:"Bone-dry skin — not 'mostly dry'. Thin layer, 2–3 swipes. More product doesn't work better, it just transfers.", timer:180, dwellNote:"The wax and oils transfer to fabric while still wet, then build up invisibly over washes until they yellow. The wait is the fix and it's free.", flags:['deoSet','scented']},
+   {id:'naturalunscented', name:'Aluminum-free, unscented', note:"Bone-dry skin. Thin layer, 2–3 swipes.", timer:180, dwellNote:"Aluminum-free formulas are wax-and-oil based and transfer to fabric while wet. Let it set.", flags:['deoSet']},
+   {id:'antiperspirant', name:'Antiperspirant (aluminum), scented', note:"Bone-dry skin, thin layer. Worth knowing: antiperspirant works best applied at NIGHT — the salts need still, dry glands to plug. Morning application on active glands largely washes away.", flags:['scented']},
+   {id:'apUnscented', name:'Antiperspirant (aluminum), unscented', note:"Bone-dry skin, thin layer. Works best applied at night — the salts need still, dry glands to plug."}
+ ]},
+ {id:'styling', label:'Hair styling product', classes:[
+   {id:'cream', name:'Cream / fiber', note:"Emulsify between your palms first so it doesn't land in one clump. Into damp hair, fingers through."},
+   {id:'pomade', name:'Pomade / wax', note:"Warm it between your palms until it goes clear. Damp hair, back to front. Less than you think."},
+   {id:'clay', name:'Clay / paste', note:"Emulsify hard — clay clumps if you don't. Nearly-dry hair, not wet. It grabs on contact, so place it right the first time."},
+   {id:'spray', name:'Spray / powder', note:"Roots, from a distance, then work it in with fingers."},
+   {id:'none', name:'None', note:"", flags:['noStyling']}
+ ]},
+ {id:'lipbalm', label:'Lip balm', classes:[
+   {id:'stick', name:'Stick', note:"Preventatively, not reactively. Waiting until they're cracked is treating, not preventing."},
+   {id:'ointment', name:'Ointment / tube', note:"Preventatively, not reactively. Clean finger — which is why sticks win for a work shift."}
+ ]},
+ {id:'serum', label:'Morning serum', classes:[
+   {id:'vitc', name:'Vitamin C', note:"Thin layers first, always. It stacks with sunscreen — that's the reason it's worth a step."},
+   {id:'other', name:'Other serum', note:"Thin layers first, always."},
+   {id:'none', name:'None', note:"", flags:['noSerum']}
+ ]},
+ {id:'treatment', label:'Night treatment', classes:[
+   {id:'adapalene', name:'Adapalene / retinoid', note:"Pea-sized for the ENTIRE face. Not per-zone. 2–3 nights a week for the first month, then build toward nightly over 2–3 months. Weeks 2–5 look worse before better — that's expected, not a reaction.", dryTimer:600, flags:['retinoid']},
+   {id:'bp', name:'Benzoyl peroxide', note:"Thin layer on the affected areas.", flags:['bleaches']},
+   {id:'acid', name:'Exfoliating acid (AHA / BHA)', note:"Thin layer. This is an exfoliant — don't stack it with a scrub in the same 24 hours.", flags:['nightAcid']},
+   {id:'none', name:'None', note:"", flags:['noTreatment']}
+ ]},
+ {id:'cologne', label:'Cologne', classes:[
+   {id:'edp', name:'Eau de parfum / eau de toilette', note:"Onto clean, MOISTURIZED skin — dry skin doesn't hold scent. Two sprays: chest and base of the neck. Don't rub it in, that crushes the top notes. Not on your hair, not on the shirt."},
+   {id:'none', name:'None', note:"", flags:['noCologne']}
+ ]}
+];
+
+/* =========================================================
+   STEPS — numbers are stable IDs. Hidden steps leave a gap
+   rather than renumbering, so "step 29" always means SPF.
+   ========================================================= */
+const PHASES = [
+ {name:"Morning — before the shower", steps:[
+  {n:'01', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
+  {n:'01a', l:"Contacts", note:"Acuvue Oasys 1-Day for Astigmatism. Wash and dry hands first \u2014 wet fingers make the lens stick to you instead of your eye. Check it isn't inverted: the edge should curve up like a bowl, not flare out. Both eyes are the same prescription, so there's no left/right sorting. After it's in, blink several times and give it 10\u201330 seconds \u2014 a toric lens has to rotate into its axis before vision sharpens, so early blur usually means it hasn't settled, not that it's the wrong lens. Daily disposables: new pair every day, never sleep in them, never rinse and reuse, never tap water."},
+  {n:'01b', l:"Medication", note:"Wellbutrin XL 450mg (one 300mg + one 150mg) and Adderall XR 20mg (two 10mg). Swallow whole \u2014 don't split, crush, or chew any of them; an extended-release tablet dumps its entire dose at once if it's broken, and that matters most with bupropion. Same time every morning, and early \u2014 both are activating and a late dose costs you sleep. Keep acidic drinks away from the Adderall: orange juice and vitamin C measurably reduce amphetamine absorption."},
+  {n:'02', l:"Weigh in", opt:1, note:"Same time daily is the only way the number means anything."},
+  {n:'03', l:"Floss", slot:'floss', note:"Before brushing, not after."},
+  {n:'04', l:"Mouthwash", slot:'mouthwash', note:"See the note \u2014 the before/after question is a real tradeoff.", warns:[
+    {when:'fluorideRinse', text:"Wrong slot. Used after brushing, a fluoride rinse washes away the much stronger fluoride your toothpaste just left behind — and used before, it's redundant. Move it to midday or after lunch. This is the mistake almost everyone makes with mouthwash."}
+  ]},
+  {n:'05', l:"Brush", slot:'toothpaste', timer:120, note:"Two minutes. Soft bristles, 45°, small circles.", warns:[
+    {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps 3–7 are now hygiene only, not prevention."}
+  ]},
+  {n:'06', l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
+  {n:'07', l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
+  {n:'08', l:"Breakfast", opt:1, note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
+  {n:'08a', l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
+ ]},
+ {name:"The shower", big:1, steps:[
+  {n:'09', l:"Water warm, not hot", note:"Hot strips sebum. Direct contributor to itchy scalp and dry shins."},
+  {n:'10', l:"Wet hair thoroughly", timer:45, note:"Dry hair doesn't lather."},
+  {n:'11', l:"Shampoo — scalp only", slot:'shampoo', warns:[
+    {when:'harshShampoo', text:"Rotation only — once or twice a week after a shift. Daily will strip your scalp and it'll overproduce oil to compensate, which is the problem you were trying to solve."}
+  ]},
+  {n:'12', l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
+  {n:'13', l:"Rinse shampoo", note:"The length gets cleaned by runoff on the way down."},
+  {n:'14', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
+  {n:'15', l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
+  {n:'16', l:"Shave body hair", opt:1, note:"Use the dwell time. With the grain on the first pass.", warns:[
+    {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
+  ]},
+  {n:'17', l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
+  {n:'18', l:"Wash body", slot:'bodywash', note:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms.", warns:[
+    {when:'exfoliant', text:"One exfoliant per shower and this is it — leave the scrubber out. Double exfoliation strips you, the skin reads as dry, you scrub harder, it gets worse."}
+  ]},
+  {n:'18a', l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
+  {n:'19', l:"Rinse body", note:"Conditioner residue running down your back and sitting there is a common cause of back acne — which is why the body wash comes after the rinse, not before."},
+  {n:'20', l:"Face last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
+  {n:'21', l:"Rinse face, cool water"},
+  {n:'22', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
+ ]},
+ {name:"Out — the 3-minute window", steps:[
+  {n:'23', l:"Pat dry, don't rub", note:"Leave yourself slightly damp. Damp skin is the whole point of what follows."},
+  {n:'24', l:"Dry between every toe", note:"Individually. This is the entire athlete's foot protocol and it takes ten seconds."},
+  {n:'25', l:"Shave face", opt:1, note:"Hair is softest right out of the shower. Oil → cream → with the grain → cold rinse → alcohol-free balm.", warns:[
+    {when:'retinoid', text:"Don't shave on a night you're applying adapalene. Pick one."}
+  ]},
+  {n:'26', l:"Serum", opt:1, slot:'serum', hideIf:'noSerum'},
+  {n:'27', l:"Eye cream", opt:1, note:"Ring finger, tap don't drag."},
+  {n:'28', l:"Face moisturizer", slot:'moisturizer', hideIf:'spfCombo'},
+  {n:'29', l:"SPF", slot:'spf', note:"Face, ears, neck. Highest-return thirty seconds in the routine and it's not close. Overcast doesn't matter — UVA goes through cloud.", warns:[
+    {when:'retinoid', text:"A retinoid makes this mandatory, not optional. It thins the stratum corneum and raises photosensitivity — skipping SPF while using one is worse than doing neither."}
+  ]},
+  {n:'30', l:"Body lotion", slot:'bodylotion', hideIf:'noBodyLotion'},
+  {n:'31', l:"Hand cream", opt:1, note:"If you're washing your hands all shift, this isn't cosmetic."},
+  {n:'32', l:"Deodorant", slot:'deodorant'},
+  {n:'33', l:"Wait before the shirt", dwellOf:'deodorant', showIf:'deoSet'},
+  {n:'34', l:"Foot powder / antifungal", opt:1, note:"Especially before a shift. Closed shoes, hours on your feet."}
+ ]},
+ {name:"Grooming & dressing", steps:[
+  {n:'35', l:"Towel-dry hair to damp", opt:1, hideIf:'noStyling', note:"Not wet, not dry."},
+  {n:'36', l:"Leave-in / sea salt spray", opt:1, note:"For grip, if you're using one."},
+  {n:'37', l:"Styling product", slot:'styling', hideIf:'noStyling'},
+  {n:'38', l:"Shape it", hideIf:'noStyling', note:"Set it while it dries. Hands off once it's dry."},
+  {n:'39', l:"Nose and ear hair", note:"Trim weekly-ish, check daily. Nobody tells you about this one."},
+  {n:'40', l:"Eyebrows", note:"Strays between and below only. Two seconds."},
+  {n:'41', l:"Neck strays", note:"If you're between cuts."},
+  {n:'42', l:"Lip balm", slot:'lipbalm'},
+  {n:'43', l:"Eye drops", opt:1, note:"If the dry air is getting you."},
+  {n:'44', l:"Get dressed", note:"Everything except the top layer."},
+  {n:'45', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', warns:[
+    {when:'scented', text:"Your deodorant is scented. That's two fragrances arguing under your shirt six inches apart. Switch to unscented or drop the cologne — the deodorant wins regardless, it's closer to your nose all day."}
+  ]},
+  {n:'46', l:"Shirt on", note:"After the cologne has flashed off and the deodorant is set."},
+  {n:'47', l:"Mirror check", note:"Collar, teeth, fly."}
+ ]},
+ {name:"End of day", steps:[
+  {n:'48', l:"Change out of work clothes", note:"Straight into their own bag, separate from the rest of the laundry."},
+  {n:'49', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you."},
+  {n:'50', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil'},
+  {n:'51', l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', note:"Now it can actually reach your skin."},
+  {n:'52', l:"Pat dry"},
+  {n:'53', l:"Wait until fully dry", dryOf:'treatment', showIf:'retinoid'},
+  {n:'54', l:"Treatment", opt:1, slot:'treatment', hideIf:'noTreatment', warns:[
+    {when:'bleaches', text:"Benzoyl peroxide bleaches fabric. Old pillowcase, old towel, and give it a few minutes before anything touches your face."}
+  ]},
+  {n:'55', l:"Moisturizer", slot:'moisturizer', warns:[
+    {when:'retinoid', text:"If the adapalene is irritating you, moisturize BEFORE it as well as after. Buffering doesn't kill the effect — quitting does."}
+  ]},
+  {n:'56', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"If the exfoliant is drying you out."},
+  {n:'57', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters."},
+  {n:'58', l:"Floss", slot:'floss', note:"If one thing survives a bad day, it's this."},
+  {n:'59', l:"Mouthwash", slot:'mouthwash', warns:[
+    {when:'fluorideRinse', text:"Same problem as step 4 — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
+  ]},
+  {n:'60', l:"Brush", slot:'toothpaste', timer:120},
+  {n:'61', l:"Tongue"},
+  {n:'62', l:"Spit, don't rinse", note:"The night pass counts more. Saliva drops to almost nothing while you sleep — whatever's on your teeth sits there eight hours with no natural rinse."},
+  {n:'63', l:"Nothing but water after this"},
+  {n:'64', l:"Nightguard", opt:1, note:"If you grind."}
+ ]}
+];
+
+/* ---------------- storage ---------------- */
+const KEY='routine_v4';
+let mem=null;
+const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem;}};
+const save=s=>{try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){mem=s;}};
+const today=()=>new Date().toLocaleDateString('en-CA');
+const yesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString('en-CA');};
+
+/* Pre-loaded from the products settled in this project.
+   Each is {classId, brand} — classId picks the technique/timer/steps. */
+const DEFAULTS={
+  bodywash:    {classId:'plain',        brand:'Dove Men+Care Eucalyptus & Cedar Oil'},
+  mouthwash:   {classId:'oxygenating',  brand:'TheraBreath Fresh Breath Oral Rinse'},
+  deodorant:   {classId:'naturalscented',brand:'Native Cashmere & Rain'},
+  bodylotion:  {classId:'lotion',       brand:'AmLactin'},
+  conditioner: {classId:'rinse',        brand:'Living Proof Full Conditioner'},
+  facecleanser:{classId:'hydrating',    brand:'CeraVe Hydrating Facial Cleanser'},
+  lipbalm:     {classId:'stick',        brand:'Aquaphor Lip Repair Stick'},
+  toothpaste:  {classId:'stannous',     brand:'Crest Pro-Health Advanced Deep Clean Mint'},
+  floss:       {classId:'picks',        brand:'DenTek Triple Clean Advanced'},
+  scrubber:    {classId:'tool',         brand:'GOSHI Exfoliating Shower Towel'},
+  shampoo:     {classId:'gentle',       brand:'American Crew Daily Cleansing'},
+  styling:     {classId:'cream',        brand:'American Crew Fiber Cream'},
+  cologne:     {classId:'edp',          brand:'Golf le Fleur French Waltz'}
+};
+
+let S = load();
+if(!S){ /* one-time migration from the previous key */
+  try{ const old=localStorage.getItem('routine_v3'); if(old) S=JSON.parse(old); }catch(e){}
+}
+S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
+S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+if(!S.products) S.products={};
+
+/* Seed each default exactly once, per slot. This merges newly added products into
+   existing saved state instead of skipping them because the state wasn't empty —
+   and it remembers what it has seeded, so clearing a slot yourself stays cleared. */
+S.seeded = S.seeded || [];
+let seededNew=0;
+Object.keys(DEFAULTS).forEach(k=>{
+  if(S.seeded.indexOf(k)===-1){
+    if(!S.products[k] || !S.products[k].classId){
+      S.products[k]=JSON.parse(JSON.stringify(DEFAULTS[k]));
+      seededNew++;
+    }
+    S.seeded.push(k);
+  }
+});
+if(seededNew) save(S);
+/* Workout tracker link — Push, Pull and Legs only. Deliberately not cardio.
+   Seeded once per id, same pattern as the product defaults, so clearing one
+   yourself stays cleared instead of coming back on the next load. */
+const LINKDEFAULTS={
+  tr_push:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false},
+  tr_pull:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false},
+  tr_legs:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false}
+};
+S.linkSeeded=S.linkSeeded||[];
+let linkSeededNew=0;
+Object.keys(LINKDEFAULTS).forEach(k=>{
+  if(S.linkSeeded.indexOf(k)===-1){
+    if(!S.links[k] || !S.links[k].url){
+      S.links[k]=JSON.parse(JSON.stringify(LINKDEFAULTS[k]));
+      linkSeededNew++;
+    }
+    S.linkSeeded.push(k);
+  }
+});
+if(linkSeededNew) save(S);
+
+if(S.date!==today()){
+  if(S.last!==yesterday() && S.last!==today()) S.streak=0;
+  S.date=today(); S.checked=[]; save(S);
+}
+
+/* ---------------- flags ---------------- */
+const slotOf=id=>SLOTS.find(s=>s.id===id);
+function chosen(slotId){
+  const p=S.products[slotId]; if(!p||!p.classId) return null;
+  const s=slotOf(slotId); return s ? (s.classes.find(c=>c.id===p.classId)||null) : null;
+}
+function flags(){
+  const f=new Set();
+  SLOTS.forEach(s=>{const c=chosen(s.id); if(c&&c.flags) c.flags.forEach(x=>f.add(x));});
+  return f;
+}
+const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const CHECK='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ---------------- shelf ---------------- */
+const slotsEl=document.getElementById('slots');
+SLOTS.forEach(s=>{
+  const cur=S.products[s.id]||{};
+  const d=document.createElement('div');
+  d.className='slot';
+  d.innerHTML=
+    `<label for="sel-${s.id}">${s.label}</label>`+
+    `<div class="fields">`+
+      `<select id="sel-${s.id}" data-slot="${s.id}">`+
+        `<option value="">— not set —</option>`+
+        s.classes.map(c=>`<option value="${c.id}"${cur.classId===c.id?' selected':''}>${esc(c.name)}</option>`).join('')+
+      `</select>`+
+      `<input id="in-${s.id}" data-slot="${s.id}" type="text" placeholder="What's it called?" value="${esc(cur.brand||'')}">`+
+    `</div>`+
+    `<textarea id="note-${s.id}" data-slot="${s.id}" data-f="mynote" rows="2" placeholder="Your own technique note — overrides mine">${esc(cur.mynote||'')}</textarea>`+
+    `<div class="eff" id="eff-${s.id}"></div>`;
+  slotsEl.appendChild(d);
+});
+
+const EFFECTS={
+  dwell:'adds step 12 (90s dwell)',
+  condDwell:'adds steps 15 and 17',
+  noCond:'removes steps 14, 15, 17',
+  exfoliant:'removes step 18a — one exfoliant per shower',
+  noScrub:'removes step 18a',
+  spfCombo:'removes step 28 — this is your moisturizer',
+  singleCleanse:'removes step 51 — rinses clean on its own',
+  noOil:'removes step 50',
+  deoSet:'adds step 33 (3min set)',
+  retinoid:'adds step 53 (10min dry-down) · makes 29 mandatory · warns 16, 25, 55',
+  scented:'warns step 45 if cologne is on',
+  fluorideRinse:'warns steps 4 and 59',
+  noStyling:'removes steps 35, 37, 38',
+  noCologne:'removes step 45',
+  noTreatment:'removes steps 53, 54',
+  noBodyLotion:'removes steps 30, 56',
+  noSerum:'removes step 26',
+  harshShampoo:'warns step 11',
+  noFluoride:'warns step 5',
+  bleaches:'warns step 54',
+  nightAcid:'exfoliant at night'
+};
+function paintEffects(){
+  SLOTS.forEach(s=>{
+    const el=document.getElementById('eff-'+s.id), c=chosen(s.id);
+    const list=((c&&c.flags)||[]).map(f=>EFFECTS[f]).filter(Boolean);
+    if(c&&c.timer) list.unshift('timer '+fmt(c.timer));
+    if(c&&c.dryTimer) list.unshift('timer '+fmt(c.dryTimer));
+    el.textContent=list.length?'→ '+list.join('  ·  '):'';
+    el.classList.toggle('on',!!list.length);
+  });
+}
+slotsEl.addEventListener('change',e=>{
+  const id=e.target.dataset.slot; if(!id||e.target.tagName!=='SELECT')return;
+  S.products[id]=S.products[id]||{};
+  S.products[id].classId=e.target.value||null;
+  save(S); rebuild();
+});
+slotsEl.addEventListener('input',e=>{
+  const id=e.target.dataset.slot; if(!id)return;
+  if(e.target.tagName==='TEXTAREA'){
+    S.products[id]=S.products[id]||{};
+    S.products[id].mynote=e.target.value;
+    save(S); rebuild(); return;
+  }
+  if(e.target.tagName!=='INPUT')return;
+  S.products[id]=S.products[id]||{};
+  S.products[id].brand=e.target.value;
+  save(S); rebuild();
+});
+
+const shelf=document.getElementById('shelf'), shelfhead=document.getElementById('shelfhead');
+function toggleShelf(force){
+  const open=force!==undefined?force:!shelf.classList.contains('open');
+  shelf.classList.toggle('open',open);
+  shelfhead.setAttribute('aria-expanded',open);
+  document.getElementById('caret').textContent=open?'Close':'Open';
+}
+shelfhead.addEventListener('click',()=>toggleShelf());
+shelfhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleShelf();}});
+
+/* ---------------- schedule view ---------------- */
+const plan=document.getElementById('plan'), planhead=document.getElementById('planhead');
+function paintSchedule(){
+  const todayDow=new Date().getDay();
+  let g='';
+  for(let d=0;d<7;d++){
+    const fixed=ROUTINES.filter(r=>{const sc=schedOf(r);return sc.dow&&sc.dow.indexOf(d)>-1;});
+    g+=`<div class="wcol${d===todayDow?' now':''}"><h4>${DOW[d]}</h4><ul>`+
+       fixed.map(r=>`<li>${esc(r.l.split(' \u2014 ')[0])}</li>`).join('')+
+       (d===todayDow?ROUTINES.filter(r=>{const sc=schedOf(r);return !sc.dow&&!sc.monthDay&&dueToday(r);})
+         .map(r=>`<li class="floaty">${esc(r.l)}</li>`).join(''):'')+
+       `</ul></div>`;
+  }
+  document.getElementById('weekgrid').innerHTML=g;
+
+  const groups=[];
+  ROUTINES.forEach(r=>{ if(groups.indexOf(r.group)===-1) groups.push(r.group); });
+  document.getElementById('planlist').innerHTML=groups.map(grp=>{
+    const items=ROUTINES.filter(r=>r.group===grp);
+    return `<div class="pgroup"><h3>${esc(grp)}</h3>`+items.map(r=>{
+      const sc=schedOf(r), st=statusLabel(r), due=dueToday(r);
+      const modes=[['dow','Days of week'],['everyDays','Every N days'],['everyMonths','Every N months']];
+      let ctrl=`<div class="mrow">`+modes.map(m=>
+        `<button class="mbtn" data-rmode="${m[0]}" data-rid="${r.id}" aria-pressed="${sc.mode===m[0]}">${m[1]}</button>`
+      ).join('')+`</div>`;
+      if(sc.mode==='dow'){
+        ctrl+=`<div class="dowrow">`+DOW.map((n,i)=>
+          `<button class="dowbtn" data-dow="${i}" data-rid="${r.id}" aria-pressed="${sc.dow.indexOf(i)>-1}">${n[0]}${n[1]}</button>`
+        ).join('')+`</div>`;
+      } else {
+        const unit = sc.mode==='everyDays' ? 'days' : 'months';
+        const f    = sc.mode==='everyDays' ? 'everyDays' : 'everyMonths';
+        ctrl+=`<div class="nrow">Every <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="${f}" value="${sc[f]}"> ${unit}</div>`+
+              `<div class="nrow">Starting <input type="date" class="dt" data-rid="${r.id}" data-sf="anchor" value="${sc.anchor||''}">`+
+              (sc.anchor
+                ? `<button data-rclear="${r.id}">Clear date</button>`
+                : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
+              `</div>`+
+              (sc.anchor?'':`<div class="hint">No start date — the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
+      }
+      const lk=(S.links&&S.links[r.id])||{};
+      ctrl+=`<div class="lrow"><span class="lbl">Link</span>`+
+        `<input class="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" `+
+        `placeholder="Paste a OneDrive / Google Drive / Sheets URL" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
+        `<div class="lrow">`+
+        `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
+        `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
+        `<button data-lcopy="${r.id}">Apply to group</button>`+
+        (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')+
+        `</div>`+
+        (lk.url?'':`<div class="hint">Local file paths won't open from a phone browser. Put the workbook in OneDrive or Google Drive and paste the share link. "Excel app" sends it straight to Excel instead of a read-only web viewer \u2014 leave it off if Excel isn't installed.</div>`);
+      const sl=schedLabel(r);
+      return `<div class="pitem">`+
+        `<div class="pname">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</div>`+
+        `<div class="meta"><span class="sched">${esc(sl||'Every day')}</span>`+
+        (st?`<span class="rstat${due?'':' ok'}">${esc(st)}</span>`
+           :(due?`<span class="rstat">due today</span>`:''))+
+        `</div>`+(r.note?`<div class="note">${r.note}</div>`:'')+ctrl+`</div>`;
+    }).join('')+`</div>`;
+  }).join('');
+}
+function toggleP(force){
+  const open=force!==undefined?force:!plan.classList.contains('open');
+  plan.classList.toggle('open',open);
+  planhead.setAttribute('aria-expanded',open);
+  document.getElementById('pcaret').textContent=open?'Close':'Open';
+}
+planhead.addEventListener('click',()=>toggleP());
+planhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleP();}});
+
+document.addEventListener('click',e=>{
+  const dw=e.target.closest('[data-dow]');
+  if(dw){
+    const id=dw.dataset.rid, d=+dw.dataset.dow;
+    const r=ROUTINES.find(x=>x.id===id); if(!r)return;
+    const sc=schedOf(r); const arr=(sc.dow||[]).slice();
+    const at=arr.indexOf(d); if(at>-1)arr.splice(at,1); else arr.push(d);
+    S.sched=S.sched||{}; S.sched[id]=Object.assign({},S.sched[id],{dow:arr.sort()});
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const mb=e.target.closest('[data-rmode]');
+  if(mb){
+    const id=mb.dataset.rid, mode=mb.dataset.rmode;
+    const r=ROUTINES.find(x=>x.id===id); if(!r)return;
+    const sc=schedOf(r);
+    S.sched=S.sched||{};
+    S.sched[id]=Object.assign({},S.sched[id],{
+      mode:mode, dow:sc.dow, everyDays:sc.everyDays, everyMonths:sc.everyMonths
+    });
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const rt=e.target.closest('[data-rtoday]');
+  if(rt){
+    const id=rt.dataset.rtoday;
+    S.sched=S.sched||{};
+    S.sched[id]=Object.assign({},S.sched[id],{anchor:today()});
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const rc=e.target.closest('[data-rclear]');
+  if(rc){
+    const id=rc.dataset.rclear;
+    S.sched=S.sched||{};
+    S.sched[id]=Object.assign({},S.sched[id],{anchor:null});
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const lc=e.target.closest('[data-lcopy]');
+  if(lc){
+    const id=lc.dataset.lcopy, r=ROUTINES.find(x=>x.id===id); if(!r)return;
+    const src=(S.links&&S.links[id])||{};
+    if(!src.url||!src.url.trim()){ toast('Paste a URL first'); return; }
+    S.links=S.links||{};
+    let n=0;
+    ROUTINES.filter(x=>x.group===r.group).forEach(x=>{
+      S.links[x.id]=Object.assign({},S.links[x.id],{url:src.url,app:src.app});
+      n++;
+    });
+    save(S); buildRows(); paintSchedule(); paint();
+    toast('Linked '+n+' '+r.group+' items'); return;
+  }
+  const lx=e.target.closest('[data-lclear]');
+  if(lx){
+    const id=lx.dataset.lclear;
+    if(S.links) delete S.links[id];
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const rr=e.target.closest('[data-rreset]');
+  if(rr){
+    const id=rr.dataset.rreset;
+    S.rlog=S.rlog||{}; S.rlog[id]=new Date().toISOString();
+    save(S); buildRows(); paintSchedule(); paint(); toast('Clock reset'); return;
+  }
+});
+function linkFieldInput(e){
+  const id=e.target.dataset&&e.target.dataset.rid, lf=e.target.dataset&&e.target.dataset.lf;
+  if(!id||!lf)return;
+  S.links=S.links||{};
+  S.links[id]=Object.assign({},S.links[id]);
+  S.links[id][lf]= e.target.type==='checkbox' ? e.target.checked : e.target.value;
+  save(S);
+  /* rebuild the day list only — repainting the schedule here would blow away
+     the field you're typing in */
+  buildRows(); paint();
+}
+document.addEventListener('input',linkFieldInput);
+document.addEventListener('change',linkFieldInput);
+
+document.addEventListener('input',e=>{
+  const id=e.target.dataset&&e.target.dataset.rid, f=e.target.dataset&&e.target.dataset.sf;
+  if(!id||!f)return;
+  S.sched=S.sched||{};
+  const val = f==='anchor' ? (e.target.value||null) : Math.max(1,+e.target.value||1);
+  S.sched[id]=Object.assign({},S.sched[id],{[f]:val});
+  save(S); buildRows(); paintSchedule(); paint();
+});
+
+/* ---------------- cost ---------------- */
+const money=document.getElementById('money'), moneyhead=document.getElementById('moneyhead');
+function costOf(slot){
+  const u=(S.costs&&S.costs[slot])||{};
+  const base=COST[slot]||{price:10,lasts:3};
+  const prod=PRODCOST[slot]||{};
+  const v=VALUE[slot]||{ceiling:99};
+  const price = u.price!=null ? u.price : (chosen(slot)&&prod.price!=null ? prod.price : base.price);
+  const hist=(u.history||[]);
+  const measured = hist.length ? hist.reduce((a,b)=>a+b,0)/hist.length : null;
+  const lasts = measured!=null ? measured
+              : (u.lasts!=null ? u.lasts : (chosen(slot)&&prod.lasts!=null ? prod.lasts : base.lasts));
+  const ceiling = u.ceiling!=null ? +u.ceiling : v.ceiling;
+  return {price:+price||0, lasts:+lasts||1, ceiling:ceiling, tier:base.tier||3,
+          note:base.note||'', measured:measured, runs:hist.length, opened:u.opened||null};
+}
+function slotName(slot){
+  const p=S.products[slot]||{}, c=chosen(slot);
+  if(p.brand&&p.brand.trim()) return esc(p.brand.trim());
+  const sl=slotOf(slot);
+  return sl?esc(sl.label):slot;
+}
+function costRow(slot,c){
+  const per=c.price/c.lasts, on=!!chosen(slot);
+  const v=VALUE[slot]||{kind:'formulation',ceiling:99,buys:''};
+  const ceil=c.ceiling;
+  const over = on && per > ceil;
+  return `<div class="cost${on?'':' unset'}">`+
+    `<div class="cname">${slotName(slot)}<span class="vbadge vb-${v.kind}">${VKIND[v.kind].label}</span>`+
+    `<span class="${c.measured!=null?'meas':'est'}">${c.measured!=null?'measured':'estimated'}</span>`+
+      `<i class="${on?'':'off'}">${on?esc(slotOf(slot).label):'not in use — estimate only'}</i></div>`+
+    `<input type="number" min="0" step="0.5" data-cost="${slot}" data-f="price" value="${c.price}" aria-label="price">`+
+    `<span class="x">÷</span>`+
+    `<input type="number" min="0.25" step="0.25" data-cost="${slot}" data-f="lasts" value="${(+c.lasts).toFixed(2).replace(/\.?0+$/,'')}" aria-label="months it lasts"${c.measured!=null?' disabled':''}>`+
+    `<span class="per${over?' over':''}">$${per.toFixed(2)}</span>`+
+    `<div class="plog">`+
+      (c.opened
+        ? `<span class="state">Opened <b>${new Date(c.opened).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</b> · ${Math.max(0,Math.round((Date.now()-new Date(c.opened))/864e5))}d in</span>`+
+          `<button data-log="empty" data-slot="${slot}">Ran out — log it</button>`+
+          `<button data-log="cancel" data-slot="${slot}">Cancel</button>`
+        : `<button data-log="open" data-slot="${slot}">Opened one today</button>`)+
+      (c.runs?`<span class="state">${c.runs} run${c.runs>1?'s':''} logged · avg <b>${c.measured.toFixed(1)} mo</b></span>`+
+              `<button data-log="clear" data-slot="${slot}">Clear</button>`:'')+
+    `</div>`+
+    (v.buys?`<div class="ctip">${v.buys}</div>`:'')+
+    (ceil<50?`<div class="ceil">Ceiling <input type="number" min="0" step="0.5" class="cin" data-cost="${slot}" data-f="ceiling" value="${ceil}" aria-label="ceiling"> /mo${over?` · <b>$${(per-ceil).toFixed(2)} over</b>`:''}</div>`:'')+
+  `</div>`;
+}
+
+function paintMoney(){
+  const el=document.getElementById('tierlist');
+  const mode=(S.moneyMode||'value');
+  let grand=0, html='';
+  const all={};
+  Object.keys(COST).forEach(k=>{all[k]=costOf(k);});
+  const owned=k=>!!chosen(k);
+
+  if(mode==='tier'){
+    const by={}; Object.keys(all).forEach(k=>{(by[all[k].tier]=by[all[k].tier]||[]).push(k);});
+    let cume=0;
+    [1,2,3,4].forEach(t=>{
+      const items=by[t]||[]; if(!items.length) return;
+      let sub=0; items.forEach(k=>{ if(owned(k)) sub+=all[k].price/all[k].lasts; });
+      grand+=sub; cume+=sub;
+      html+=`<div class="tier"><div class="tierhead"><h3>${TIERS[t].name}</h3>`+
+        `<div class="tsum">$${sub.toFixed(2)}/mo <span>· running total $${cume.toFixed(2)}/mo</span></div>`+
+        `<p>${TIERS[t].why}</p></div>`+
+        items.map(k=>costRow(k,all[k])).join('')+`</div>`;
+    });
+  } else {
+    const by={commodity:[],formulation:[],preference:[]};
+    Object.keys(all).forEach(k=>{ by[(VALUE[k]||{kind:'formulation'}).kind].push(k); });
+    ['commodity','formulation','preference'].forEach(kind=>{
+      const items=by[kind]; if(!items.length) return;
+      let sub=0, waste=0;
+      items.forEach(k=>{
+        if(!owned(k)) return;
+        const per=all[k].price/all[k].lasts; sub+=per;
+        const ce=all[k].ceiling||99;
+        if(per>ce) waste+=per-ce;
+      });
+      grand+=sub;
+      html+=`<div class="tier"><div class="tierhead"><h3>${VKIND[kind].label}</h3>`+
+        `<div class="tsum">$${sub.toFixed(2)}/mo`+
+        (waste>0.5?` <span class="over">· ~$${waste.toFixed(2)}/mo above where performance stops</span>`:'')+
+        `</div><p>${VKIND[kind].blurb}</p></div>`+
+        items.map(k=>costRow(k,all[k])).join('')+`</div>`;
+    });
+  }
+  el.innerHTML=html;
+  document.getElementById('mtotal').textContent='$'+grand.toFixed(0);
+
+  let waste=0, wlist=[];
+  Object.keys(all).forEach(k=>{
+    if(!owned(k))return;
+    const per=all[k].price/all[k].lasts, ce=all[k].ceiling||99;
+    if(per>ce+0.25){ waste+=per-ce; wlist.push([slotName(k),per-ce]); }
+  });
+  wlist.sort((a,b)=>b[1]-a[1]);
+  const t1=Object.keys(all).filter(k=>owned(k)&&all[k].tier===1)
+    .reduce((a,k)=>a+all[k].price/all[k].lasts,0);
+
+  document.getElementById('swaps').innerHTML=
+    `<h3>The maximizer read</h3>`+
+    `<p>Cutting steps isn\u2019t your lever \u2014 you want all of them. The lever is knowing which categories <b>reward</b> spending. In a commodity category the best-performing product and the cheapest product are the same molecule, so buying premium there isn\u2019t maximizing, it\u2019s just paying more for the identical outcome.</p>`+
+    (wlist.length
+      ? `<p>Right now about <b>$${waste.toFixed(2)}/mo</b> of your spend sits above the point where more money stops buying more performance. Biggest gaps: `+
+        wlist.slice(0,3).map(w=>`<b>${w[0]}</b> (+$${w[1].toFixed(2)})`).join(', ')+
+        `. Reclaiming that costs you nothing in results.</p>`
+      : `<p>Nothing you own is priced above the point where performance plateaus. That\u2019s the efficient configuration.</p>`)+
+    `<p>Where to deliberately overspend: <b>SPF</b>. It\u2019s the only category where cosmetic feel decides daily adherence, and adherence is the entire benefit. Everywhere else, buy on active ingredient and size.</p>`+
+    `<p>Two structural savings that beat any single swap: <b>buy the largest size you\u2019ll finish</b> (per-ounce cost usually drops 30\u201350%), and <b>buy store-brand for anything whose active you can name</b>. Tier 1 as configured runs <b>$${t1.toFixed(2)}/mo</b> \u2014 that\u2019s the floor and it\u2019s cheap.</p>`;
+}
+
+document.addEventListener('click',e=>{
+  const lg=e.target.closest('[data-log]');
+  if(lg){
+    const slot=lg.dataset.slot, act=lg.dataset.log;
+    S.costs=S.costs||{}; S.costs[slot]=S.costs[slot]||{};
+    const c=S.costs[slot];
+    if(act==='open'){ c.opened=new Date().toISOString(); }
+    else if(act==='cancel'){ c.opened=null; }
+    else if(act==='clear'){ c.history=[]; }
+    else if(act==='empty'){
+      if(c.opened){
+        const months=(Date.now()-new Date(c.opened))/(864e5*30.44);
+        if(months>0.15){ c.history=(c.history||[]).concat(+months.toFixed(2)); }
+        c.opened=new Date().toISOString();
+        toast('Logged '+months.toFixed(1)+' months');
+      }
+    }
+    save(S); paintMoney(); return;
+  }
+  const t=e.target.closest('.vtab'); if(!t)return;
+  S.moneyMode=t.dataset.mode; save(S);
+  document.querySelectorAll('.vtab').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===S.moneyMode));
+  paintMoney();
+});
+
+document.addEventListener('input',e=>{
+  const slot=e.target.dataset&&e.target.dataset.cost; if(!slot)return;
+  S.costs=S.costs||{}; S.costs[slot]=S.costs[slot]||{};
+  S.costs[slot][e.target.dataset.f]=e.target.value===''?null:+e.target.value;
+  save(S); paintMoney();
+});
+function toggleMoney(force){
+  const open=force!==undefined?force:!money.classList.contains('open');
+  money.classList.toggle('open',open);
+  moneyhead.setAttribute('aria-expanded',open);
+  document.getElementById('mcaret').innerHTML='<b id="mtotal">'+document.getElementById('mtotal').textContent+'</b>/mo · '+(open?'Close':'Open');
+}
+moneyhead.addEventListener('click',()=>toggleMoney());
+moneyhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleMoney();}});
+
+/* ---------------- glossary ---------------- */
+const guide=document.getElementById('guide'), guidehead=document.getElementById('guidehead');
+function paintGuide(){
+  const el=document.getElementById('guidelist');
+  el.innerHTML=GLOSSARY.map(g=>{
+    const p=S.products[g.slot]||{}, c=chosen(g.slot);
+    const mine = (p.brand&&p.brand.trim())
+      ? 'Yours: '+esc(p.brand.trim())
+      : (c ? 'Yours: '+esc(c.name) : 'No product attached');
+    const empty = (!p.brand||!p.brand.trim()) && !c;
+    return `<div class="gitem"><h3>${esc(g.title)}</h3>`+
+      `<div class="mine${empty?' empty':''}">${mine}</div>`+
+      `<p><span class="lead">What it is</span>${g.what}</p>`+
+      `<p class="whyp"><span class="lead">Why it matters</span>${g.why}</p></div>`;
+  }).join('');
+}
+function toggleGuide(force){
+  const open=force!==undefined?force:!guide.classList.contains('open');
+  guide.classList.toggle('open',open);
+  guidehead.setAttribute('aria-expanded',open);
+  document.getElementById('gcaret').textContent=open?'Close':'Open';
+}
+guidehead.addEventListener('click',()=>toggleGuide());
+guidehead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuide();}});
+
+/* ---------------- scheduling engine ---------------- */
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const dayMs=864e5;
+function schedOf(r){
+  const u=(S.sched&&S.sched[r.id])||{};
+  const b=r.sched||{};
+  const mode = u.mode || (b.dow?'dow':(b.everyDays?'everyDays':(b.everyMonths?'everyMonths':'dow')));
+  const out={mode:mode};
+  out.dow         = u.dow         || b.dow         || [new Date().getDay()];
+  out.everyDays   = u.everyDays   || b.everyDays   || 7;
+  out.everyMonths = u.everyMonths || b.everyMonths || 3;
+  out.anchor      = u.anchor || b.anchor || null;
+  return out;
+}
+function lastDone(id){
+  const v=S.rlog&&S.rlog[id];
+  return v?new Date(v):null;
+}
+function daysSince(id){
+  const d=lastDone(id); if(!d)return null;
+  return Math.floor((new Date(today()) - new Date(d.toLocaleDateString('en-CA')))/dayMs);
+}
+/* Most recent scheduled occurrence on or before today, counting from the anchor.
+   Calendar months for month intervals so "every 6 months" lands on the same date. */
+function lastScheduled(sc){
+  if(!sc.anchor) return null;
+  const a=new Date(sc.anchor+'T00:00:00');
+  const t=new Date(today()+'T00:00:00');
+  if(a>t) return null;                       /* hasn't started yet */
+  if(sc.mode==='everyMonths'){
+    const n=Math.max(1,+sc.everyMonths);
+    let months=(t.getFullYear()-a.getFullYear())*12+(t.getMonth()-a.getMonth());
+    if(t.getDate()<a.getDate()) months--;
+    const cycles=Math.floor(months/n);
+    const d=new Date(a); d.setMonth(a.getMonth()+cycles*n);
+    return d;
+  }
+  const n=Math.max(1,+sc.everyDays);
+  const elapsed=Math.floor((t-a)/dayMs);
+  const d=new Date(a.getTime()+Math.floor(elapsed/n)*n*dayMs);
+  return d;
+}
+function nextScheduled(sc){
+  if(!sc.anchor) return null;
+  const a=new Date(sc.anchor+'T00:00:00');
+  const t=new Date(today()+'T00:00:00');
+  if(a>t) return a;
+  const last=lastScheduled(sc); if(!last) return a;
+  if(sc.mode==='everyMonths'){
+    const d=new Date(last); d.setMonth(last.getMonth()+Math.max(1,+sc.everyMonths)); return d;
+  }
+  return new Date(last.getTime()+Math.max(1,+sc.everyDays)*dayMs);
+}
+function dueToday(r){
+  const sc=schedOf(r), now=new Date();
+  if(sc.mode==='dow') return sc.dow.indexOf(now.getDay())>-1;
+  if(sc.anchor){
+    const last=lastScheduled(sc);
+    if(!last) return false;                  /* start date is in the future */
+    const done=lastDone(r.id);
+    if(!done) return true;
+    const doneDay=new Date(done.toLocaleDateString('en-CA')+'T00:00:00');
+    return doneDay < last;                   /* not done since the last scheduled date */
+  }
+  const ds=daysSince(r.id);
+  const target = sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : +sc.everyDays;
+  return ds===null ? true : ds>=target;
+}
+function schedLabel(r){
+  const sc=schedOf(r);
+  if(sc.mode==='dow'){
+    if(sc.dow.length===7) return null;      /* daily needs no tag */
+    if(!sc.dow.length) return 'No days set';
+    return sc.dow.slice().sort().map(d=>DOW[d]).join(' \u00b7 ');
+  }
+  const D2=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  if(sc.mode==='everyMonths'){
+    const base='Every '+sc.everyMonths+' month'+(sc.everyMonths>1?'s':'');
+    const nx=nextScheduled(sc);
+    return sc.anchor&&nx ? base+' \u00b7 next '+D2(nx) : base;
+  }
+  if(+sc.everyDays===1 && !sc.anchor) return null;
+  const base='Every '+sc.everyDays+' day'+(sc.everyDays>1?'s':'');
+  if(sc.anchor){
+    const nx=nextScheduled(sc);
+    const wk = +sc.everyDays % 7 === 0 ? ' ('+DOW[new Date(sc.anchor+'T00:00:00').getDay()]+'s)' : '';
+    return base+wk+(nx?' \u00b7 next '+D2(nx):'');
+  }
+  return base;
+}
+function statusLabel(r){
+  const sc=schedOf(r);
+  if(sc.mode==='dow') return null;
+  if(sc.anchor){
+    const last=lastScheduled(sc);
+    if(!last) return 'starts '+new Date(sc.anchor+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const done=lastDone(r.id);
+    if(!done) return 'due';
+    const doneDay=new Date(done.toLocaleDateString('en-CA')+'T00:00:00');
+    if(doneDay<last) return 'due';
+    return 'done this cycle';
+  }
+  const ds=daysSince(r.id);
+  if(ds===null) return 'never logged';
+  const target = sc.mode==='everyMonths' ? Math.round((+sc.everyMonths)*30.44) : +sc.everyDays;
+  const over = ds-target;
+  if(over>=0) return ds+'d ago \u00b7 due'+(over>0?' (+'+over+'d)':'');
+  return ds+'d ago \u00b7 in '+(-over)+'d';
+}
+function dueRoutines(){ return ROUTINES.filter(dueToday); }
+
+/* ---------------- steps ---------------- */
+const list=document.getElementById('list');
+
+/* =========================================================
+   WHAT EACH PRODUCT IS — plain-language reference
+   ========================================================= */
+const GLOSSARY=[
+ {slot:'floss', title:'Floss',
+  what:"A thread or jet of water that cleans the two surfaces of each tooth your brush physically cannot reach — the flat sides where teeth touch.",
+  why:"Roughly a third of every tooth's surface is between-teeth. Cavities and gum disease start there more than anywhere else, because it's the only part that never gets cleaned by accident. Brushing without flossing cleans about two-thirds of your mouth."},
+
+ {slot:'mouthwash', title:'Mouthwash',
+  what:"A rinse. Three different kinds do three different jobs: antiseptic kills bacteria, oxygenating neutralizes the sulfur compounds that cause bad breath, and fluoride rinse hardens enamel.",
+  why:"It reaches soft tissue — tongue, cheeks, throat — that brushing and flossing skip entirely. Bad breath mostly lives back there, not on your teeth. It's an addition to brushing, never a substitute: it doesn't remove plaque, which is a physical film that has to be scraped off."},
+
+ {slot:'toothpaste', title:'Toothpaste',
+  what:"A mild abrasive plus fluoride. The abrasive scrubs off plaque; the fluoride is the actual medicine.",
+  why:"Fluoride rebuilds enamel that acid has started dissolving, and it does that for a while after you spit — which is why you don't rinse with water afterward. Stannous fluoride also handles gum inflammation and sensitivity; sodium fluoride is cavity protection only. Fluoride-free paste is a cleaning product with no preventive effect."},
+
+ {slot:'shampoo', title:'Shampoo',
+  what:"Detergent for your scalp. Treatment versions add an active — zinc pyrithione, ketoconazole, or selenium sulfide — that kills the yeast behind dandruff.",
+  why:"It's aimed at the scalp, not the hair. Oil and dead skin build up at the root; the length is mostly cleaned by runoff. If it's a treatment shampoo, the active needs 60–90 seconds of contact to work — rinsing immediately is functionally the same as using nothing, which is why most people think anti-dandruff shampoo failed them."},
+
+ {slot:'conditioner', title:'Conditioner',
+  what:"A coating that smooths the outer layer of each hair and replaces some of what shampoo just stripped.",
+  why:"Shampoo removes oil indiscriminately, including the oil that keeps hair from tangling and breaking. Conditioner goes mid-length to ends because that hair is oldest and most damaged — the scalp is already producing its own oil, so conditioner there just makes it greasy and flat."},
+
+ {slot:'bodywash', title:'Body wash',
+  what:"Soap in liquid form. Exfoliating versions add an acid — salicylic, lactic, or glycolic — that dissolves the bond holding dead skin cells on.",
+  why:"Needed where sweat, oil, and friction concentrate. Elsewhere it's optional, and daily use dries you out by stripping the lipids that hold water in your skin. An acid version is a treatment, not a cleanser — it's doing the job of an exfoliant, which is why you don't also use a scrubber."},
+
+ {slot:'scrubber', title:'Scrubber',
+  what:"A physical exfoliant — brush, cloth, or textured pad — that rubs dead skin off mechanically.",
+  why:"Same job as an exfoliating acid, done by force instead of chemistry. That's why using both is a problem: two exfoliants in one shower strips the barrier, skin reads as dry and rough, you scrub harder, and it gets worse. Pick one."},
+
+ {slot:'facecleanser', title:'Face cleanser',
+  what:"Soap formulated to be much gentler than body wash, because facial skin is thinner and has a weaker barrier.",
+  why:"It removes the day's oil, sweat, and grime so the things you put on afterward can actually reach skin. The tightness you feel after a harsh cleanser isn't cleanliness — it's a stripped barrier, and your face responds by overproducing oil."},
+
+ {slot:'oilcleanser', title:'Oil or balm cleanser (first cleanse)',
+  what:"An oil-based cleanser used on dry skin, before water.",
+  why:"Like dissolves like. Sunscreen, cooking grease, and sebum are all oil-based, and a water-based foaming cleanser slides right over them — you can wash your face and leave most of the sunscreen sitting there. Oil binds to oil and lifts it, then water rinses the whole thing away. This is the only reliable way to get SPF off."},
+
+ {slot:'moisturizer', title:'Face moisturizer',
+  what:"A mix of humectants (pull water in), emollients (smooth the surface), and occlusives (seal it).",
+  why:"It doesn't add water so much as stop water leaving. That's why it goes on damp skin — you're trapping what's already there. Skipping it after cleansing means the barrier you just stripped stays stripped, and dry skin is more irritable, flakier, and shows lines sooner."},
+
+ {slot:'spf', title:'SPF',
+  what:"A filter that absorbs or reflects ultraviolet light before it reaches living skin.",
+  why:"UV is the single largest cause of visible aging — wrinkles, texture, uneven tone — and the direct cause of skin cancer. This is the highest-return step in the entire routine and nothing else is close. At 5,400 feet you're taking meaningfully more UV than the same routine at sea level, and UVA passes straight through cloud, so overcast changes nothing."},
+
+ {slot:'bodylotion', title:'Body lotion',
+  what:"Moisturizer for everything below the jaw. Lactic acid versions like AmLactin also exfoliate.",
+  why:"Same mechanism as face moisturizer, and it goes on within about three minutes of the shower for the same reason — damp skin. Shins and forearms have the fewest oil glands on your body, which is why they're the first place to crack in dry air."},
+
+ {slot:'deodorant', title:'Deodorant / antiperspirant',
+  what:"Two different products. Deodorant kills odor bacteria or masks the smell. Antiperspirant uses aluminum salts to physically plug sweat ducts so less sweat comes out.",
+  why:"Sweat itself is nearly odorless — the smell is bacteria eating it. Deodorant attacks the bacteria; antiperspirant reduces the sweat. Aluminum-free formulas are wax and oil based, which is why they transfer to fabric while wet and build up into yellow stains. Antiperspirant works best applied at night, when your glands are still."},
+
+ {slot:'styling', title:'Hair styling product',
+  what:"Cream, fiber, pomade, clay, or paste — differing mainly in hold strength and how much shine they leave.",
+  why:"It gives hair structure it doesn't have on its own. Nearly all of them go into damp hair, because hair sets its shape as it dries — product applied to already-dry hair sits on the surface and can only redistribute what's there."},
+
+ {slot:'lipbalm', title:'Lip balm',
+  what:"An occlusive wax or ointment.",
+  why:"Lips have no oil glands and a very thin barrier, so they lose water faster than any other skin on your body and cannot self-repair the way skin does. Balm is purely preventive — once they're cracked you're treating an injury, which takes days. Colorado winter humidity drops into single digits."},
+
+ {slot:'serum', title:'Serum',
+  what:"A thin, concentrated delivery vehicle for one active ingredient.",
+  why:"Higher concentration than a moisturizer and formulated to penetrate rather than sit on top. Vitamin C is the morning one worth having: it's an antioxidant that neutralizes the free radicals UV creates, so it covers damage your sunscreen let through. Thin layers always go before thick ones or they can't get in."},
+
+ {slot:'treatment', title:'Night treatment',
+  what:"An active that changes how skin behaves rather than just cleaning or hydrating it. Adapalene is a retinoid; benzoyl peroxide is an antibacterial; AHA/BHA are exfoliating acids.",
+  why:"Retinoids speed up cell turnover and change how skin builds itself — the only OTC category with real evidence for both acne and long-term texture. That's also why they irritate at first and why weeks two through five look worse before better. They raise photosensitivity, which makes SPF mandatory rather than optional."},
+
+ {slot:'cologne', title:'Cologne',
+  what:"Fragrance oils in alcohol. Eau de parfum is more concentrated and lasts longer than eau de toilette.",
+  why:"Alcohol flashes off and leaves the oils on your skin, where body heat develops them over hours. Moisturized skin holds it far longer than dry skin — dry skin has nothing for the oil to bind to. Rubbing crushes the light top notes, and spraying clothing skips the body-heat development entirely."}
+];
+
+/* =========================================================
+   ROUTINES — everything that isn't daily.
+   sched types:
+     {dow:[0..6]}      specific weekdays (0 = Sunday)
+     {everyDays:n}      n days since you last did it
+     {everyMonths:n}    n months since you last did it
+     {monthDay:n}       the nth of the month
+   Anything here only appears in the list on the day it's due.
+   ========================================================= */
+/* Where each group renders in the day. afterPhase = index of the daily phase
+   it follows; null = after everything. */
+const GROUPS={
+ 'Training':                {afterPhase:0},
+ 'Food':                    {afterPhase:null},
+ 'Household':               {afterPhase:null},
+ 'Grooming \u2014 non-daily':{afterPhase:null},
+ 'Admin':                   {afterPhase:null}
+};
+
+const ROUTINES=[
+ /* ---- Training ---- */
+ {id:'tr_push',  group:'Training', l:'Push \u2014 chest, shoulders, triceps', sched:{dow:[2]},
+  note:"Tuesday."},
+ {id:'tr_pull',  group:'Training', l:'Pull \u2014 back, biceps', sched:{dow:[4]},
+  note:"Thursday."},
+ {id:'tr_legs',  group:'Training', l:'Legs', sched:{dow:[6]},
+  note:"Saturday."},
+ {id:'tr_cardio',group:'Training', l:'Elliptical \u2014 30 min', sched:{dow:[1,3,5]}, t:1800,
+  note:"Monday, Wednesday, Friday. Hit the timer and leave it running \u2014 the row fills as it goes."},
+ /* ---- Food ---- */
+ {id:'fd_plan',  group:'Food', l:'Plan meals for the week', sched:{dow:[0]},
+  note:"Before the grocery run, not after. Ten minutes here is what makes the prep actually happen."},
+ {id:'fd_shop',  group:'Food', l:'Grocery run', sched:{dow:[0]},
+  note:"With a list built from the plan. Shopping without one is how the prep food doesn't get bought."},
+ {id:'fd_prep',  group:'Food', l:'Meal prep', sched:{dow:[0]},
+  note:"Protein and a starch in bulk, vegetables separate so they don't go soft. Label with the date."},
+ {id:'fd_prep2', group:'Food', l:'Mid-week top-up prep', sched:{dow:[3]}, opt:1,
+  note:"Sunday prep usually goes off by Thursday. A short second session beats throwing food out."},
+
+ /* ---- Household ---- */
+ {id:'hh_laundry', group:'Household', l:'Laundry', sched:{dow:[0]},
+  note:"Work clothes stay in their own load \u2014 you already separate them. Wash deodorant-stained shirts BEFORE the dryer sets it."},
+ {id:'hh_pillow',  group:'Household', l:'Change pillowcase', sched:{everyDays:7},
+  note:"The highest-leverage skincare change nobody makes. You sleep hot, so oil and sweat load the fabric every night."},
+ {id:'hh_sheets',  group:'Household', l:'Change sheets', sched:{everyDays:7},
+  note:""},
+ {id:'hh_towel',   group:'Household', l:'Swap bath towel', sched:{everyDays:3},
+  note:"Damp fabric in a warm room. Three days is the outside limit."},
+ {id:'hh_trash',   group:'Household', l:'Trash out', sched:{everyDays:3},
+  note:""},
+ {id:'hh_bath',    group:'Household', l:'Clean bathroom', sched:{dow:[6]},
+  note:"Sink, toilet, shower. Fifteen minutes weekly beats an hour monthly."},
+ {id:'hh_vac',     group:'Household', l:'Vacuum / floors', sched:{dow:[6]},
+  note:""},
+ {id:'hh_sheetsdesk',group:'Household',l:'Wipe desk, peripherals, phone screen', sched:{dow:[6]}, opt:1,
+  note:"Your phone touches your face. So does your pillow."},
+
+ /* ---- Grooming, non-daily ---- */
+ {id:'gr_nailsh', group:'Grooming \u2014 non-daily', l:'Nails \u2014 hands', sched:{everyDays:7},
+  note:"File after cutting."},
+ {id:'gr_nailsf', group:'Grooming \u2014 non-daily', l:'Nails \u2014 feet', sched:{everyDays:21},
+  note:"Straight across, never curved down at the corners. That's how ingrowns start."},
+ {id:'gr_brush',  group:'Grooming \u2014 non-daily', l:'Replace toothbrush head', sched:{everyMonths:3},
+  note:"Or immediately after being sick."},
+ {id:'gr_cut',    group:'Grooming \u2014 non-daily', l:'Haircut', sched:{everyDays:28},
+  note:"A swept-back shape depends on structure. Past five weeks it stops holding."},
+ {id:'gr_dentist',group:'Grooming \u2014 non-daily', l:'Book dentist', sched:{everyMonths:6},
+  note:"No amount of flossing replaces it."},
+ {id:'gr_shave',  group:'Grooming \u2014 non-daily', l:'Body hair trim', sched:{everyDays:14}, opt:1,
+  note:"With the grain first pass. Not on a night adapalene goes on."},
+
+ /* ---- Admin ---- */
+ {id:'ad_restock',group:'Admin', l:'Check what\u2019s running low', sched:{dow:[0]}, opt:1,
+  note:"Log anything that ran out in the Monthly cost section \u2014 that's what turns the estimates into real numbers."},
+ {id:'ad_sheets', group:'Admin', l:'Weekly reset \u2014 school + shifts', sched:{dow:[0]},
+  note:"Look at the week before it starts. Coursework, shifts, and where the gym actually fits."}
+];
+
+/* =========================================================
+   VALUE — does spending more buy you more in this category?
+   commodity   : active is identical across brands. Premium buys packaging.
+   formulation : same active, but texture/finish/vehicle differ and that
+                 difference changes whether it works or whether you use it.
+   preference  : no objective better exists. You're buying an experience.
+   ceiling     : $/month above which you're paying for brand, not performance.
+   ========================================================= */
+const VKIND={
+  commodity:{label:'Commodity', blurb:"Identical active across brands. The expensive version is the cheap version with better packaging. Buying premium here is strictly worse — same result, more money."},
+  formulation:{label:'Formulation matters', blurb:"Same job, but texture, finish and vehicle genuinely differ — and that difference decides whether you actually use it every day. Worth spending to a point."},
+  preference:{label:'Preference', blurb:"No objectively better version exists. Price tracks scent, brand and feel, none of which is measurable. Spend whatever it's worth to you."}
+};
+const VALUE={
+ toothpaste:  {kind:'commodity',  ceiling:2.50, buys:"Nothing. Fluoride concentration is capped by regulation and every brand hits it. Stannous vs sodium is the only real choice and both come cheap."},
+ floss:       {kind:'commodity',  ceiling:2.00, buys:"Nothing measurable. Waxed vs unwaxed is a comfort preference. This is string."},
+ treatment:   {kind:'commodity',  ceiling:5.00, buys:"Nothing. Adapalene 0.1% is one molecule at one concentration — every OTC tube is the same drug by law. Brand-name is packaging."},
+ bodylotion:  {kind:'commodity',  ceiling:7.00, buys:"Very little, once you know the active. AmLactin is lactic acid — the generic 'lactic acid lotion' is the same thing cheaper."},
+ bodywash:    {kind:'commodity',  ceiling:4.00, buys:"Scent and lather feel. The cleaning is done by surfactants that cost pennies. An acid version is a real upgrade; a fancier plain one isn't."},
+ mouthwash:   {kind:'commodity',  ceiling:4.00, buys:"Little, unless you have a specific problem. Cetylpyridinium and CPC-free breath formulas are cheap and generic."},
+ scrubber:    {kind:'commodity',  ceiling:1.50, buys:"A little. A woven Japanese towel has a genuinely different texture and reach than a washcloth, and it lasts years. But the gap is small and the cost is already near zero either way."},
+
+ facecleanser:{kind:'formulation',ceiling:6.00, buys:"Real difference in how stripping it is. But the ceiling is low — good gentle cleansers are solved and cheap. Past ~$20 a bottle you're buying a brand."},
+ moisturizer: {kind:'formulation',ceiling:6.00, buys:"Texture and how it layers under SPF. Ceramide-based drugstore formulas match most of what expensive creams do."},
+ spf:         {kind:'formulation',ceiling:9.00, buys:"A lot, and this is the one place to spend. Cosmetic elegance decides whether you apply it daily — and an SPF you actually wear beats a better one you skip. Worth paying up."},
+ shampoo:     {kind:'formulation',ceiling:7.00, buys:"Depends entirely on type, and the type is set by your hair not your budget. Anti-dandruff: the active is cheap and generic — buy on active, not brand. Plain shampoo for normal hair: solved problem, buy cheap. Silicone-free volumizing for thick or oily hair: a real premium category with a floor around $25 a bottle, because slip without silicone is hard to formulate."},
+ conditioner: {kind:'formulation',ceiling:9.00, buys:"Slip without weight. Most drugstore conditioners get their slip from silicones, which flatten volume and build up — so for thick hair where volume is the goal, the cheap tier isn't a cheaper version of the same thing, it's a different product that fails at your specific job. Silicone-free volumizing has a real market floor around $27–38 a bottle. Above that you're paying for brand."},
+ oilcleanser: {kind:'formulation',ceiling:5.00, buys:"How cleanly it emulsifies and rinses. Meaningful, but plateaus fast."},
+ styling:     {kind:'formulation',ceiling:5.00, buys:"Hold and finish, which are real. But a good haircut outperforms expensive product by a wide margin."},
+ lipbalm:     {kind:'formulation',ceiling:3.00, buys:"Occlusivity. Petrolatum-based works better than wax-based, and both are cheap."},
+ serum:       {kind:'formulation',ceiling:6.00, buys:"Stability, mostly. Vitamin C oxidizes; better formulations stay active longer. Genuine, but a small effect on a small effect."},
+
+ deodorant:   {kind:'preference', ceiling:5.00, buys:"Scent. The odor control comes from cheap, standard actives. You're paying for how it smells and feels, which is a legitimate thing to want."},
+ cologne:     {kind:'preference', ceiling:99,   buys:"Scent and longevity. There's no wrong answer here and no efficiency argument to make."}
+};
+
+/* =========================================================
+   COST — every price is an estimate and every field is editable.
+   lasts = months one unit lasts at daily use.
+   tier  = 1 don't cut · 2 high value · 3 real but cuttable · 4 luxury
+   ========================================================= */
+const TIERS={
+ 1:{name:'Tier 1 — Don\u2019t cut these',
+    why:"Cheap, and the consequence of skipping is expensive or permanent. A filling costs more than a decade of toothpaste. UV damage doesn\u2019t undo."},
+ 2:{name:'Tier 2 — High return per dollar',
+    why:"Not survival, but the best value in the routine. These are what keep the barrier intact, which is most of what \u201cgood skin\u201d actually means."},
+ 3:{name:'Tier 3 — Real benefit, first to go',
+    why:"Each does something genuine. None is load-bearing. If the month is tight, this is the tier you cut and nothing bad happens."},
+ 4:{name:'Tier 4 — Luxury',
+    why:"Nice. Optional. Skipping all of it costs you nothing measurable."}
+};
+
+const COST={
+ toothpaste:  {tier:1, price:5,  lasts:2,  note:"Store brand with fluoride is chemically the same product for half the price."},
+ floss:       {tier:1, price:4,  lasts:2,  note:"Generic string floss is identical. Never pay a brand premium here."},
+ bodywash:    {tier:1, price:8,  lasts:2.5,note:"A bar of soap is a third the price and lasts longer."},
+ shampoo:     {tier:1, price:12, lasts:3,  note:"Treatment shampoo costs more but is doing a job. Plain shampoo is a solved problem \u2014 buy cheap."},
+ deodorant:   {tier:1, price:13, lasts:2,  note:"Native is the premium end. Generic aluminum-free runs about a third of this."},
+ spf:         {tier:1, price:18, lasts:3,  note:"The single highest-return dollar in the routine. Cheap SPF you wear beats expensive SPF you ration."},
+ lipbalm:     {tier:1, price:5,  lasts:2,  note:"Trivial cost, and cracked lips take days to heal."},
+ facecleanser:{tier:2, price:16, lasts:3,  note:"The big pump bottle is roughly half the per-ounce cost of the small one."},
+ moisturizer: {tier:2, price:16, lasts:4,  note:"Tub beats pump on price per ounce."},
+ bodylotion:  {tier:2, price:15, lasts:2,  note:"AmLactin is a treatment, not a basic lotion \u2014 that\u2019s what you\u2019re paying for. The 20oz size is much cheaper per ounce."},
+ conditioner: {tier:3, price:36, lasts:3,  note:"Brand-direct is $36, or $32.40 on Subscribe & Save. Marketplace listings run $14\u2013$27 for the same SKU \u2014 but deep discounts on haircare often mean diverted or counterfeit stock, so cheap here carries real risk."},
+ treatment:   {tier:3, price:15, lasts:3,  note:"High value IF acne is a real problem for you. Buy the 15g tube first, not the 45g."},
+ oilcleanser: {tier:3, price:17, lasts:4,  note:"Only earns its place if you\u2019re wearing SPF daily. No SPF, no need for it."},
+ styling:     {tier:3, price:18, lasts:4,  note:"Cheap product plus a good haircut beats expensive product plus a bad one."},
+ mouthwash:   {tier:3, price:8,  lasts:1,  note:"Highest cost-per-month of anything in Tier 3, and the most redundant \u2014 flossing and brushing already do most of this."},
+ scrubber:    {tier:4, price:8,  lasts:6,  note:"Spread over a year or two of use this is one of the cheapest things you own. Nothing to optimize."},
+ serum:       {tier:4, price:20, lasts:4,  note:"Real effect, small effect. Nothing breaks without it."},
+ cologne:     {tier:4, price:70, lasts:14, note:"One bottle lasts a year or more, so the monthly number is small \u2014 but it\u2019s a big single hit when you buy it."}
+};
+
+/* Per-product overrides for what you actually own. */
+const PRODCOST={
+ bodywash:    {price:8,  lasts:2.5},
+ mouthwash:   {price:8,  lasts:1},
+ deodorant:   {price:13, lasts:2},
+ bodylotion:  {price:15, lasts:2},
+ conditioner: {price:36, lasts:3},
+ facecleanser:{price:16, lasts:3},
+ lipbalm:     {price:5,  lasts:2},
+ toothpaste:  {price:4.99,  lasts:2},
+ floss:       {price:5.99,  lasts:2.5},
+ scrubber:    {price:17.50, lasts:12},
+ shampoo:     {price:19.99, lasts:6},
+ styling:     {price:19.99, lasts:4},
+ cologne:     {price:150,   lasts:12}
+};
+
+/* =========================================================
+   PRODUCT-LEVEL TECHNIQUE — overrides the class default.
+   Layering order: base step -> class -> this -> your own note.
+   ========================================================= */
+const PRODNOTE={
+ styling:"Apply to DRY or nearly-dry hair, not damp. Fiber Cream is thicker and lower-shine than a typical styling cream \u2014 on thick hair, damp application pulls the volume down instead of building texture. Emulsify hard between your palms until it disappears, then work back to front. Less than you think; it doesn't wash out easily.",
+ bodylotion:"Lactic acid, so it's a treatment not a basic lotion. Do NOT apply to freshly shaved or broken skin \u2014 it will sting and it's the main reason people quit it. Slightly damp skin, and give it a few minutes before clothes. Avoid the face unless your dermatologist said otherwise.",
+ mouthwash:"90 seconds undiluted, per the bottle, gargling the last 20 \u2014 the sulfur bacteria causing bad breath live at the back of the throat, not on your teeth. Nothing to eat or drink for 5 minutes after. Don't rinse with water afterward. TIMING TRADEOFF: the bottle says after brushing, because clean teeth let the rinse reach soft tissue. Dental guidance says never rinse after brushing, because it washes off the concentrated fluoride your toothpaste just left behind. Both are right about their own goal. Cleanest answer is to use it at a separate time entirely \u2014 after lunch is ideal, since that's when breath is worst anyway. If it has to sit next to brushing: before is better for your teeth, after is better for your breath.",
+ scrubber:"Wet it, use almost no soap, long strokes rather than pressure \u2014 the weave does the exfoliating. Rinse it out and hang it somewhere it dries fully or it goes sour. Lasts a year or more.",
+ conditioner:"Silicone-free, so it has less artificial slip than a drugstore conditioner \u2014 don't compensate by using more. Mid-length to ends, squeeze water out first, and rinse thoroughly: residue on a volumizing formula is what makes it feel heavy.",
+ facecleanser:"Non-foaming, so it barely lathers \u2014 that's the design. Works on dry or damp skin, and can be used without water if you're wiping it off. Fingertips, 20\u201330 seconds.",
+ toothpaste:"Stannous fluoride \u2014 it handles gums and sensitivity as well as cavities. Two minutes, soft bristles, 45\u00b0 into the gumline, pea-sized. Spit, don't rinse: stannous keeps working on the enamel after you're done.",
+ floss:"Use the scaler end on the back of the pick for the gumline, not just the fork. Wrap it around each tooth rather than snapping straight down \u2014 snapping cuts the gum.",
+ deodorant:"Aluminum-free, so it goes on thicker than an antiperspirant. 2\u20133 swipes on bone-dry skin, then let it set before the shirt. It controls odor but does not reduce sweat \u2014 that's the tradeoff you accepted.",
+ shampoo:"Daily cleanser, no treatment active, so no dwell time needed. Scalp only, fingertips not nails. The 33.8oz bottle is the best per-ounce value in your whole routine \u2014 don't switch to the small one.",
+ lipbalm:"Petrolatum-based, which is why it works better than wax sticks. Preventatively \u2014 before the cold, not after the cracking.",
+ bodywash:"Plain cleanser, no exfoliating acid \u2014 which is why the GOSHI towel is fine to use alongside it. Soap where it matters; skip the arms and legs unless they're actually dirty.",
+ cologne:"Eau de parfum at 50ml \u2014 concentrated, so two sprays is genuinely enough and more will read as too much indoors. Chest and base of the neck, onto moisturized skin, no rubbing. At this price, treat the bottle as a year-plus purchase, not a monthly one."
+};
+
+/* Used when a slot has no product attached — technique that holds regardless of type. */
+const GENERIC={
+  floss:"Before brushing, not after. It opens the gaps so the fluoride can get in.",
+ mouthwash:"90 seconds undiluted, per the bottle, gargling the last 20 \u2014 the sulfur bacteria causing bad breath live at the back of the throat, not on your teeth. Nothing to eat or drink for 5 minutes after, and don't chase it with water. TIMING TRADEOFF: the bottle says after brushing, because clean teeth let the rinse reach soft tissue. Dental guidance says never rinse after brushing, because it strips the concentrated fluoride the toothpaste just left behind. Both are right about their own goal. Cleanest answer is to move it away from brushing entirely \u2014 after lunch is ideal, since that's when breath is worst anyway. If it has to sit next to brushing: before is better for your teeth, after is better for your breath.",
+  toothpaste:"Two minutes. Soft bristles, 45° into the gumline, small circles, pea-sized.",
+  shampoo:"Scalp only, fingertips not nails. The length gets clean from runoff on the way down. If it's a treatment shampoo it needs dwell time — set the type and the timer appears.",
+  conditioner:"Mid-length to ends. Never the scalp. Squeeze the water out of your hair first so you're not diluting it.",
+  bodywash:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms.",
+  scrubber:"Light pressure. The tool does the work — pressing harder just irritates.",
+  facecleanser:"Fingertips, 20–30 seconds. If your face feels tight after, that's too much cleanser for your skin.",
+  oilcleanser:"Onto DRY skin with DRY hands, massage, then add water to emulsify. Sunscreen and grease are oil-based — foaming cleanser slides right off them.",
+  moisturizer:"While the face is still slightly damp. That's what traps the water instead of sitting on top of dry skin.",
+  spf:"Face, ears, neck, back of the neck. A quarter-teaspoon for the face — most people use half that and get a fraction of the number on the bottle.",
+  bodylotion:"Within about 3 minutes of getting out, on damp skin. Shins, forearms, anywhere the exfoliant touched.",
+  deodorant:"Bone-dry skin — not 'mostly dry'. Thin layer, 2–3 swipes. More product doesn't work better, it just transfers.",
+  styling:"Emulsify between your palms first so it doesn't land in one clump. Less than you think.",
+  lipbalm:"Preventatively, not reactively. Waiting until they're cracked is treating, not preventing.",
+  serum:"Thin layers first, always.",
+  treatment:"Thin layer, and give it a minute before anything goes on top.",
+  cologne:"Onto clean, MOISTURIZED skin — dry skin doesn't hold scent. Two sprays: chest and base of the neck. Don't rub it in, that crushes the top notes."
+};
+
+function stepData(st){
+  const F=flags();
+  let hidden=false;
+  if(st.showIf && !F.has(st.showIf)) hidden=true;
+  if(st.hideIf && F.has(st.hideIf)) hidden=true;
+  if(st.hideIf2 && F.has(st.hideIf2)) hidden=true;
+
+  let label=esc(st.l), note=st.note||'', timer=st.timer||null, mine=false;
+
+  if(st.slot){
+    const p=S.products[st.slot]||{}, c=chosen(st.slot);
+    if(p.brand && p.brand.trim()) label=esc(st.l)+' — <span class="prod">'+esc(p.brand.trim())+'</span>';
+    if(c){ if(c.note) note=c.note; if(c.timer && !st.dwellOf) timer=c.timer; }
+    else if(GENERIC[st.slot]) note=GENERIC[st.slot];
+    /* product-level override, then your own note on top */
+    if(c && PRODNOTE[st.slot] && p.classId===(DEFAULTS[st.slot]||{}).classId
+       && (p.brand||'').trim()===((DEFAULTS[st.slot]||{}).brand||'').trim()) note=PRODNOTE[st.slot];
+    if(p.mynote && p.mynote.trim()){ note=esc(p.mynote.trim()); mine=true; }
+  }
+  if(st.dwellOf){
+    const c=chosen(st.dwellOf);
+    if(c){ if(c.dwellNote) note=c.dwellNote; if(c.timer) timer=c.timer; }
+  }
+  if(st.dryOf){
+    const c=chosen(st.dryOf);
+    if(c&&c.dryTimer){ timer=c.dryTimer;
+      note="Before the treatment goes on. Applying a retinoid to damp skin drives it in harder — the main reason people flame up and quit."; }
+  }
+  const warns=(st.warns||[]).filter(w=>F.has(w.when)).map(w=>w.text);
+  const needsSetup = !!st.slot && !chosen(st.slot);
+  return {hidden,label,note,timer,warns,needsSetup,mine};
+}
+
+/* =========================================================
+   ROUTINE LINKS — attach a URL to any non-daily item.
+   Renders as a tappable button on the row. A local file path
+   can't be opened from a browser on mobile, so this expects a
+   cloud URL (OneDrive, Google Drive, Sheets, Dropbox).
+   "Open in Excel app" wraps it in the Office deep-link scheme
+   so it lands in Excel instead of a read-only web viewer.
+   ========================================================= */
+const LINKICON='<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+function linkOf(id){
+  const l=(S.links&&S.links[id])||null;
+  if(!l||!l.url||!String(l.url).trim()) return null;
+  let base=String(l.url).trim();
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(base)) base='https://'+base;
+  return {
+    href: l.app ? 'ms-excel:ofe|u|'+base : base,
+    name: (l.name&&String(l.name).trim()) || 'Open',
+    app: !!l.app
+  };
+}
+function linkBtn(id){
+  const lk=linkOf(id); if(!lk) return '';
+  return `<a class="golink" href="${esc(lk.href)}"${lk.app?'':' target="_blank" rel="noopener noreferrer"'} `+
+    `title="${esc(lk.name)}" aria-label="${esc(lk.name)}">${LINKICON}<span>${esc(lk.name)}</span></a>`;
+}
+
+function buildRows(){
+  list.innerHTML='';
+  const due=dueRoutines();
+
+  function groupSection(g){
+    const items=due.filter(r=>r.group===g);
+    if(!items.length) return null;
+    const sec=document.createElement('section');
+    sec.className='phase';
+    const req=items.filter(r=>!r.opt).length;
+    sec.innerHTML=`<div class="phead"><h2>${esc(g)}</h2><em>today \u00b7 ${req} core</em></div>`;
+    items.forEach((r,ri)=>{
+      const st=statusLabel(r), sl=schedLabel(r);
+      const row=document.createElement('div');
+      row.className='step routine'+(r.opt?' optional':'')+(isOff('r:'+r.id)?' off':'');
+      row.dataset.n='r:'+r.id;
+      row.setAttribute('role','checkbox'); row.tabIndex=0;
+      row.innerHTML=
+        `<div class="sweep"></div>`+
+        `<div class="num">${String(ri+1).padStart(2,'0')}</div>`+
+        `<div class="box">${CHECK}</div>`+
+        `<div class="body"><div class="label">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</div>`+
+          (sl||st?`<div class="meta">`+
+            (sl?`<span class="sched">${esc(sl)}</span>`:'')+
+            (st?`<span class="rstat${dueToday(r)?'':' ok'}">${esc(st)}</span>`:'')+
+          `</div>`:'')+
+          (r.note?`<div class="note">${r.note}</div>`:'')+
+        `</div>`+
+        linkBtn(r.id)+
+        (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
+        `<button class="skip" data-skip="r:${r.id}" title="Skip this item" aria-label="Skip this item">${isOff('r:'+r.id)?'undo':'skip'}</button>`;
+      sec.appendChild(row);
+    });
+    return sec;
+  }
+
+  const placed=[];
+  PHASES.forEach((p,pi)=>{
+    const vis=p.steps.filter(st=>!stepData(st).hidden);
+    if(vis.length){
+      const sec=document.createElement('section');
+      sec.className='phase';
+      const req=vis.filter(st=>!st.opt).length;
+      sec.innerHTML=`<div class="phead"><h2>${p.name}</h2><em>${vis[0].n}\u2013${vis[vis.length-1].n} \u00b7 ${req} core</em></div>`;
+      p.steps.forEach(st=>{
+        const d=stepData(st);
+        const row=document.createElement('div');
+        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.n)?' off':'');
+        row.dataset.n=st.n;
+        row.setAttribute('role','checkbox'); row.tabIndex=0;
+        row.innerHTML=
+          `<div class="sweep"></div>`+
+          `<div class="num">${st.n}</div>`+
+          `<div class="box">${CHECK}</div>`+
+          `<div class="body"><div class="label">${d.label}${st.opt?'<span class="tag">optional</span>':''}</div>`+
+          (d.note?`<div class="note">${d.note}${d.mine?'<span class="mine-note">Your note</span>':''}</div>`:'')+
+          d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
+          (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:'')+
+          `</div>`+
+          (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
+          `<button class="skip" data-skip="${st.n}" title="Skip this item" aria-label="Skip this item">${isOff(st.n)?'undo':'skip'}</button>`;
+        sec.appendChild(row);
+      });
+      list.appendChild(sec);
+    }
+    /* any group anchored to this phase renders immediately after it */
+    Object.keys(GROUPS).forEach(g=>{
+      if(GROUPS[g].afterPhase===pi){
+        const gs=groupSection(g); if(gs){ list.appendChild(gs); placed.push(g); }
+      }
+    });
+  });
+
+  /* everything not anchored goes at the end, in GROUPS order */
+  Object.keys(GROUPS).forEach(g=>{
+    if(GROUPS[g].afterPhase===null && placed.indexOf(g)===-1){
+      const gs=groupSection(g); if(gs) list.appendChild(gs);
+    }
+  });
+
+  wireRows();
+}
+
+const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
+document.getElementById('daylabel').textContent='/ '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+const isOff=id=>S.off.indexOf(id)>-1;
+const allRows=()=>[...document.querySelectorAll('.step')];
+const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
+  && !r.classList.contains('off')
+  && !(S.hideopt&&r.classList.contains('optional')));
+function coreIds(){
+  const out=[];
+  PHASES.forEach(p=>p.steps.forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.n)) out.push(s.n); }));
+  dueRoutines().forEach(r=>{ if(!r.opt && !isOff('r:'+r.id)) out.push('r:'+r.id); });
+  return out;
+}
+function paint(){
+  allRows().forEach(r=>{
+    const on=S.checked.includes(r.dataset.n);
+    r.classList.toggle('done',on);
+    r.setAttribute('aria-checked',on);
+  });
+  const vis=visibleRows();
+  const done=vis.filter(r=>r.classList.contains('done')).length;
+  cnum.textContent=`${done}/${vis.length}`;
+  prog.style.width=(vis.length?done/vis.length*100:0)+'%';
+  snum.textContent=S.streak;
+}
+function toggle(row){
+  const n=row.dataset.n, i=S.checked.indexOf(n);
+  if(i>-1)S.checked.splice(i,1); else S.checked.push(n);
+  if(n.indexOf('r:')===0){
+    const id=n.slice(2); S.rlog=S.rlog||{};
+    if(i>-1) delete S.rlog[id]; else S.rlog[id]=new Date().toISOString();
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  const core=coreIds();
+  if(core.length && core.every(x=>S.checked.includes(x)) && S.last!==today()){
+    S.last=today(); S.streak++; toast('Protocol complete · day '+S.streak);
+  }
+  save(S); paint();
+}
+
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('up');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('up'),2600);
+}
+function beep(){
+  try{
+    const C=window.AudioContext||window.webkitAudioContext; if(!C)return;
+    const c=new C(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=880;o.type='sine';
+    g.gain.setValueAtTime(.0001,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.25,c.currentTime+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,c.currentTime+.7);
+    o.start();o.stop(c.currentTime+.75);
+  }catch(e){}
+}
+
+function wireRows(){
+  allRows().forEach(r=>{
+    r.addEventListener('click',e=>{
+      if(e.target.closest('.timer'))return;
+      if(e.target.closest('.golink')){e.stopPropagation();return;}
+      const sk=e.target.closest('[data-skip]');
+      if(sk){
+        e.stopPropagation();
+        const id=sk.dataset.skip, at=S.off.indexOf(id);
+        if(at>-1) S.off.splice(at,1);
+        else { S.off.push(id); const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1); }
+        save(S); buildRows(); paint(); return;
+      }
+      const su=e.target.closest('[data-setup]');
+      if(su){
+        e.stopPropagation(); toggleShelf(true);
+        shelf.scrollIntoView({behavior:'smooth',block:'start'});
+        const el=document.getElementById('sel-'+su.dataset.setup);
+        setTimeout(()=>{ if(el){ el.scrollIntoView({block:'center'}); el.focus(); } },400);
+        return;
+      }
+      toggle(r);
+    });
+    r.addEventListener('keydown',e=>{
+      if(e.target.closest('.golink'))return;
+      if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle(r);}});
+  });
+
+  document.querySelectorAll('.timer').forEach(btn=>{
+    const row=btn.closest('.step'), sweep=row.querySelector('.sweep'), total=+btn.dataset.t;
+    const face=btn.querySelector('span')||btn;
+    let raf=null,end=0;
+    const setP=v=>btn.style.setProperty('--p',v.toFixed(1));
+    const stop=()=>{ if(raf)cancelAnimationFrame(raf); raf=null;
+      row.classList.remove('running'); sweep.style.width='0'; setP(0); };
+    function tick(){
+      const left=Math.max(0,end-Date.now());
+      const pct=100-left/(total*1000)*100;
+      face.textContent=fmt(Math.ceil(left/1000));
+      sweep.style.width=pct+'%';
+      setP(pct);
+      if(left<=0){
+        if(raf)cancelAnimationFrame(raf); raf=null;
+        row.classList.remove('running'); sweep.style.width='0';
+        row.classList.add('rang'); face.textContent='done'; setP(100);
+        beep(); if(navigator.vibrate)navigator.vibrate([120,80,120]);
+        toast(row.querySelector('.label').textContent.replace('optional','').trim()+' \u00b7 time');
+        return;
+      }
+      raf=requestAnimationFrame(tick);
+    }
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      if(row.classList.contains('running')){ stop(); face.textContent=fmt(total); return; }
+      row.classList.remove('rang'); row.classList.add('running');
+      end=Date.now()+total*1000; tick();
+    });
+  });
+}
+
+function rebuild(){ buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); }
+
+const optbtn=document.getElementById('optbtn');
+function paintOpt(){
+  document.body.classList.toggle('hideopt',S.hideopt);
+  optbtn.setAttribute('aria-pressed',S.hideopt);
+  optbtn.textContent='Optional steps: '+(S.hideopt?'hidden':'shown');
+  paint();
+}
+optbtn.addEventListener('click',()=>{S.hideopt=!S.hideopt;save(S);paintOpt();});
+document.getElementById('jump').addEventListener('click',()=>{
+  const next=visibleRows().find(r=>!r.classList.contains('done'));
+  if(next){next.scrollIntoView({behavior:'smooth',block:'center'});next.focus();}
+  else toast('Everything is checked');
+});
+document.getElementById('schedreset').addEventListener('click',()=>{
+  S.sched={}; save(S); buildRows(); paintSchedule(); paint(); toast('Schedules reset');
+});
+document.getElementById('reseed').addEventListener('click',()=>{
+  S.products=JSON.parse(JSON.stringify(DEFAULTS));
+  S.seeded=Object.keys(DEFAULTS);
+  save(S); rebuild();
+  SLOTS.forEach(sl=>{
+    const p=S.products[sl.id]||{};
+    const sel=document.getElementById('sel-'+sl.id), inp=document.getElementById('in-'+sl.id);
+    const nt=document.getElementById('note-'+sl.id);
+    if(sel) sel.value=p.classId||'';
+    if(inp) inp.value=p.brand||'';
+    if(nt) nt.value=p.mynote||'';
+  });
+  toast('Products reloaded');
+});
+document.getElementById('wipeprod').addEventListener('click',()=>{
+  S.products={}; S.seeded=Object.keys(DEFAULTS); save(S); rebuild();
+  SLOTS.forEach(sl=>{
+    const sel=document.getElementById('sel-'+sl.id), inp=document.getElementById('in-'+sl.id);
+    const nt=document.getElementById('note-'+sl.id);
+    if(sel) sel.value=''; if(inp) inp.value=''; if(nt) nt.value='';
+  });
+  toast('Products cleared');
+});
+document.getElementById('reset').addEventListener('click',()=>{
+  S.checked=[]; save(S); paint(); toast('Today reset');
+});
+
+/* =========================================================
+   STORAGE HEALTH — the failure that used to be silent.
+   A sandboxed preview either throws on localStorage or keeps
+   an ephemeral copy it discards on teardown. Either way the
+   checkmarks look fine and are gone next time. Say so.
+   ========================================================= */
+(function(){
+  let framed=false;
+  try{ framed = window.top !== window.self; }catch(e){ framed = true; }
+  let works=true;
+  try{
+    const k='__probe_'+Date.now();
+    localStorage.setItem(k,'1');
+    works = localStorage.getItem(k)==='1';
+    localStorage.removeItem(k);
+  }catch(e){ works=false; }
+  if(works && !framed) return;
+  const m=document.getElementById('alertmount'); if(!m) return;
+  m.innerHTML='<div class="alert"><h3>Nothing you check here will be saved</h3>'+
+    '<p>'+(framed
+      ? 'This is running inside a preview window, which throws its storage away when you close it. Checks, streak and timers will all work \u2014 and none of it will be here next time.'
+      : 'This browser is blocking local storage \u2014 usually a private tab or a file opened from a preview app. Checks will not persist.')+'</p>'+
+    '<p>Open the file directly in a browser, or put it on a URL and use Add to Home Screen. Then this bar disappears.</p></div>';
+})();
+
+const bkPanel=document.getElementById('backup');
+document.getElementById('backupbtn').addEventListener('click',()=>{
+  const open=bkPanel.style.display==='none';
+  bkPanel.style.display=open?'block':'none';
+  if(open) document.getElementById('bkarea').value=JSON.stringify(S);
+});
+document.getElementById('bkcopy').addEventListener('click',()=>{
+  const ta=document.getElementById('bkarea');
+  if(!ta.value.trim()) ta.value=JSON.stringify(S);
+  ta.select(); ta.setSelectionRange(0,999999);
+  const done=()=>toast('Backup copied');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(done,()=>{
+      try{document.execCommand('copy');done();}catch(e){toast('Select the box and copy');}
+    });
+  } else {
+    try{document.execCommand('copy');done();}catch(e){toast('Select the box and copy');}
+  }
+});
+document.getElementById('bkrestore').addEventListener('click',()=>{
+  const v=document.getElementById('bkarea').value.trim();
+  if(!v){ toast('Paste a backup first'); return; }
+  let o; try{ o=JSON.parse(v); }catch(e){ toast('That is not valid backup text'); return; }
+  if(!o||typeof o!=='object'||!('checked' in o)){ toast('That does not look like a backup'); return; }
+  S=o;
+  S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
+  S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  save(S); rebuild(); paintOpt();
+  SLOTS.forEach(sl=>{
+    const p=S.products[sl.id]||{};
+    const sel=document.getElementById('sel-'+sl.id), inp=document.getElementById('in-'+sl.id);
+    const nt=document.getElementById('note-'+sl.id);
+    if(sel) sel.value=p.classId||'';
+    if(inp) inp.value=p.brand||'';
+    if(nt) nt.value=p.mynote||'';
+  });
+  toast('Restored');
+});
+
+rebuild(); paintOpt();
+</script>
+</body>
+</html>
