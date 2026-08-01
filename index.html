@@ -348,6 +348,14 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   background:var(--ground);border:1px solid var(--line);color:var(--ink);
   -webkit-text-fill-color:var(--ink);color-scheme:dark;padding:9px;border-radius:6px;
   resize:vertical;}
+#sync{margin-top:28px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);overflow:hidden;opacity:.62;transition:opacity .2s;}
+#sync.open,#sync:hover,#sync:focus-within{opacity:1;}
+#sync .shelfbody{display:none;padding:0 16px 16px;}
+#sync.open .shelfbody{display:block;}
+#syncchip[data-s="ok"]{border-color:var(--done);color:var(--done);}
+#syncchip[data-s="sync"]{border-color:var(--opt);color:var(--opt);}
+#syncchip[data-s="err"]{border-color:var(--warn);color:var(--warn);}
 .step.done .label{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--dimmer);}
 .step.done .label .prod{color:var(--dim);}
 .step.done .note,.step.done .warn{color:var(--dimmer);}
@@ -394,6 +402,7 @@ body.hideopt .step.optional{display:none;}
   <div class="controls">
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="jump">Jump to next unchecked</button>
+    <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
   </div>
 
   <main id="list"></main>
@@ -450,6 +459,28 @@ body.hideopt .step.optional{display:none;}
     <div class="shelfbody">
       <p class="shelfnote">What each thing actually is, what it's for, and why it earns a step. Read once — you shouldn't need it twice.</p>
       <div id="guidelist"></div>
+    </div>
+  </section>
+
+  <section id="sync">
+    <div class="shelfhead" id="synchead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Sync</h2>
+      <span class="caret" id="ycaret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Keeps this file's state on a server you own, so your streak survives a new copy of the file and your phone and desktop show the same thing. <b>Local storage stays the source of truth</b> — the server is a mirror. Lose signal and nothing breaks; it catches up when you're back.</p>
+      <div class="slot">
+        <label for="syncurl">Worker URL</label>
+        <div class="fields"><input id="syncurl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://protocol-sync.you.workers.dev"></div>
+      </div>
+      <div class="slot">
+        <label for="synckey">Secret</label>
+        <div class="fields"><input id="synckey" type="password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="The SECRET you set on the Worker"></div>
+        <div class="eff on" id="syncnote" style="color:var(--dimmer)">Stored separately from your routine data, so restoring a backup won't wipe it.</div>
+      </div>
+      <button class="reset" id="syncpull">Pull from server</button>
+      <button class="reset" id="syncpush">Push to server</button>
+      <button class="reset" id="syncoff">Disconnect</button>
     </div>
   </section>
 
@@ -676,10 +707,34 @@ const PHASES = [
 ];
 
 /* ---------------- storage ---------------- */
+/* Declared with var, above the storage layer, because save() touches these
+   during first-run seeding — before the sync module further down has been
+   evaluated. syncReady gates everything until the module is actually live. */
+var syncQuiet=false, syncReady=false, syncTimer=null, syncInFlight=false;
+
 const KEY='routine_v4';
+const SYNCKEY='protocol_sync_v1';   /* config lives apart from state on purpose */
 let mem=null;
 const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem;}};
-const save=s=>{try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){mem=s;}};
+/* A precomputed digest for the widget. Scriptable has no idea what a phase
+   or a schedule rule is, and duplicating that logic there would drift the
+   moment anything changes here. Compute it once, at the source. */
+function summarize(){
+  const core=coreIds();
+  const done=core.filter(x=>S.checked.indexOf(x)>-1).length;
+  const due=dueRoutines()
+    .filter(r=>!isOff('r:'+r.id))
+    .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt}));
+  return {done:done, total:core.length, streak:S.streak||0, date:S.date, routines:due};
+}
+const save=s=>{
+  if(syncReady && !syncQuiet){
+    s.mtime=Date.now();
+    try{ s.summary=summarize(); }catch(e){}
+  }
+  try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){mem=s;}
+  if(!syncQuiet) syncSchedule();
+};
 const today=()=>new Date().toLocaleDateString('en-CA');
 const yesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString('en-CA');};
 
@@ -1911,6 +1966,150 @@ document.getElementById('reset').addEventListener('click',()=>{
       ? 'This is running inside a preview window, which throws its storage away when you close it. Checks, streak and timers will all work \u2014 and none of it will be here next time.'
       : 'This browser is blocking local storage \u2014 usually a private tab or a file opened from a preview app. Checks will not persist.')+'</p>'+
     '<p>Open the file directly in a browser, or put it on a URL and use Add to Home Screen. Then this bar disappears.</p></div>';
+})();
+
+/* =========================================================
+   SYNC — localStorage stays authoritative. The server is a
+   mirror, so offline changes nothing and a failed request is
+   never allowed to destroy local state. Newest mtime wins.
+   ========================================================= */
+/* Baked-in defaults. Fill these once and every future copy of this
+   file arrives already connected — which is the whole point, since a
+   fresh copy starts with empty local storage. The Sync panel overrides
+   them if you'd rather not edit the file. */
+const SYNC={url:'', key:''};
+
+function syncCfg(){
+  let u=SYNC.url, k=SYNC.key;
+  try{
+    const o=JSON.parse(localStorage.getItem(SYNCKEY)||'{}');
+    if(o.url) u=o.url;
+    if(o.key) k=o.key;
+  }catch(e){}
+  return {url:String(u||'').trim().replace(/\/+$/,''), key:String(k||'').trim()};
+}
+function syncSave(url,key){
+  try{localStorage.setItem(SYNCKEY,JSON.stringify({url:url,key:key}));}catch(e){}
+}
+function syncStatus(s,msg){
+  const el=document.getElementById('syncchip'); if(!el) return;
+  const label={off:'Sync: off',sync:'Sync: working',ok:'Sync: on',err:'Sync: failed'};
+  el.dataset.s=s;
+  el.textContent=msg||label[s]||label.off;
+}
+function syncSchedule(){
+  if(!syncReady||syncQuiet) return;
+  if(!syncCfg().url) return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(syncPush,1500);   /* coalesce bursts of checkmarks */
+}
+function syncHeaders(c){
+  return {'content-type':'application/json','x-sync-key':c.key};
+}
+function syncPush(){
+  const c=syncCfg(); if(!c.url) return Promise.resolve('off');
+  if(syncInFlight){ syncSchedule(); return Promise.resolve('busy'); }
+  syncInFlight=true; syncStatus('sync');
+  return fetch(c.url,{method:'PUT',headers:syncHeaders(c),body:JSON.stringify(S)})
+    .then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      syncStatus('ok'); return 'pushed';
+    })
+    .catch(e=>{ syncStatus('err','Sync: '+e.message); return 'error'; })
+    .then(v=>{ syncInFlight=false; return v; });
+}
+function syncAdopt(remote){
+  syncQuiet=true;
+  S=remote;
+  S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
+  S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
+  save(S);
+  rebuild(); paintOpt();
+  SLOTS.forEach(sl=>{
+    const p=S.products[sl.id]||{};
+    const sel=document.getElementById('sel-'+sl.id), inp=document.getElementById('in-'+sl.id);
+    const nt=document.getElementById('note-'+sl.id);
+    if(sel) sel.value=p.classId||'';
+    if(inp) inp.value=p.brand||'';
+    if(nt) nt.value=p.mynote||'';
+  });
+  syncQuiet=false;
+}
+function syncPull(){
+  const c=syncCfg(); if(!c.url) return Promise.resolve('off');
+  syncStatus('sync');
+  return fetch(c.url,{method:'GET',headers:syncHeaders(c)})
+    .then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(remote=>{
+      /* Nothing stored yet — seed the server from this device. */
+      if(!remote||typeof remote!=='object'||!Array.isArray(remote.checked)){
+        return syncPush().then(()=>'seeded');
+      }
+      const rt=+remote.mtime||0, lt=+S.mtime||0;
+      if(rt>lt){ syncAdopt(remote); syncStatus('ok'); return 'pulled'; }
+      return syncPush().then(()=>'pushed');
+    })
+    .catch(e=>{ syncStatus('err','Sync: '+e.message); return 'error'; });
+}
+
+(function wireSync(){
+  const sec=document.getElementById('sync'), head=document.getElementById('synchead');
+  const u=document.getElementById('syncurl'), k=document.getElementById('synckey');
+  const c=syncCfg();
+  u.value=c.url; k.value=c.key;
+  syncStatus(c.url?'sync':'off');
+
+  function toggleSync(force){
+    const open=force!==undefined?force:!sec.classList.contains('open');
+    sec.classList.toggle('open',open);
+    head.setAttribute('aria-expanded',open);
+    document.getElementById('ycaret').textContent=open?'Close':'Open';
+  }
+  head.addEventListener('click',()=>toggleSync());
+  head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSync();}});
+  document.getElementById('syncchip').addEventListener('click',()=>{
+    toggleSync(true); sec.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+
+  let cfgT=null;
+  const onCfg=()=>{
+    clearTimeout(cfgT);
+    cfgT=setTimeout(()=>{
+      syncSave(u.value,k.value);
+      if(syncCfg().url) syncPull(); else syncStatus('off');
+    },700);
+  };
+  u.addEventListener('input',onCfg);
+  k.addEventListener('input',onCfg);
+
+  document.getElementById('syncpull').addEventListener('click',()=>{
+    if(!syncCfg().url){ toast('Add the Worker URL first'); return; }
+    syncPull().then(r=>toast(r==='pulled'?'Pulled from server'
+      :r==='error'?'Pull failed':'Already up to date'));
+  });
+  document.getElementById('syncpush').addEventListener('click',()=>{
+    if(!syncCfg().url){ toast('Add the Worker URL first'); return; }
+    syncPush().then(r=>toast(r==='pushed'?'Pushed to server':'Push failed'));
+  });
+  document.getElementById('syncoff').addEventListener('click',()=>{
+    try{localStorage.removeItem(SYNCKEY);}catch(e){}
+    SYNC.url=''; SYNC.key='';
+    u.value=''; k.value=''; syncStatus('off');
+    toast('Disconnected — local data untouched');
+  });
+
+  /* Coming back to the app is the moment another device's changes matter. */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && syncCfg().url) syncPull();
+  });
+
+  syncReady=true;
+  if(c.url) syncPull();
 })();
 
 const bkPanel=document.getElementById('backup');
