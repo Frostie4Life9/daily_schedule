@@ -1986,7 +1986,11 @@ function syncCfg(){
     if(o.url) u=o.url;
     if(o.key) k=o.key;
   }catch(e){}
-  return {url:String(u||'').trim().replace(/\/+$/,''), key:String(k||'').trim()};
+  let url=String(u||'').trim().replace(/\/+$/,'');
+  /* Without a scheme this resolves against your own site and 404s, which
+     reads as a sync failure rather than a typo. Assume https. */
+  if(url && !/^https?:\/\//i.test(url)) url='https://'+url;
+  return {url:url, key:String(k||'').trim()};
 }
 function syncSave(url,key){
   try{localStorage.setItem(SYNCKEY,JSON.stringify({url:url,key:key}));}catch(e){}
