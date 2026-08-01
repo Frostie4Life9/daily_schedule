@@ -601,111 +601,312 @@ const SLOTS = [
 ];
 
 /* =========================================================
-   STEPS — numbers are stable IDs. Hidden steps leave a gap
-   rather than renumbering, so "step 29" always means SPF.
+   STEPS — id is permanent and arbitrary; it is what checks, skips and
+   cross-references are keyed on, and it never changes once assigned.
+   The number you see is computed from position at render time.
+   sub:1 marks a step with no independent existence — a dwell, the rinse
+   that ends a product, the spit that only follows a brush — and it takes
+   a letter under the main step above it.
+   To add a step: drop it in at the right position with a new id. That is
+   the whole procedure. Nothing else moves.
    ========================================================= */
 const PHASES = [
  {name:"Morning — before the shower", steps:[
-  {n:'01', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
-  {n:'01a', l:"Contacts", note:"Acuvue Oasys 1-Day for Astigmatism. Wash and dry hands first \u2014 wet fingers make the lens stick to you instead of your eye. Check it isn't inverted: the edge should curve up like a bowl, not flare out. Both eyes are the same prescription, so there's no left/right sorting. After it's in, blink several times and give it 10\u201330 seconds \u2014 a toric lens has to rotate into its axis before vision sharpens, so early blur usually means it hasn't settled, not that it's the wrong lens. Daily disposables: new pair every day, never sleep in them, never rinse and reuse, never tap water."},
-  {n:'01b', l:"Medication", note:"Wellbutrin XL 450mg (one 300mg + one 150mg) and Adderall XR 20mg (two 10mg). Swallow whole \u2014 don't split, crush, or chew any of them; an extended-release tablet dumps its entire dose at once if it's broken, and that matters most with bupropion. Same time every morning, and early \u2014 both are activating and a late dose costs you sleep. Keep acidic drinks away from the Adderall: orange juice and vitamin C measurably reduce amphetamine absorption."},
-  {n:'02', l:"Weigh in", opt:1, note:"Same time daily is the only way the number means anything."},
-  {n:'03', l:"Floss", slot:'floss', note:"Before brushing, not after."},
-  {n:'04', l:"Mouthwash", slot:'mouthwash', note:"See the note \u2014 the before/after question is a real tradeoff.", warns:[
-    {when:'fluorideRinse', text:"Wrong slot. Used after brushing, a fluoride rinse washes away the much stronger fluoride your toothpaste just left behind — and used before, it's redundant. Move it to midday or after lunch. This is the mistake almost everyone makes with mouthwash."}
+  {id:'am_water', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
+  {id:'contacts', l:"Contacts", note:"Acuvue Oasys 1-Day for Astigmatism. Wash and dry hands first \u2014 wet fingers make the lens stick to you instead of your eye. Check it isn't inverted: the edge should curve up like a bowl, not flare out. Both eyes are the same prescription, so there's no left/right sorting. After it's in, blink several times and give it 10\u201330 seconds \u2014 a toric lens has to rotate into its axis before vision sharpens, so early blur usually means it hasn't settled, not that it's the wrong lens. Daily disposables: new pair every day, never sleep in them, never rinse and reuse, never tap water."},
+  {id:'meds', l:"Medication", note:"Wellbutrin XL 450mg (one 300mg + one 150mg) and Adderall XR 20mg (two 10mg). Swallow whole \u2014 don't split, crush, or chew any of them; an extended-release tablet dumps its entire dose at once if it's broken, and that matters most with bupropion. Same time every morning, and early \u2014 both are activating and a late dose costs you sleep. Keep acidic drinks away from the Adderall: orange juice and vitamin C measurably reduce amphetamine absorption."},
+  {id:'weigh', l:"Weigh in", opt:1, note:"Same time daily is the only way the number means anything."},
+  {id:'am_floss', l:"Floss", slot:'floss', note:"Before brushing, not after."},
+  {id:'am_rinse', l:"Mouthwash", slot:'mouthwash', note:"See the note \u2014 the before/after question is a real tradeoff.", warns:[
+    {when:'fluorideRinse', text:"Wrong slot. Used after brushing, a fluoride rinse washes away the much stronger fluoride your toothpaste just left behind — and used before, it's redundant. Move it to midday or after lunch (step {lunch}). This is the mistake almost everyone makes with mouthwash."}
   ]},
-  {n:'05', l:"Brush", slot:'toothpaste', timer:120, note:"Two minutes. Soft bristles, 45°, small circles.", warns:[
-    {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps 3–7 are now hygiene only, not prevention."}
+  {id:'am_brush', l:"Brush", slot:'toothpaste', timer:120, note:"Two minutes. Soft bristles, 45°, small circles.", warns:[
+    {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps {am_floss}–{am_spit} are now hygiene only, not prevention."}
   ]},
-  {n:'06', l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
-  {n:'07', l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
-  {n:'08', l:"Breakfast", opt:1, note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
-  {n:'08a', l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
+  {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
+  {id:'am_spit', sub:1, l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
+  {id:'breakfast', l:"Breakfast", opt:1, note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
+  {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
  ]},
  {name:"The shower", big:1, steps:[
-  {n:'09', l:"Water warm, not hot", note:"Hot strips sebum. Direct contributor to itchy scalp and dry shins."},
-  {n:'10', l:"Wet hair thoroughly", timer:45, note:"Dry hair doesn't lather."},
-  {n:'11', l:"Shampoo — scalp only", slot:'shampoo', warns:[
+  {id:'sh_temp', l:"Water warm, not hot", note:"Hot strips sebum. Direct contributor to itchy scalp and dry shins."},
+  {id:'sh_wet', l:"Wet hair thoroughly", timer:45, note:"Dry hair doesn't lather."},
+  {id:'shampoo', l:"Shampoo — scalp only", slot:'shampoo', warns:[
     {when:'harshShampoo', text:"Rotation only — once or twice a week after a shift. Daily will strip your scalp and it'll overproduce oil to compensate, which is the problem you were trying to solve."}
   ]},
-  {n:'12', l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
-  {n:'13', l:"Rinse shampoo", note:"The length gets cleaned by runoff on the way down."},
-  {n:'14', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
-  {n:'15', l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
-  {n:'16', l:"Shave body hair", opt:1, note:"Use the dwell time. With the grain on the first pass.", warns:[
+  {id:'shampoo_dwell', sub:1, l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
+  {id:'shampoo_rinse', sub:1, l:"Rinse shampoo", note:"The length gets cleaned by runoff on the way down."},
+  {id:'cond', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
+  {id:'cond_dwell', sub:1, l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
+  {id:'shave_body', sub:1, l:"Shave body hair", opt:1, note:"Use the dwell time. With the grain on the first pass.", warns:[
     {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
   ]},
-  {n:'17', l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
-  {n:'18', l:"Wash body", slot:'bodywash', note:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms.", warns:[
+  {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
+  {id:'bodywash', l:"Wash body", slot:'bodywash', note:"Soap where it matters — pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen. Daily soaping there is a real contributor to dry shins and forearms.", warns:[
     {when:'exfoliant', text:"One exfoliant per shower and this is it — leave the scrubber out. Double exfoliation strips you, the skin reads as dry, you scrub harder, it gets worse."}
   ]},
-  {n:'18a', l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
-  {n:'19', l:"Rinse body", note:"Conditioner residue running down your back and sitting there is a common cause of back acne — which is why the body wash comes after the rinse, not before."},
-  {n:'20', l:"Face last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
-  {n:'21', l:"Rinse face, cool water"},
-  {n:'22', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
+  {id:'scrubber', sub:1, l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
+  {id:'body_rinse', sub:1, l:"Rinse body", note:"Conditioner residue running down your back and sitting there is a common cause of back acne — which is why the body wash comes after the rinse, not before."},
+  {id:'sh_face', l:"Face last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
+  {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
+  {id:'cold_finish', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
  ]},
  {name:"Out — the 3-minute window", steps:[
-  {n:'23', l:"Pat dry, don't rub", note:"Leave yourself slightly damp. Damp skin is the whole point of what follows."},
-  {n:'24', l:"Dry between every toe", note:"Individually. This is the entire athlete's foot protocol and it takes ten seconds."},
-  {n:'25', l:"Shave face", opt:1, note:"Hair is softest right out of the shower. Oil → cream → with the grain → cold rinse → alcohol-free balm.", warns:[
+  {id:'am_patdry', l:"Pat dry, don't rub", note:"Leave yourself slightly damp. Damp skin is the whole point of what follows."},
+  {id:'toes', sub:1, l:"Dry between every toe", note:"Individually. This is the entire athlete's foot protocol and it takes ten seconds."},
+  {id:'shave_face', l:"Shave face", opt:1, note:"Hair is softest right out of the shower. Oil → cream → with the grain → cold rinse → alcohol-free balm.", warns:[
     {when:'retinoid', text:"Don't shave on a night you're applying adapalene. Pick one."}
   ]},
-  {n:'26', l:"Serum", opt:1, slot:'serum', hideIf:'noSerum'},
-  {n:'27', l:"Eye cream", opt:1, note:"Ring finger, tap don't drag."},
-  {n:'28', l:"Face moisturizer", slot:'moisturizer', hideIf:'spfCombo'},
-  {n:'29', l:"SPF", slot:'spf', note:"Face, ears, neck. Highest-return thirty seconds in the routine and it's not close. Overcast doesn't matter — UVA goes through cloud.", warns:[
+  {id:'serum', l:"Serum", opt:1, slot:'serum', hideIf:'noSerum'},
+  {id:'eyecream', l:"Eye cream", opt:1, note:"Ring finger, tap don't drag."},
+  {id:'am_moist', l:"Face moisturizer", slot:'moisturizer', hideIf:'spfCombo'},
+  {id:'spf', l:"SPF", slot:'spf', note:"Face, ears, neck. Highest-return thirty seconds in the routine and it's not close. Overcast doesn't matter — UVA goes through cloud.", warns:[
     {when:'retinoid', text:"A retinoid makes this mandatory, not optional. It thins the stratum corneum and raises photosensitivity — skipping SPF while using one is worse than doing neither."}
   ]},
-  {n:'30', l:"Body lotion", slot:'bodylotion', hideIf:'noBodyLotion'},
-  {n:'31', l:"Hand cream", opt:1, note:"If you're washing your hands all shift, this isn't cosmetic."},
-  {n:'32', l:"Deodorant", slot:'deodorant'},
-  {n:'33', l:"Wait before the shirt", dwellOf:'deodorant', showIf:'deoSet'},
-  {n:'34', l:"Foot powder / antifungal", opt:1, note:"Especially before a shift. Closed shoes, hours on your feet."}
+  {id:'am_lotion', l:"Body lotion", slot:'bodylotion', hideIf:'noBodyLotion'},
+  {id:'handcream', l:"Hand cream", opt:1, note:"If you're washing your hands all shift, this isn't cosmetic."},
+  {id:'deo', l:"Deodorant", slot:'deodorant'},
+  {id:'deo_set', sub:1, l:"Wait before the shirt", dwellOf:'deodorant', showIf:'deoSet'},
+  {id:'footpowder', l:"Foot powder / antifungal", opt:1, note:"Especially before a shift. Closed shoes, hours on your feet."}
  ]},
  {name:"Grooming & dressing", steps:[
-  {n:'35', l:"Towel-dry hair to damp", opt:1, hideIf:'noStyling', note:"Not wet, not dry."},
-  {n:'36', l:"Leave-in / sea salt spray", opt:1, note:"For grip, if you're using one."},
-  {n:'37', l:"Styling product", slot:'styling', hideIf:'noStyling'},
-  {n:'38', l:"Shape it", hideIf:'noStyling', note:"Set it while it dries. Hands off once it's dry."},
-  {n:'39', l:"Nose and ear hair", note:"Trim weekly-ish, check daily. Nobody tells you about this one."},
-  {n:'40', l:"Eyebrows", note:"Strays between and below only. Two seconds."},
-  {n:'41', l:"Neck strays", note:"If you're between cuts."},
-  {n:'42', l:"Lip balm", slot:'lipbalm'},
-  {n:'43', l:"Eye drops", opt:1, note:"If the dry air is getting you."},
-  {n:'44', l:"Get dressed", note:"Everything except the top layer."},
-  {n:'45', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', warns:[
+  {id:'towel_hair', l:"Towel-dry hair to damp", opt:1, hideIf:'noStyling', note:"Not wet, not dry."},
+  {id:'leavein', l:"Leave-in / sea salt spray", opt:1, note:"For grip, if you're using one."},
+  {id:'styling', l:"Styling product", slot:'styling', hideIf:'noStyling'},
+  {id:'styling_shape', sub:1, l:"Shape it", hideIf:'noStyling', note:"Set it while it dries. Hands off once it's dry."},
+  {id:'noseear', l:"Nose and ear hair", note:"Trim weekly-ish, check daily. Nobody tells you about this one."},
+  {id:'brows', l:"Eyebrows", note:"Strays between and below only. Two seconds."},
+  {id:'neck', l:"Neck strays", note:"If you're between cuts."},
+  {id:'am_lips', l:"Lip balm", slot:'lipbalm'},
+  {id:'eyedrops', l:"Eye drops", opt:1, note:"If the dry air is getting you."},
+  {id:'dressed', l:"Get dressed", note:"Everything except the top layer."},
+  {id:'cologne', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', warns:[
     {when:'scented', text:"Your deodorant is scented. That's two fragrances arguing under your shirt six inches apart. Switch to unscented or drop the cologne — the deodorant wins regardless, it's closer to your nose all day."}
   ]},
-  {n:'46', l:"Shirt on", note:"After the cologne has flashed off and the deodorant is set."},
-  {n:'47', l:"Mirror check", note:"Collar, teeth, fly."}
+  {id:'shirt', l:"Shirt on", note:"After the cologne has flashed off and the deodorant is set."},
+  {id:'mirror', l:"Mirror check", note:"Collar, teeth, fly."}
+ ]},
+ {name:"Through the day", steps:[
+  {id:'lunch', l:"Lunch", note:"The one a shift eats. Standing still for ten minutes isn't the same thing \u2014 check this when you've actually had a meal."},
+  {id:'dinner', l:"Dinner", note:"Lands before the night sequence, not after. Step {water_only} closes the kitchen, so on a late shift this happens earlier than it feels like it should."}
  ]},
  {name:"End of day", steps:[
-  {n:'48', l:"Change out of work clothes", note:"Straight into their own bag, separate from the rest of the laundry."},
-  {n:'49', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you."},
-  {n:'50', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil'},
-  {n:'51', l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', note:"Now it can actually reach your skin."},
-  {n:'52', l:"Pat dry"},
-  {n:'53', l:"Wait until fully dry", dryOf:'treatment', showIf:'retinoid'},
-  {n:'54', l:"Treatment", opt:1, slot:'treatment', hideIf:'noTreatment', warns:[
+  {id:'pm_clothes', l:"Change out of work clothes", note:"Straight into their own bag, separate from the rest of the laundry."},
+  {id:'pm_wash', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you."},
+  {id:'cleanse1', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil'},
+  {id:'cleanse2', sub:1, l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', note:"Now it can actually reach your skin."},
+  {id:'pm_patdry', sub:1, l:"Pat dry"},
+  {id:'drydown', sub:1, l:"Wait until fully dry", dryOf:'treatment', showIf:'retinoid'},
+  {id:'treatment', l:"Treatment", opt:1, slot:'treatment', hideIf:'noTreatment', warns:[
     {when:'bleaches', text:"Benzoyl peroxide bleaches fabric. Old pillowcase, old towel, and give it a few minutes before anything touches your face."}
   ]},
-  {n:'55', l:"Moisturizer", slot:'moisturizer', warns:[
+  {id:'pm_moist', l:"Moisturizer", slot:'moisturizer', warns:[
     {when:'retinoid', text:"If the adapalene is irritating you, moisturize BEFORE it as well as after. Buffering doesn't kill the effect — quitting does."}
   ]},
-  {n:'56', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"If the exfoliant is drying you out."},
-  {n:'57', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters."},
-  {n:'58', l:"Floss", slot:'floss', note:"If one thing survives a bad day, it's this."},
-  {n:'59', l:"Mouthwash", slot:'mouthwash', warns:[
-    {when:'fluorideRinse', text:"Same problem as step 4 — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
+  {id:'pm_lotion', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"If the exfoliant is drying you out."},
+  {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters."},
+  {id:'pm_floss', l:"Floss", slot:'floss', note:"If one thing survives a bad day, it's this."},
+  {id:'pm_rinse', l:"Mouthwash", slot:'mouthwash', warns:[
+    {when:'fluorideRinse', text:"Same problem as step {am_rinse} — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
   ]},
-  {n:'60', l:"Brush", slot:'toothpaste', timer:120},
-  {n:'61', l:"Tongue"},
-  {n:'62', l:"Spit, don't rinse", note:"The night pass counts more. Saliva drops to almost nothing while you sleep — whatever's on your teeth sits there eight hours with no natural rinse."},
-  {n:'63', l:"Nothing but water after this"},
-  {n:'64', l:"Nightguard", opt:1, note:"If you grind."}
+  {id:'pm_brush', l:"Brush", slot:'toothpaste', timer:120},
+  {id:'pm_tongue', sub:1, l:"Tongue"},
+  {id:'pm_spit', sub:1, l:"Spit, don't rinse", note:"The night pass counts more. Saliva drops to almost nothing while you sleep — whatever's on your teeth sits there eight hours with no natural rinse."},
+  {id:'water_only', sub:1, l:"Nothing but water after this"},
+  {id:'nightguard', l:"Nightguard", opt:1, note:"If you grind."},
+  {id:'journal', l:"Journal", note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else."}
  ]}
 ];
+
+/* =========================================================
+   NUMBERING — the number on a row is computed, never stored.
+   A step's id is permanent and is what checks, skips and
+   cross-references are keyed on. The number is derived from
+   position, so inserting a step renumbers only the view.
+   sub:1 means "a continuation of the main step above me" and
+   takes a letter instead of its own number.
+   Numbers are computed over every step, hidden or not, so a
+   product flag switching a step off leaves a gap rather than
+   resequencing the rest of the day.
+   ========================================================= */
+const NUM={};
+(function(){
+  let main=0, letter=-1;
+  PHASES.forEach(p=>p.steps.forEach(st=>{
+    if(st.sub && main>0){
+      letter++;
+      NUM[st.id]=String(main).padStart(2,'0')+String.fromCharCode(97+letter);
+    } else {
+      main++; letter=-1;
+      NUM[st.id]=String(main).padStart(2,'0');
+    }
+  }));
+})();
+/* Falls through to the raw key for routine rows ('r:tr_push'), which have no
+   number of their own — same string the widget used to receive. */
+const numOf=id=>NUM[id]||id;
+
+/* Prose points at steps by id: "same problem as step {am_rinse}". Resolved at
+   paint time, so a reference can never go stale the way a typed number does.
+   An unknown id is left visible rather than silently dropped. */
+const resolveRefs=t=>String(t).replace(/\{([a-z0-9_]+)\}/g,(m,id)=>NUM[id]||m);
+
+/* =========================================================
+   ID MIGRATIONS — checks and skips are stored by step key, so
+   every historical key has to be walked forward or state lands
+   on the wrong rows. Runs from load, from Restore, and from a
+   sync pull, since all three can introduce old state.
+   ========================================================= */
+const RENUM={
+ '01a':'02',
+ '01b':'03',
+ '02':'04',
+ '03':'05',
+ '04':'06',
+ '05':'07',
+ '06':'07a',
+ '07':'07b',
+ '12':'11a',
+ '13':'11b',
+ '14':'12',
+ '15':'12a',
+ '16':'12b',
+ '17':'12c',
+ '18':'13',
+ '18a':'13a',
+ '19':'13b',
+ '20':'14',
+ '21':'14a',
+ '22':'15',
+ '23':'16',
+ '24':'16a',
+ '25':'17',
+ '26':'18',
+ '27':'19',
+ '28':'20',
+ '29':'21',
+ '30':'22',
+ '31':'23',
+ '32':'24',
+ '33':'24a',
+ '34':'25',
+ '35':'26',
+ '36':'27',
+ '37':'28',
+ '38':'28a',
+ '39':'29',
+ '40':'30',
+ '41':'31',
+ '42':'32',
+ '43':'33',
+ '44':'34',
+ '45':'35',
+ '46':'36',
+ '47':'37',
+ '47a':'38',
+ '47b':'39',
+ '48':'40',
+ '49':'41',
+ '50':'42',
+ '51':'42a',
+ '52':'42b',
+ '53':'42c',
+ '54':'43',
+ '55':'44',
+ '56':'45',
+ '57':'46',
+ '58':'47',
+ '59':'48',
+ '60':'49',
+ '61':'49a',
+ '62':'49b',
+ '63':'49c',
+ '64':'50',
+ '65':'51'
+};
+const IDMAP={
+ '01':'am_water',
+ '02':'contacts',
+ '03':'meds',
+ '04':'weigh',
+ '05':'am_floss',
+ '06':'am_rinse',
+ '07':'am_brush',
+ '07a':'am_tongue',
+ '07b':'am_spit',
+ '08':'breakfast',
+ '08a':'creatine',
+ '09':'sh_temp',
+ '10':'sh_wet',
+ '11':'shampoo',
+ '11a':'shampoo_dwell',
+ '11b':'shampoo_rinse',
+ '12':'cond',
+ '12a':'cond_dwell',
+ '12b':'shave_body',
+ '12c':'cond_rinse',
+ '13':'bodywash',
+ '13a':'scrubber',
+ '13b':'body_rinse',
+ '14':'sh_face',
+ '14a':'sh_face_rinse',
+ '15':'cold_finish',
+ '16':'am_patdry',
+ '16a':'toes',
+ '17':'shave_face',
+ '18':'serum',
+ '19':'eyecream',
+ '20':'am_moist',
+ '21':'spf',
+ '22':'am_lotion',
+ '23':'handcream',
+ '24':'deo',
+ '24a':'deo_set',
+ '25':'footpowder',
+ '26':'towel_hair',
+ '27':'leavein',
+ '28':'styling',
+ '28a':'styling_shape',
+ '29':'noseear',
+ '30':'brows',
+ '31':'neck',
+ '32':'am_lips',
+ '33':'eyedrops',
+ '34':'dressed',
+ '35':'cologne',
+ '36':'shirt',
+ '37':'mirror',
+ '38':'lunch',
+ '39':'dinner',
+ '40':'pm_clothes',
+ '41':'pm_wash',
+ '42':'cleanse1',
+ '42a':'cleanse2',
+ '42b':'pm_patdry',
+ '42c':'drydown',
+ '43':'treatment',
+ '44':'pm_moist',
+ '45':'pm_lotion',
+ '46':'pm_lips',
+ '47':'pm_floss',
+ '48':'pm_rinse',
+ '49':'pm_brush',
+ '49a':'pm_tongue',
+ '49b':'pm_spit',
+ '49c':'water_only',
+ '50':'nightguard',
+ '51':'journal'
+};
+function migrateIds(s){
+  let changed=false;
+  const fix=(a,m)=>Array.isArray(a)?a.map(x=>{
+    if(typeof x==='string' && m[x]){ changed=true; return m[x]; }
+    return x;
+  }):a;
+  if(s.renum!==1){ s.checked=fix(s.checked,RENUM); s.off=fix(s.off,RENUM); s.renum=1; changed=true; }
+  if(s.idmap!==1){ s.checked=fix(s.checked,IDMAP); s.off=fix(s.off,IDMAP); s.idmap=1; changed=true; }
+  return changed;
+}
 
 /* ---------------- storage ---------------- */
 /* Declared with var, above the storage layer, because save() touches these
@@ -723,7 +924,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=3;
+const DIGEST=4;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -754,7 +955,8 @@ function summarize(){
     .filter(r=>S.checked.indexOf(r.dataset.n)===-1)
     .slice(0,9)
     .map(r=>({
-      n:r.dataset.n,
+      n:numOf(r.dataset.n),
+      id:r.dataset.n,
       l:rowLabel(r),
       phase:rowPhase(r),
       opt:r.classList.contains('optional')
@@ -803,6 +1005,8 @@ if(!S){ /* one-time migration from the previous key */
 }
 S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+
+if(migrateIds(S)) save(S);
 if(!S.products) S.products={};
 
 /* Seed each default exactly once, per slot. This merges newly added products into
@@ -882,32 +1086,32 @@ SLOTS.forEach(s=>{
 });
 
 const EFFECTS={
-  dwell:'adds step 12 (90s dwell)',
-  condDwell:'adds steps 15 and 17',
-  noCond:'removes steps 14, 15, 17',
-  exfoliant:'removes step 18a — one exfoliant per shower',
-  noScrub:'removes step 18a',
-  spfCombo:'removes step 28 — this is your moisturizer',
-  singleCleanse:'removes step 51 — rinses clean on its own',
-  noOil:'removes step 50',
-  deoSet:'adds step 33 (3min set)',
-  retinoid:'adds step 53 (10min dry-down) · makes 29 mandatory · warns 16, 25, 55',
-  scented:'warns step 45 if cologne is on',
-  fluorideRinse:'warns steps 4 and 59',
-  noStyling:'removes steps 35, 37, 38',
-  noCologne:'removes step 45',
-  noTreatment:'removes steps 53, 54',
-  noBodyLotion:'removes steps 30, 56',
-  noSerum:'removes step 26',
-  harshShampoo:'warns step 11',
-  noFluoride:'warns step 5',
-  bleaches:'warns step 54',
+  dwell:'adds step {shampoo_dwell} (90s dwell)',
+  condDwell:'adds steps {cond_dwell} and {cond_rinse}',
+  noCond:'removes steps {cond}, {cond_dwell}, {cond_rinse}',
+  exfoliant:'removes step {scrubber} — one exfoliant per shower',
+  noScrub:'removes step {scrubber}',
+  spfCombo:'removes step {am_moist} — this is your moisturizer',
+  singleCleanse:'removes step {cleanse2} — rinses clean on its own',
+  noOil:'removes step {cleanse1}',
+  deoSet:'adds step {deo_set} (3min set)',
+  retinoid:'adds step {drydown} (10min dry-down) · makes {spf} mandatory · warns {shave_body}, {shave_face}, {pm_moist}',
+  scented:'warns step {cologne} if cologne is on',
+  fluorideRinse:'warns steps {am_rinse} and {pm_rinse}',
+  noStyling:'removes steps {towel_hair}, {styling}, {styling_shape}',
+  noCologne:'removes step {cologne}',
+  noTreatment:'removes steps {drydown}, {treatment}',
+  noBodyLotion:'removes steps {am_lotion}, {pm_lotion}',
+  noSerum:'removes step {serum}',
+  harshShampoo:'warns step {shampoo}',
+  noFluoride:'warns step {am_brush}',
+  bleaches:'warns step {treatment}',
   nightAcid:'exfoliant at night'
 };
 function paintEffects(){
   SLOTS.forEach(s=>{
     const el=document.getElementById('eff-'+s.id), c=chosen(s.id);
-    const list=((c&&c.flags)||[]).map(f=>EFFECTS[f]).filter(Boolean);
+    const list=((c&&c.flags)||[]).map(f=>EFFECTS[f]).filter(Boolean).map(resolveRefs);
     if(c&&c.timer) list.unshift('timer '+fmt(c.timer));
     if(c&&c.dryTimer) list.unshift('timer '+fmt(c.dryTimer));
     el.textContent=list.length?'→ '+list.join('  ·  '):'';
@@ -1706,7 +1910,8 @@ function stepData(st){
     if(c&&c.dryTimer){ timer=c.dryTimer;
       note="Before the treatment goes on. Applying a retinoid to damp skin drives it in harder — the main reason people flame up and quit."; }
   }
-  const warns=(st.warns||[]).filter(w=>F.has(w.when)).map(w=>w.text);
+  const warns=(st.warns||[]).filter(w=>F.has(w.when)).map(w=>resolveRefs(w.text));
+  note=resolveRefs(note);
   const needsSetup = !!st.slot && !chosen(st.slot);
   return {hidden,label,note,timer,warns,needsSetup,mine};
 }
@@ -1780,16 +1985,16 @@ function buildRows(){
       const sec=document.createElement('section');
       sec.className='phase';
       const req=vis.filter(st=>!st.opt).length;
-      sec.innerHTML=`<div class="phead"><h2>${p.name}</h2><em>${vis[0].n}\u2013${vis[vis.length-1].n} \u00b7 ${req} core</em></div>`;
+      sec.innerHTML=`<div class="phead"><h2>${p.name}</h2><em>${numOf(vis[0].id)}\u2013${numOf(vis[vis.length-1].id)} \u00b7 ${req} core</em></div>`;
       p.steps.forEach(st=>{
         const d=stepData(st);
         const row=document.createElement('div');
-        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.n)?' off':'');
-        row.dataset.n=st.n;
+        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.id)?' off':'');
+        row.dataset.n=st.id;
         row.setAttribute('role','checkbox'); row.tabIndex=0;
         row.innerHTML=
           `<div class="sweep"></div>`+
-          `<div class="num">${st.n}</div>`+
+          `<div class="num">${numOf(st.id)}</div>`+
           `<div class="box">${CHECK}</div>`+
           `<div class="body"><div class="label">${d.label}${st.opt?'<span class="tag">optional</span>':''}</div>`+
           (d.note?`<div class="note">${d.note}${d.mine?'<span class="mine-note">Your note</span>':''}</div>`:'')+
@@ -1797,7 +2002,7 @@ function buildRows(){
           (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:'')+
           `</div>`+
           (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-          `<button class="skip" data-skip="${st.n}" title="Skip this item" aria-label="Skip this item">${isOff(st.n)?'undo':'skip'}</button>`;
+          `<button class="skip" data-skip="${st.id}" title="Skip this item" aria-label="Skip this item">${isOff(st.id)?'undo':'skip'}</button>`;
         sec.appendChild(row);
       });
       list.appendChild(sec);
@@ -1830,7 +2035,7 @@ const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
   && !(S.hideopt&&r.classList.contains('optional')));
 function coreIds(){
   const out=[];
-  PHASES.forEach(p=>p.steps.forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.n)) out.push(s.n); }));
+  PHASES.forEach(p=>p.steps.forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.id)) out.push(s.id); }));
   dueRoutines().forEach(r=>{ if(!r.opt && !isOff('r:'+r.id)) out.push('r:'+r.id); });
   return out;
 }
@@ -2080,6 +2285,7 @@ function syncAdopt(remote){
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  migrateIds(S);   /* the other device may still be on a pre-id-split build */
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
@@ -2215,6 +2421,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  migrateIds(S);   /* a backup written before the id split still holds numbers */
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
@@ -2227,7 +2434,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-b';
+const BUILD='2026.08.01-e';
 try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
