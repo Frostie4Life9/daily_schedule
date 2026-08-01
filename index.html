@@ -410,7 +410,8 @@ body.hideopt .step.optional{display:none;}
   <div class="foot">
     <b>Not in here on purpose.</b> Pillowcase, sheets, towel, nails, toothbrush, haircut, dentist — those stay in Microsoft To Do. They're calendar-shaped, and To Do already does them well.<br><br>
     <b>Timers.</b> The amber button starts the dwell. The row fills as it runs. A check says you shampooed; the timer says you left it on long enough.<br><br>
-    <b>Resets at midnight.</b> Streak counts days where every core step got checked.
+    <b>Resets at midnight.</b> Streak counts days where every core step got checked.<br>
+    <b>Build <span id="buildid">-</span>.</b> Two devices showing different builds means one is on a cached copy — hard-refresh it.
     <button class="reset" id="reset">Reset today</button>
     <button class="reset" id="backupbtn">Backup / restore</button>
     <div id="backup" style="display:none">
@@ -2010,10 +2011,20 @@ function syncSchedule(){
 function syncHeaders(c){
   return {'content-type':'application/json','x-sync-key':c.key};
 }
+/* Has this device changed anything the server has not seen? A device that
+   merely sat there is NOT a candidate to overwrite anyone. */
+function syncDirty(){ return (+S.mtime||0) !== (+S.syncedAt||0); }
+
 function syncPush(){
   const c=syncCfg(); if(!c.url) return Promise.resolve('off');
   if(syncInFlight){ syncSchedule(); return Promise.resolve('busy'); }
   syncInFlight=true; syncStatus('sync');
+  syncQuiet=true;
+  if(!S.mtime) S.mtime=Date.now();          /* older builds never set one */
+  S.syncedAt=+S.mtime||0;
+  try{ S.summary=summarize(); }catch(e){}
+  save(S);
+  syncQuiet=false;
   return fetch(c.url,{method:'PUT',headers:syncHeaders(c),body:JSON.stringify(S)})
     .then(r=>{
       if(!r.ok) throw new Error('HTTP '+r.status);
@@ -2029,8 +2040,12 @@ function syncAdopt(remote){
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
+  S.syncedAt=+S.mtime||0;
   save(S);
-  rebuild(); paintOpt();
+  const BUILD='2026.08.01-a';
+try{ document.getElementById('buildid').textContent=BUILD; }catch(e){}
+
+rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
     const sel=document.getElementById('sel-'+sl.id), inp=document.getElementById('in-'+sl.id);
@@ -2054,7 +2069,20 @@ function syncPull(){
       if(!remote||typeof remote!=='object'||!Array.isArray(remote.checked)){
         return syncPush().then(()=>'seeded');
       }
+      /* Clean device: nothing here to protect, so take the server's copy
+         whenever it differs. Compared by CONTENT, not by clock. Two machines
+         never agree on the time, and a state written by an older build has no
+         timestamp at all — both of those broke the previous rule. */
+      if(!syncDirty()){
+        if(JSON.stringify(remote)!==JSON.stringify(S)){
+          syncAdopt(remote); syncStatus('ok'); return 'pulled';
+        }
+        syncStatus('ok'); return 'same';
+      }
+
       const rt=+remote.mtime||0, lt=+S.mtime||0;
+
+      /* Genuine conflict: unsynced edits here AND a different copy there. */
       if(rt>lt){ syncAdopt(remote); syncStatus('ok'); return 'pulled'; }
       return syncPush().then(()=>'pushed');
     })
@@ -2109,11 +2137,13 @@ function syncPull(){
 
   /* Coming back to the app is the moment another device's changes matter. */
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible' && syncCfg().url) syncPull();
+    if(document.visibilityState==='visible' && syncCfg().url){
+      syncPull().then(r=>{ if(r==='pulled') toast('Updated from another device'); });
+    }
   });
 
   syncReady=true;
-  if(c.url) syncPull();
+  if(c.url) syncPull().then(r=>{ if(r==='pulled') toast('Updated from another device'); });
 })();
 
 const bkPanel=document.getElementById('backup');
