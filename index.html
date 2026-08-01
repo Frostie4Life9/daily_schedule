@@ -231,6 +231,13 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   letter-spacing:.18em;text-transform:uppercase;margin:0;}
 .phead em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:10px;
   color:var(--dimmer);margin-left:auto;font-variant-numeric:tabular-nums;}
+.pmode{display:flex;gap:4px;align-self:center;}
+.pmode button{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dimmer);padding:4px 8px;border-radius:5px;cursor:pointer;line-height:1.35;}
+.pmode button[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
+.pmode button:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.phase.collapsed .phead{border-bottom-style:dashed;margin-bottom:0;}
 
 .step{position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:12px;
   min-height:64px;padding:14px 12px 14px 10px;border-bottom:1px solid var(--line);
@@ -628,7 +635,13 @@ const PHASES = [
   {id:'breakfast', l:"Breakfast", opt:1, note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
   {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
  ]},
- {name:"The shower", big:1, steps:[
+ {name:"The shower", big:1,
+  toggle:{key:'washmode', def:'shower', options:[
+    {v:'shower', l:'Shower', name:"The shower"},
+    {v:'bath',   l:'Bath',   name:"The bath"}
+  ]},
+  variants:{
+   shower:[
   {id:'sh_temp', l:"Water warm, not hot", note:"Hot strips sebum. Direct contributor to itchy scalp and dry shins."},
   {id:'sh_wet', l:"Wet hair thoroughly", timer:45, note:"Dry hair doesn't lather."},
   {id:'shampoo', l:"Shampoo — scalp only", slot:'shampoo', warns:[
@@ -650,10 +663,38 @@ const PHASES = [
   {id:'sh_face', l:"Face last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
   {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
   {id:'cold_finish', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
- ]},
+ ],
+   bath:[
+  {id:'bath_pre', l:"Rinse off before you get in", note:"Thirty seconds under the shower head. Everything you don't rinse off now is what you spend the next fifteen minutes soaking in."},
+  {id:'bath_fill', l:"Fill it warm, not hot", note:"Warmer than a shower feels, and it matters more here. A shower is a few minutes of contact; a bath is fifteen, and hot water pulls barrier lipids the entire time. If your skin is pink when you stand up, it was too hot."},
+  {id:'bath_soak', l:"Soak", timer:900, note:"Ten to fifteen minutes. There's no benefit past that and there is a cost \u2014 pruney fingers are the skin waterlogged, and an over-hydrated barrier loses more moisture once you're out than it gained. The timer is the point of this step."},
+  {id:'shave_body', l:"Shave body hair", opt:1, note:"The one thing a bath does better than a shower. Fifteen minutes of soaking is far more softening than a shower ever gets, so this is the pass that doesn't irritate.", warns:[
+    {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
+  ]},
+  {id:'bodywash', l:"Wash body", slot:'bodywash', note:"Soap where it matters \u2014 pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen.", warns:[
+    {when:'exfoliant', text:"One exfoliant per wash and this is it \u2014 leave the scrubber out. Double exfoliation strips you, the skin reads as dry, you scrub harder, it gets worse."}
+  ]},
+  {id:'scrubber', sub:1, l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
+  {id:'bath_drain', l:"Pull the plug, stand up", note:"Hair comes after this, not before. Shampoo and conditioner runoff into water you're still sitting in defeats the whole sequence."},
+  {id:'shampoo', l:"Shampoo \u2014 scalp only", slot:'shampoo', warns:[
+    {when:'harshShampoo', text:"Rotation only \u2014 once or twice a week after a shift. Daily will strip your scalp and it'll overproduce oil to compensate, which is the problem you were trying to solve."}
+  ]},
+  {id:'shampoo_dwell', sub:1, l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
+  {id:'shampoo_rinse', sub:1, l:"Rinse shampoo", note:"Clean water from the shower head, not what's left in the tub."},
+  {id:'cond', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
+  {id:'cond_dwell', sub:1, l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
+  {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
+  {id:'bath_rinse', l:"Rinse yourself off clean", note:"The step people skip. Standing water leaves a film of soap, dead skin and whatever came off you \u2014 drying on its own and a genuine contributor to back acne. Thirty seconds of clean water fixes it."},
+  {id:'sh_face', l:"Face last", slot:'facecleanser', note:"At the sink or under the shower head with the heat down. Never with bathwater."},
+  {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
+  {id:'bath_moisturize', l:"Out and straight to the towel", note:"The three-minute window is tighter after a bath than a shower, because you're starting from a more waterlogged barrier. Pat dry and keep moving \u2014 the next phase is the whole return on this one."}
+   ]
+  }
+ },
  {name:"Out — the 3-minute window", steps:[
   {id:'am_patdry', l:"Pat dry, don't rub", note:"Leave yourself slightly damp. Damp skin is the whole point of what follows."},
   {id:'toes', sub:1, l:"Dry between every toe", note:"Individually. This is the entire athlete's foot protocol and it takes ten seconds."},
+  {id:'ears', l:"Ears \u2014 entrance only", note:"Microfiber over a fingertip, the outer ear and the bowl only. Nothing enters the canal \u2014 not the cloth, not a corner of it, not a swab. The canal migrates wax outward on its own; anything pushed in packs it against the eardrum instead, and impaction is the injury, not the wax. Softest right after the shower, which is why it sits here."},
   {id:'shave_face', l:"Shave face", opt:1, note:"Hair is softest right out of the shower. Oil → cream → with the grain → cold rinse → alcohol-free balm.", warns:[
     {when:'retinoid', text:"Don't shave on a night you're applying adapalene. Pick one."}
   ]},
@@ -669,11 +710,18 @@ const PHASES = [
   {id:'deo_set', sub:1, l:"Wait before the shirt", dwellOf:'deodorant', showIf:'deoSet'},
   {id:'footpowder', l:"Foot powder / antifungal", opt:1, note:"Especially before a shift. Closed shoes, hours on your feet."}
  ]},
- {name:"Grooming & dressing", steps:[
+ {name:"Hair styling",
+  toggle:{key:'hairmode', def:'off', options:[
+    {v:'on',  l:'Styling'},
+    {v:'off', l:'Not today', collapse:1}
+  ]},
+  steps:[
   {id:'towel_hair', l:"Towel-dry hair to damp", opt:1, hideIf:'noStyling', note:"Not wet, not dry."},
   {id:'leavein', l:"Leave-in / sea salt spray", opt:1, note:"For grip, if you're using one."},
   {id:'styling', l:"Styling product", slot:'styling', hideIf:'noStyling'},
   {id:'styling_shape', sub:1, l:"Shape it", hideIf:'noStyling', note:"Set it while it dries. Hands off once it's dry."},
+ ]},
+ {name:"Grooming & dressing", steps:[
   {id:'noseear', l:"Nose and ear hair", note:"Trim weekly-ish, check daily. Nobody tells you about this one."},
   {id:'brows', l:"Eyebrows", note:"Strays between and below only. Two seconds."},
   {id:'neck', l:"Neck strays", note:"If you're between cuts."},
@@ -693,6 +741,7 @@ const PHASES = [
  {name:"End of day", steps:[
   {id:'pm_clothes', l:"Change out of work clothes", note:"Straight into their own bag, separate from the rest of the laundry."},
   {id:'pm_wash', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you."},
+  {id:'bottle_rinse', l:"Rinse the Owala, lid open", note:"Empty it, hot water through the bottle and the straw, and leave every part apart on the rack overnight. Fifteen seconds, and it's what makes twice-weekly deep cleaning enough instead of underkill \u2014 the manufacturer and every food-safety source say daily. Mold grows in a sealed damp lid, not an open dry one."},
   {id:'cleanse1', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil'},
   {id:'cleanse2', sub:1, l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', note:"Now it can actually reach your skin."},
   {id:'pm_patdry', sub:1, l:"Pat dry"},
@@ -729,10 +778,37 @@ const PHASES = [
    product flag switching a step off leaves a gap rather than
    resequencing the rest of the day.
    ========================================================= */
-const NUM={};
-(function(){
+/* A phase can carry a toggle. Its options either pick a different step list
+   (shower vs bath) or collapse the phase away entirely (styling or not).
+   The chosen value lives in S.modes and syncs like everything else. */
+function modeOf(ph){
+  if(!ph.toggle) return null;
+  const m=(S&&S.modes)||{};
+  const v=m[ph.toggle.key];
+  return ph.toggle.options.some(o=>o.v===v) ? v : ph.toggle.def;
+}
+function modeOpt(ph){
+  if(!ph.toggle) return null;
+  const v=modeOf(ph);
+  return ph.toggle.options.find(o=>o.v===v)||ph.toggle.options[0];
+}
+function phaseName(ph){ const o=modeOpt(ph); return (o&&o.name)||ph.name; }
+/* Steps of the active variant. Collapsing does NOT empty this — a collapsed
+   phase still holds its numbers so that toggling styling on and off doesn't
+   resequence the rest of the day, and so cross-references to a collapsed step
+   still resolve. Rendering and counting use renderedSteps instead. */
+function variantSteps(ph){
+  if(ph.variants) return ph.variants[modeOf(ph)]||[];
+  return ph.steps||[];
+}
+function isCollapsed(ph){ const o=modeOpt(ph); return !!(o&&o.collapse); }
+function renderedSteps(ph){ return isCollapsed(ph) ? [] : variantSteps(ph); }
+
+let NUM={};
+function computeNums(){
+  NUM={};
   let main=0, letter=-1;
-  PHASES.forEach(p=>p.steps.forEach(st=>{
+  PHASES.forEach(p=>variantSteps(p).forEach(st=>{
     if(st.sub && main>0){
       letter++;
       NUM[st.id]=String(main).padStart(2,'0')+String.fromCharCode(97+letter);
@@ -741,7 +817,7 @@ const NUM={};
       NUM[st.id]=String(main).padStart(2,'0');
     }
   }));
-})();
+}
 /* Falls through to the raw key for routine rows ('r:tr_push'), which have no
    number of their own — same string the widget used to receive. */
 const numOf=id=>NUM[id]||id;
@@ -924,7 +1000,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=4;
+const DIGEST=5;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -967,7 +1043,7 @@ function summarize(){
     .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt}));
   return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, date:S.date,
-          next:next, routines:due};
+          modes:Object.assign({},S.modes||{}), next:next, routines:due};
 }
 const save=s=>{
   if(syncReady && !syncQuiet){
@@ -1005,6 +1081,8 @@ if(!S){ /* one-time migration from the previous key */
 }
 S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+S.modes=S.modes||{};
+computeNums();   /* summarize() needs numbers, and save() can fire during seeding */
 
 if(migrateIds(S)) save(S);
 if(!S.products) S.products={};
@@ -1718,6 +1796,8 @@ const ROUTINES=[
   note:"The highest-leverage skincare change nobody makes. You sleep hot, so oil and sweat load the fabric every night."},
  {id:'hh_sheets',  group:'Household', l:'Change sheets', sched:{everyDays:7},
   note:""},
+ {id:'hh_bottle',  group:'Household', l:'Deep clean the Owala', sched:{dow:[0,3]},
+  note:"Sunday and Wednesday, alongside the prep \u2014 you're already at the sink. Lid off, straw out, and pop the spout gasket off with its pull tab; that gasket is the part that grows things, and rinsing the bottle without removing it accomplishes nothing. Straw brush through the straw, sponge or brush into the lid nooks. Everything air dries fully before it goes back together, and the bottle stores with the lid open. Lid and straw are top-rack dishwasher safe, gasket in the utensil basket. Stubborn buildup: soak the parts in white vinegar first."},
  {id:'hh_towel',   group:'Household', l:'Swap bath towel', sched:{everyDays:3},
   note:"Damp fabric in a warm room. Three days is the outside limit."},
  {id:'hh_trash',   group:'Household', l:'Trash out', sched:{everyDays:3},
@@ -1942,6 +2022,16 @@ function linkBtn(id){
     `title="${esc(lk.name)}" aria-label="${esc(lk.name)}">${LINKICON}<span>${esc(lk.name)}</span></a>`;
 }
 
+/* Rendered into the phase header. Delegated click handler is attached once,
+   below, because buildRows() replaces this markup on every repaint. */
+function modeBtns(ph){
+  if(!ph.toggle) return '';
+  const cur=modeOf(ph);
+  return `<span class="pmode">`+ph.toggle.options.map(o=>
+    `<button type="button" data-mode-key="${esc(ph.toggle.key)}" data-mode-val="${esc(o.v)}" `+
+    `aria-pressed="${o.v===cur}">${esc(o.l)}</button>`).join('')+`</span>`;
+}
+
 function buildRows(){
   list.innerHTML='';
   const due=dueRoutines();
@@ -1980,13 +2070,18 @@ function buildRows(){
 
   const placed=[];
   PHASES.forEach((p,pi)=>{
-    const vis=p.steps.filter(st=>!stepData(st).hidden);
-    if(vis.length){
+    const active=renderedSteps(p);
+    const vis=active.filter(st=>!stepData(st).hidden);
+    const collapsed=isCollapsed(p);
+    if(vis.length || collapsed){
       const sec=document.createElement('section');
-      sec.className='phase';
+      sec.className='phase'+(collapsed?' collapsed':'');
       const req=vis.filter(st=>!st.opt).length;
-      sec.innerHTML=`<div class="phead"><h2>${p.name}</h2><em>${numOf(vis[0].id)}\u2013${numOf(vis[vis.length-1].id)} \u00b7 ${req} core</em></div>`;
-      p.steps.forEach(st=>{
+      const meta=collapsed
+        ? 'skipped today'
+        : `${numOf(vis[0].id)}\u2013${numOf(vis[vis.length-1].id)} \u00b7 ${req} core`;
+      sec.innerHTML=`<div class="phead"><h2>${esc(phaseName(p))}</h2>${modeBtns(p)}<em>${meta}</em></div>`;
+      active.forEach(st=>{
         const d=stepData(st);
         const row=document.createElement('div');
         row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.id)?' off':'');
@@ -2025,6 +2120,15 @@ function buildRows(){
   wireRows();
 }
 
+list.addEventListener('click',e=>{
+  const b=e.target.closest('[data-mode-key]'); if(!b) return;
+  e.stopPropagation();
+  S.modes=S.modes||{};
+  if(S.modes[b.dataset.modeKey]===b.dataset.modeVal) return;
+  S.modes[b.dataset.modeKey]=b.dataset.modeVal;
+  save(S); rebuild();
+});
+
 const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
 document.getElementById('daylabel').textContent='/ '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
@@ -2035,7 +2139,7 @@ const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
   && !(S.hideopt&&r.classList.contains('optional')));
 function coreIds(){
   const out=[];
-  PHASES.forEach(p=>p.steps.forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.id)) out.push(s.id); }));
+  PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.id)) out.push(s.id); }));
   dueRoutines().forEach(r=>{ if(!r.opt && !isOff('r:'+r.id)) out.push('r:'+r.id); });
   return out;
 }
@@ -2144,7 +2248,7 @@ function wireRows(){
   });
 }
 
-function rebuild(){ buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); }
+function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); }
 
 const optbtn=document.getElementById('optbtn');
 function paintOpt(){
@@ -2284,7 +2388,7 @@ function syncAdopt(remote){
   S=remote;
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
-  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{};
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
@@ -2420,7 +2524,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S=o;
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
-  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{};
   migrateIds(S);   /* a backup written before the id split still holds numbers */
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
@@ -2434,7 +2538,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-e';
+const BUILD='2026.08.01-g';
 try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
