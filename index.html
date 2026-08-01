@@ -723,7 +723,24 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=2;
+const DIGEST=3;
+
+/* A row's visible text minus the "optional" chip, keeping the product name
+   so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
+function rowLabel(r){
+  const l=r.querySelector('.label'); if(!l) return '';
+  let t='';
+  l.childNodes.forEach(n=>{
+    if(n.nodeType===3) t+=n.textContent;
+    else if(n.classList && !n.classList.contains('tag')) t+=n.textContent;
+  });
+  return t.replace(/\s+/g,' ').trim();
+}
+function rowPhase(r){
+  const p=r.closest('.phase'), h=p&&p.querySelector('.phead h2');
+  return h?h.textContent.trim():'';
+}
+
 function summarize(){
   /* Count exactly what the header counts — visible rows, honouring skips and
      the optional-steps toggle. An earlier version counted core steps only,
@@ -731,17 +748,30 @@ function summarize(){
      both looked broken. */
   const ids=visibleRows().map(r=>r.dataset.n);
   const done=ids.filter(x=>S.checked.indexOf(x)>-1).length;
+  /* What to do next, in the order the day actually runs. This is the thing
+     the widget is for — the first few unchecked rows, wherever they fall. */
+  const next=visibleRows()
+    .filter(r=>S.checked.indexOf(r.dataset.n)===-1)
+    .slice(0,9)
+    .map(r=>({
+      n:r.dataset.n,
+      l:rowLabel(r),
+      phase:rowPhase(r),
+      opt:r.classList.contains('optional')
+    }));
   const due=dueRoutines()
     .filter(r=>!isOff('r:'+r.id))
     .filter(r=>!(S.hideopt&&r.opt))
-    .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))     /* core first, optional after */
+    .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt}));
-  return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, date:S.date, routines:due};
+  return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, date:S.date,
+          next:next, routines:due};
 }
 const save=s=>{
   if(syncReady && !syncQuiet){
     s.mtime=Date.now();
-    try{ s.summary=summarize(); }catch(e){}
+    try{ s.summary=summarize(); delete s.summaryError; }
+    catch(e){ s.summaryError=String((e&&e.message)||e); }
   }
   try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){mem=s;}
   if(!syncQuiet) syncSchedule();
@@ -2032,7 +2062,8 @@ function syncPush(){
   syncQuiet=true;
   if(!S.mtime) S.mtime=Date.now();          /* older builds never set one */
   S.syncedAt=+S.mtime||0;
-  try{ S.summary=summarize(); }catch(e){}
+  try{ S.summary=summarize(); delete S.summaryError; }
+  catch(e){ S.summaryError=String((e&&e.message)||e); }
   save(S);
   syncQuiet=false;
   return fetch(c.url,{method:'PUT',headers:syncHeaders(c),body:JSON.stringify(S)})
@@ -2196,8 +2227,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-a';
-try{ document.getElementById('buildid').textContent=BUILD; }catch(e){}
+const BUILD='2026.08.01-b';
+try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
 </script>
