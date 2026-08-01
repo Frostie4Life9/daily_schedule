@@ -415,7 +415,7 @@ body.hideopt .step.optional{display:none;}
     <button class="reset" id="reset">Reset today</button>
     <button class="reset" id="backupbtn">Backup / restore</button>
     <div id="backup" style="display:none">
-      <p>Everything this file knows about you \u2014 checks, streak, schedules, products, prices, links \u2014 as one block of text. Copy it somewhere safe before you move to a new copy of the file, then paste it back in here and hit Restore.</p>
+      <p>Everything this file knows about you — checks, streak, schedules, products, prices, links — as one block of text. Copy it somewhere safe before you move to a new copy of the file, then paste it back in here and hit Restore.</p>
       <textarea id="bkarea" rows="4" spellcheck="false" placeholder="Paste a backup here to restore it"></textarea>
       <button class="reset" id="bkcopy">Copy backup</button>
       <button class="reset" id="bkrestore">Restore from box</button>
@@ -2042,9 +2042,6 @@ function syncAdopt(remote){
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
-  const BUILD='2026.08.01-a';
-try{ document.getElementById('buildid').textContent=BUILD; }catch(e){}
-
 rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
@@ -2185,6 +2182,9 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   });
   toast('Restored');
 });
+
+const BUILD='2026.08.01-a';
+try{ document.getElementById('buildid').textContent=BUILD; }catch(e){}
 
 rebuild(); paintOpt();
 </script>
