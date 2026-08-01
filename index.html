@@ -721,12 +721,18 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
    or a schedule rule is, and duplicating that logic there would drift the
    moment anything changes here. Compute it once, at the source. */
 function summarize(){
-  const core=coreIds();
-  const done=core.filter(x=>S.checked.indexOf(x)>-1).length;
+  /* Count exactly what the header counts — visible rows, honouring skips and
+     the optional-steps toggle. An earlier version counted core steps only,
+     so the widget and the app disagreed by the number of optional items and
+     both looked broken. */
+  const ids=visibleRows().map(r=>r.dataset.n);
+  const done=ids.filter(x=>S.checked.indexOf(x)>-1).length;
   const due=dueRoutines()
     .filter(r=>!isOff('r:'+r.id))
+    .filter(r=>!(S.hideopt&&r.opt))
+    .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))     /* core first, optional after */
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt}));
-  return {done:done, total:core.length, streak:S.streak||0, date:S.date, routines:due};
+  return {done:done, total:ids.length, streak:S.streak||0, date:S.date, routines:due};
 }
 const save=s=>{
   if(syncReady && !syncQuiet){
