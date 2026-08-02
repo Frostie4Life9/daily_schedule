@@ -1194,18 +1194,26 @@ const LINKDEFAULTS={
      pre-fill it with ?entry=text and ?tags=a,b if you ever want a template. */
   journal:{url:'dayone://post', name:'Day One', app:false}
 };
-S.linkSeeded=S.linkSeeded||[];
-let linkSeededNew=0;
-Object.keys(LINKDEFAULTS).forEach(k=>{
-  if(S.linkSeeded.indexOf(k)===-1){
-    if(!S.links[k] || !S.links[k].url){
-      S.links[k]=JSON.parse(JSON.stringify(LINKDEFAULTS[k]));
-      linkSeededNew++;
+/* Seeding has to be a FUNCTION, not a one-shot block at load. Sync adoption and
+   backup restore both replace S wholesale, and a state written by an older build
+   has no record of links added since — but the load-time seeding has already
+   run by then and never runs again. That is how a phone that pulled from the
+   Worker ended up with no Day One button while the desktop had one. */
+function seedLinks(){
+  S.links=S.links||{}; S.linkSeeded=S.linkSeeded||[];
+  let n=0;
+  Object.keys(LINKDEFAULTS).forEach(k=>{
+    if(S.linkSeeded.indexOf(k)===-1){
+      if(!S.links[k] || !S.links[k].url){
+        S.links[k]=JSON.parse(JSON.stringify(LINKDEFAULTS[k]));
+        n++;
+      }
+      S.linkSeeded.push(k);
     }
-    S.linkSeeded.push(k);
-  }
-});
-if(linkSeededNew) save(S);
+  });
+  return n;
+}
+if(seedLinks()) save(S);
 
 /* Turning the day over. Also runs when the app is brought back to the front,
    because a page left open past midnight otherwise keeps reporting yesterday. */
@@ -1466,7 +1474,11 @@ document.addEventListener('click',e=>{
   const lx=e.target.closest('[data-lclear]');
   if(lx){
     const id=lx.dataset.lclear;
-    if(S.links) delete S.links[id];
+    /* deleting the key would read as "never set" and the default would come
+       straight back on the next paint */
+    S.links=S.links||{}; S.links[id]={url:'',name:'',app:false};
+    S.linkSeeded=S.linkSeeded||[];
+    if(S.linkSeeded.indexOf(id)===-1) S.linkSeeded.push(id);
     save(S); buildRows(); paintSchedule(); paint(); return;
   }
   const rr=e.target.closest('[data-rreset]');
@@ -2254,7 +2266,11 @@ function stepData(st){
    ========================================================= */
 const LINKICON='<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
 function linkOf(id){
-  const l=(S.links&&S.links[id])||null;
+  /* An ABSENT record falls back to the file default; an EMPTY record does not.
+     That distinction is what lets Clear actually clear something, while still
+     making the button appear on a device whose state arrived from elsewhere. */
+  let l=(S.links&&S.links[id]);
+  if(!l && LINKDEFAULTS[id]) l=LINKDEFAULTS[id];
   if(!l||!l.url||!String(l.url).trim()) return null;
   let base=String(l.url).trim();
   if(!/^[a-z][a-z0-9+.-]*:/i.test(base)) base='https://'+base;
@@ -2777,6 +2793,7 @@ function syncAdopt(remote){
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
+  seedLinks();     /* ...and may predate links this build ships with */
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
@@ -2935,6 +2952,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
   migrateIds(S);   /* a backup written before the id split still holds numbers */
+  seedLinks();     /* and predates any link default added since it was written */
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
