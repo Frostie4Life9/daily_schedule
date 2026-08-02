@@ -224,6 +224,26 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   font-family:'JetBrains Mono',monospace;line-height:1.5;display:none;}
 .slot .eff.on{display:block;}
 
+.late{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:2px 6px;border-radius:3px;margin-left:8px;
+  vertical-align:1px;white-space:nowrap;cursor:pointer;
+  border:1px solid var(--warn,#c98a3a);color:var(--warn,#c98a3a);background:transparent;}
+.late:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.step.slipped .num{color:var(--warn,#c98a3a);}
+.resched{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+.resched[hidden]{display:none;}
+.rdate{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--ground);
+  border:1px solid var(--line);color:var(--ink);padding:6px 8px;border-radius:5px;}
+.rgo{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dim);padding:6px 10px;border-radius:5px;cursor:pointer;}
+#addpanel{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 0 4px;}
+#addtext{flex:1 1 220px;font-size:14px;background:var(--panel);border:1px solid var(--line);
+  color:var(--ink);padding:10px 12px;border-radius:6px;}
+#adddate{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--panel);
+  border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:6px;}
+.addnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--dimmer);margin:2px 0 0;}
+#star{color:var(--warn,#c98a3a);font-size:13px;margin-left:5px;vertical-align:2px;}
 .phase{margin:30px 0 0;}
 .phead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px;
   border-bottom:1px solid var(--line);margin-bottom:2px;}
@@ -398,7 +418,8 @@ body.hideopt .step.optional{display:none;}
     <h1 class="title">Daily Protocol <span id="daylabel"></span></h1>
     <div class="hstats">
       <div class="stat count"><b id="cnum">0/0</b><i>Done</i></div>
-      <div class="stat streak"><b id="snum">0</b><i>Day streak</i></div>
+      <div class="stat extra"><b id="xnum">0/0</b><i>Extras</i></div>
+      <div class="stat streak"><b id="snum">0</b><span id="star" style="display:none" title="Protocol and extras, all clear">\u2605</span><i>Day streak</i></div>
     </div>
   </div>
   <div class="bar"><div id="prog"></div></div>
@@ -410,6 +431,14 @@ body.hideopt .step.optional{display:none;}
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="jump">Jump to next unchecked</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
+    <button class="ctl" id="addbtn">+ One-off task</button>
+  </div>
+  <div id="addpanel" style="display:none">
+    <input id="addtext" type="text" placeholder="Something to get done" autocomplete="off">
+    <input id="adddate" type="date">
+    <button class="ctl" id="addgo">Add</button>
+    <p class="addnote">Sits with your routines, counts in Extras, and never touches the streak.
+      If you don't finish it, it moves itself to tomorrow and picks up a <b>late</b> tag — tap that to move it somewhere else.</p>
   </div>
 
   <main id="list"></main>
@@ -1000,7 +1029,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=5;
+const DIGEST=6;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -1023,8 +1052,10 @@ function summarize(){
      the optional-steps toggle. An earlier version counted core steps only,
      so the widget and the app disagreed by the number of optional items and
      both looked broken. */
-  const ids=visibleRows().map(r=>r.dataset.n);
+  const ids=dailyRows().map(r=>r.dataset.n);
   const done=ids.filter(x=>S.checked.indexOf(x)>-1).length;
+  const xids=extraRows().map(r=>r.dataset.n);
+  const xdone=xids.filter(x=>S.checked.indexOf(x)>-1).length;
   /* What to do next, in the order the day actually runs. This is the thing
      the widget is for — the first few unchecked rows, wherever they fall. */
   const next=visibleRows()
@@ -1041,8 +1072,12 @@ function summarize(){
     .filter(r=>!isOff('r:'+r.id))
     .filter(r=>!(S.hideopt&&r.opt))
     .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
-    .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt}));
+    .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
+    .concat(customToday().map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
+                                   opt:false, late:customState(c).late, custom:true})));
   return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, date:S.date,
+          extras:{done:xdone, total:xids.length},
+          star: !!(ids.length && done===ids.length && xdone===xids.length),
           modes:Object.assign({},S.modes||{}), next:next, routines:due};
 }
 const save=s=>{
@@ -1081,7 +1116,11 @@ if(!S){ /* one-time migration from the previous key */
 }
 S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
-S.modes=S.modes||{};
+S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
+/* Carry-over needs a starting line. Without one a fresh copy of the file reads
+   every past occurrence in the schedule as missed and opens with a wall of late
+   tags. Nothing before the day you first ran this can be late. */
+S.since=S.since||today();
 computeNums();   /* summarize() needs numbers, and save() can fire during seeding */
 
 if(migrateIds(S)) save(S);
@@ -1668,7 +1707,87 @@ function statusLabel(r){
   if(over>=0) return ds+'d ago \u00b7 due'+(over>0?' (+'+over+'d)':'');
   return ds+'d ago \u00b7 in '+(-over)+'d';
 }
-function dueRoutines(){ return ROUTINES.filter(dueToday); }
+/* =========================================================
+   CARRY-OVER — an unfinished item stays on the list until it
+   is done or explicitly moved. This never edits the schedule:
+   Legs is still a Saturday item on the Tuesday you finally do
+   it, and the next Saturday comes as normal. The slip is state,
+   not a change of plan, which is why it lives in rlog/defer and
+   not in S.sched.
+   ========================================================= */
+const isoOf=d=>d.toLocaleDateString('en-CA');
+const dayOf=iso=>new Date(iso+'T00:00:00');
+const prettyDay=iso=>dayOf(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+/* Most recent scheduled weekday on or before a date. */
+function lastDowOn(sc,fromISO){
+  if(!sc.dow||!sc.dow.length) return null;
+  const d=dayOf(fromISO);
+  for(let i=0;i<14;i++){
+    if(sc.dow.indexOf(d.getDay())>-1) return isoOf(d);
+    d.setDate(d.getDate()-1);
+  }
+  return null;
+}
+function doneOn(id){ const v=S.rlog&&S.rlog[id]; return v?isoOf(new Date(v)):null; }
+function deferOf(id){ return (S.defer&&S.defer[id])||null; }
+
+/* {due, late, from} — from is the day it was supposed to happen. */
+function routineState(r){
+  const sc=schedOf(r), t=today(), df=deferOf(r.id);
+  if(df && df>t) return {due:false, late:false, from:null};
+  let from=null;
+  if(sc.mode==='dow'){
+    from=lastDowOn(sc,t);
+    if(!from) return {due:false, late:false, from:null};
+    if(from!==t){
+      /* a slipped occurrence: drops off once it's done, and only carries at all
+         if it was missed after carry-over started tracking (see S.since) */
+      if(S.since && from<S.since) return {due:false, late:false, from:null};
+      const d=doneOn(r.id);
+      if(d && d>=from) return {due:false, late:false, from:null};
+    }
+    /* scheduled today stays on the list after checking, like every other row */
+  } else {
+    /* interval and anchored items already persist until done */
+    if(!dueToday(r)) return {due:false, late:false, from:null};
+    const ls=sc.anchor?lastScheduled(sc):null;
+    from=ls?isoOf(ls):null;
+  }
+  const ref=df||from;
+  return {due:true, late: ref ? ref<t : false, from:ref};
+}
+function dueRoutines(){ return ROUTINES.filter(r=>routineState(r).due); }
+
+/* =========================================================
+   CUSTOM TASKS — one-offs you add to a day. Completion is
+   stored on the task itself, not in S.checked, because
+   S.checked is wiped at midnight and these have to outlive it.
+   ========================================================= */
+function customToday(){
+  const t=today();
+  return (S.custom||[]).filter(c=>!c.done && c.date<=t)
+    .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
+}
+function customState(c){ return {due:true, late:c.date<today(), from:c.date}; }
+function addCustom(label,date){
+  S.custom=S.custom||[];
+  S.custom.push({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+                 l:label, date:date||today(), done:null});
+  save(S);
+}
+
+function lateChip(key,from){
+  const d=from?prettyDay(from):'';
+  return `<button class="late" data-late="${esc(key)}" `+
+    `title="Was due ${esc(d)} \u2014 tap to move it">late${d?' \u00b7 '+esc(d):''}</button>`;
+}
+function reschedPanel(key,from){
+  return `<div class="resched" hidden>`+
+    `<input type="date" class="rdate" value="${esc(today())}">`+
+    `<button class="rgo" data-move="${esc(key)}">Move</button>`+
+    `<button class="rgo" data-rcancel="1">Cancel</button></div>`;
+}
 
 /* ---------------- steps ---------------- */
 const list=document.getElementById('list');
@@ -1759,14 +1878,14 @@ const GLOSSARY=[
      {monthDay:n}       the nth of the month
    Anything here only appears in the list on the day it's due.
    ========================================================= */
-/* Where each group renders in the day. afterPhase = index of the daily phase
-   it follows; null = after everything. */
+/* Anchored by phase NAME, not index — same reason step ids are permanent.
+   Matches the phase's base name, so the shower/bath toggle can't detach it. */
 const GROUPS={
- 'Training':                {afterPhase:0},
- 'Food':                    {afterPhase:null},
- 'Household':               {afterPhase:null},
- 'Grooming \u2014 non-daily':{afterPhase:null},
- 'Admin':                   {afterPhase:null}
+ 'Training':                {after:'Morning \u2014 before the shower'},
+ 'Food':                    {after:null},
+ 'Household':               {after:null},
+ 'Grooming \u2014 non-daily':{after:null},
+ 'Admin':                   {after:null}
 };
 
 const ROUTINES=[
@@ -2044,21 +2163,23 @@ function buildRows(){
     const req=items.filter(r=>!r.opt).length;
     sec.innerHTML=`<div class="phead"><h2>${esc(g)}</h2><em>today \u00b7 ${req} core</em></div>`;
     items.forEach((r,ri)=>{
-      const st=statusLabel(r), sl=schedLabel(r);
+      const st=statusLabel(r), sl=schedLabel(r), state=routineState(r);
       const row=document.createElement('div');
-      row.className='step routine'+(r.opt?' optional':'')+(isOff('r:'+r.id)?' off':'');
+      row.className='step routine extra'+(r.opt?' optional':'')+(isOff('r:'+r.id)?' off':'')+(state.late?' slipped':'');
       row.dataset.n='r:'+r.id;
       row.setAttribute('role','checkbox'); row.tabIndex=0;
       row.innerHTML=
         `<div class="sweep"></div>`+
         `<div class="num">${String(ri+1).padStart(2,'0')}</div>`+
         `<div class="box">${CHECK}</div>`+
-        `<div class="body"><div class="label">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</div>`+
+        `<div class="body"><div class="label">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}`+
+          (state.late?lateChip('r:'+r.id,state.from):'')+`</div>`+
           (sl||st?`<div class="meta">`+
             (sl?`<span class="sched">${esc(sl)}</span>`:'')+
-            (st?`<span class="rstat${dueToday(r)?'':' ok'}">${esc(st)}</span>`:'')+
+            (st?`<span class="rstat${state.late?'':' ok'}">${esc(st)}</span>`:'')+
           `</div>`:'')+
           (r.note?`<div class="note">${r.note}</div>`:'')+
+          reschedPanel('r:'+r.id,state.from)+
         `</div>`+
         linkBtn(r.id)+
         (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
@@ -2104,15 +2225,43 @@ function buildRows(){
     }
     /* any group anchored to this phase renders immediately after it */
     Object.keys(GROUPS).forEach(g=>{
-      if(GROUPS[g].afterPhase===pi){
+      if(GROUPS[g].after===p.name){
         const gs=groupSection(g); if(gs){ list.appendChild(gs); placed.push(g); }
       }
     });
   });
 
+  /* one-offs last — what you added to today, not part of the protocol */
+  (function(){
+    const cs=customToday(); if(!cs.length) return;
+    const sec=document.createElement('section'); sec.className='phase';
+    const lateN=cs.filter(c=>customState(c).late).length;
+    sec.innerHTML=`<div class="phead"><h2>One-offs</h2>`+
+      `<em>${cs.length} open${lateN?' \u00b7 '+lateN+' late':''}</em></div>`;
+    cs.forEach((c,ci)=>{
+      const state=customState(c), key='c:'+c.id;
+      const row=document.createElement('div');
+      row.className='step routine extra custom'+(isOff(key)?' off':'')+(state.late?' slipped':'');
+      row.dataset.n=key;
+      row.setAttribute('role','checkbox'); row.tabIndex=0;
+      row.innerHTML=
+        `<div class="sweep"></div>`+
+        `<div class="num">${String(ci+1).padStart(2,'0')}</div>`+
+        `<div class="box">${CHECK}</div>`+
+        `<div class="body"><div class="label">${esc(c.l)}`+
+          (state.late?lateChip(key,state.from):'')+`</div>`+
+          `<div class="meta"><span class="sched">added for ${esc(prettyDay(c.date))}</span></div>`+
+          reschedPanel(key,state.from)+
+        `</div>`+
+        `<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`;
+      sec.appendChild(row);
+    });
+    list.appendChild(sec);
+  })();
+
   /* everything not anchored goes at the end, in GROUPS order */
   Object.keys(GROUPS).forEach(g=>{
-    if(GROUPS[g].afterPhase===null && placed.indexOf(g)===-1){
+    if(GROUPS[g].after===null && placed.indexOf(g)===-1){
       const gs=groupSection(g); if(gs) list.appendChild(gs);
     }
   });
@@ -2121,6 +2270,34 @@ function buildRows(){
 }
 
 list.addEventListener('click',e=>{
+  const lb=e.target.closest('[data-late]');
+  if(lb){
+    const pan=lb.closest('.step').querySelector('.resched');
+    if(pan){ pan.hidden=!pan.hidden; if(!pan.hidden) pan.querySelector('.rdate').focus(); }
+    return;
+  }
+  if(e.target.closest('[data-rcancel]')){ e.target.closest('.resched').hidden=true; return; }
+  const mv=e.target.closest('[data-move]');
+  if(mv){
+    const key=mv.dataset.move, v=mv.closest('.resched').querySelector('.rdate').value;
+    if(!v){ toast('Pick a date first'); return; }
+    if(key.indexOf('c:')===0){
+      const c=(S.custom||[]).find(x=>x.id===key.slice(2)); if(c) c.date=v;
+    } else {
+      S.defer=S.defer||{}; S.defer[key.slice(2)]=v;
+    }
+    save(S); rebuild();
+    toast(v===today()?'Moved to today':'Moved to '+prettyDay(v));
+    return;
+  }
+  const dp=e.target.closest('[data-drop]');
+  if(dp){
+    const id=dp.dataset.drop;
+    S.custom=(S.custom||[]).filter(x=>x.id!==id);
+    const k='c:'+id, ci=S.checked.indexOf(k); if(ci>-1) S.checked.splice(ci,1);
+    save(S); rebuild(); toast('Deleted');
+    return;
+  }
   const b=e.target.closest('[data-mode-key]'); if(!b) return;
   e.stopPropagation();
   S.modes=S.modes||{};
@@ -2130,6 +2307,7 @@ list.addEventListener('click',e=>{
 });
 
 const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
+const xnum=document.getElementById('xnum'), star=document.getElementById('star');
 document.getElementById('daylabel').textContent='/ '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
 const isOff=id=>S.off.indexOf(id)>-1;
@@ -2137,30 +2315,46 @@ const allRows=()=>[...document.querySelectorAll('.step')];
 const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
   && !r.classList.contains('off')
   && !(S.hideopt&&r.classList.contains('optional')));
+/* Streak is the daily protocol only. Routines and one-offs are real work but
+   they are not the day — a Saturday legs session you push to Sunday should not
+   cost you a streak you otherwise earned. They get their own counter instead. */
 function coreIds(){
   const out=[];
   PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.id)) out.push(s.id); }));
-  dueRoutines().forEach(r=>{ if(!r.opt && !isOff('r:'+r.id)) out.push('r:'+r.id); });
   return out;
 }
+const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra'));
+const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra'));
 function paint(){
   allRows().forEach(r=>{
     const on=S.checked.includes(r.dataset.n);
     r.classList.toggle('done',on);
     r.setAttribute('aria-checked',on);
   });
-  const vis=visibleRows();
-  const done=vis.filter(r=>r.classList.contains('done')).length;
-  cnum.textContent=`${done}/${vis.length}`;
-  prog.style.width=(vis.length?done/vis.length*100:0)+'%';
+  const day=dailyRows(), ex=extraRows();
+  const dd=day.filter(r=>r.classList.contains('done')).length;
+  const xd=ex.filter(r=>r.classList.contains('done')).length;
+  cnum.textContent=`${dd}/${day.length}`;
+  xnum.textContent=`${xd}/${ex.length}`;
+  prog.style.width=(day.length?dd/day.length*100:0)+'%';
   snum.textContent=S.streak;
+  /* the star is for clearing the board — protocol and everything else */
+  const clean = day.length && dd===day.length && xd===ex.length;
+  star.style.display = clean ? 'inline' : 'none';
 }
 function toggle(row){
   const n=row.dataset.n, i=S.checked.indexOf(n);
   if(i>-1)S.checked.splice(i,1); else S.checked.push(n);
+  if(n.indexOf('c:')===0){
+    const c=(S.custom||[]).find(x=>x.id===n.slice(2));
+    if(c) c.done = i>-1 ? null : today();
+    save(S); paint(); return;
+  }
   if(n.indexOf('r:')===0){
     const id=n.slice(2); S.rlog=S.rlog||{};
-    if(i>-1) delete S.rlog[id]; else S.rlog[id]=new Date().toISOString();
+    if(i>-1) delete S.rlog[id];
+    else { S.rlog[id]=new Date().toISOString();
+           if(S.defer) delete S.defer[id]; }   /* doing it settles any deferral */
     save(S); buildRows(); paintSchedule(); paint(); return;
   }
   const core=coreIds();
@@ -2192,6 +2386,8 @@ function wireRows(){
   allRows().forEach(r=>{
     r.addEventListener('click',e=>{
       if(e.target.closest('.timer'))return;
+      /* let the delegated handler below deal with these; do NOT stop the event */
+      if(e.target.closest('[data-late]')||e.target.closest('.resched')||e.target.closest('[data-drop]'))return;
       if(e.target.closest('.golink')){e.stopPropagation();return;}
       const sk=e.target.closest('[data-skip]');
       if(sk){
@@ -2388,7 +2584,7 @@ function syncAdopt(remote){
   S=remote;
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
-  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
@@ -2497,6 +2693,24 @@ function syncPull(){
   });
 })();
 
+const addPanel=document.getElementById('addpanel');
+const addText=document.getElementById('addtext'), addDate=document.getElementById('adddate');
+document.getElementById('addbtn').addEventListener('click',()=>{
+  const open=addPanel.style.display==='none';
+  addPanel.style.display=open?'flex':'none';
+  if(open){ addDate.value=today(); addText.value=''; addText.focus(); }
+});
+function submitCustom(){
+  const v=addText.value.trim();
+  if(!v){ toast('Give it a name first'); return; }
+  addCustom(v, addDate.value||today());
+  addText.value=''; addText.focus();
+  rebuild();
+  toast('Added');
+}
+document.getElementById('addgo').addEventListener('click',submitCustom);
+addText.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); submitCustom(); }});
+
 const bkPanel=document.getElementById('backup');
 document.getElementById('backupbtn').addEventListener('click',()=>{
   const open=bkPanel.style.display==='none';
@@ -2524,7 +2738,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S=o;
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
-  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{};
+  S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
   migrateIds(S);   /* a backup written before the id split still holds numbers */
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
@@ -2538,7 +2752,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-g';
+const BUILD='2026.08.01-h';
 try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
