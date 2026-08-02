@@ -224,6 +224,10 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   font-family:'JetBrains Mono',monospace;line-height:1.5;display:none;}
 .slot .eff.on{display:block;}
 
+.addlink{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;background:transparent;border:1px dashed var(--line);
+  color:var(--dimmer);padding:5px 9px;border-radius:5px;cursor:pointer;}
+.addlink:hover{color:var(--dim);}
 .late{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
   text-transform:uppercase;padding:2px 6px;border-radius:3px;margin-left:8px;
   vertical-align:1px;white-space:nowrap;cursor:pointer;
@@ -400,12 +404,13 @@ body.hideopt .step.optional{display:none;}
   font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
   text-transform:uppercase;padding:8px 12px;border-radius:6px;cursor:pointer;}
 
-#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,calc(100% + 24px));
   background:var(--live);color:#1A0D11;font-family:'JetBrains Mono',monospace;
   font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-  padding:12px 18px;border-radius:8px;z-index:99;
-  transition:transform .28s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 30px rgba(0,0,0,.5);}
-#toast.up{transform:translate(-50%,0);}
+  padding:12px 18px;border-radius:8px;z-index:99;opacity:0;pointer-events:none;
+  transition:transform .28s cubic-bezier(.2,.9,.3,1.2),opacity .18s ease;
+  box-shadow:0 8px 30px rgba(0,0,0,.5);}
+#toast.up{transform:translate(-50%,0);opacity:1;}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 @media (max-width:420px){.label{font-size:15px;}.note{font-size:12px;}}
@@ -535,7 +540,7 @@ body.hideopt .step.optional{display:none;}
   </section>
 </div>
 
-<div id="toast">Time</div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* =========================================================
@@ -782,7 +787,6 @@ const PHASES = [
     {when:'retinoid', text:"If the adapalene is irritating you, moisturize BEFORE it as well as after. Buffering doesn't kill the effect — quitting does."}
   ]},
   {id:'pm_lotion', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"If the exfoliant is drying you out."},
-  {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters."},
   {id:'pm_floss', l:"Floss", slot:'floss', note:"If one thing survives a bad day, it's this."},
   {id:'pm_rinse', l:"Mouthwash", slot:'mouthwash', warns:[
     {when:'fluorideRinse', text:"Same problem as step {am_rinse} — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
@@ -792,6 +796,7 @@ const PHASES = [
   {id:'pm_spit', sub:1, l:"Spit, don't rinse", note:"The night pass counts more. Saliva drops to almost nothing while you sleep — whatever's on your teeth sits there eight hours with no natural rinse."},
   {id:'water_only', sub:1, l:"Nothing but water after this"},
   {id:'nightguard', l:"Nightguard", opt:1, note:"If you grind."},
+  {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters, which is why it sits after the oral block and not before it. Floss drags across your lips, mouthwash swishes over them and toothpaste is a detergent \u2014 stripping an occlusive is exactly what SLS does. Applied here it's still on you eight hours later. If your lips are already cracked and toothpaste stings them, a throwaway smear beforehand is fine; this is the coat that does the work."},
   {id:'journal', l:"Journal", note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else."}
  ]}
 ];
@@ -1266,6 +1271,8 @@ shelfhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.prev
 
 /* ---------------- schedule view ---------------- */
 const plan=document.getElementById('plan'), planhead=document.getElementById('planhead');
+/* items expanded by hand this session */
+const linkOpen=new Set();
 function paintSchedule(){
   const todayDow=new Date().getDay();
   let g='';
@@ -1304,7 +1311,13 @@ function paintSchedule(){
               `</div>`+
               (sc.anchor?'':`<div class="hint">No start date — the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
       }
+      /* The link block is for items that open a workbook. Showing it on all 25
+         routines buried the scheduling controls it sits under. Flagged items and
+         anything that already has a URL keep it open; the rest ask for it. */
       const lk=(S.links&&S.links[r.id])||{};
+      if(!(r.link || lk.url || linkOpen.has(r.id))){
+        ctrl+=`<div class="lrow"><button class="addlink" data-laddid="${r.id}">+ Link</button></div>`;
+      } else {
       ctrl+=`<div class="lrow"><span class="lbl">Link</span>`+
         `<input class="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" `+
         `placeholder="Paste a OneDrive / Google Drive / Sheets URL" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
@@ -1312,9 +1325,12 @@ function paintSchedule(){
         `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
         `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
         `<button data-lcopy="${r.id}">Apply to group</button>`+
-        (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')+
+        (r.link
+          ? (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')
+          : `<button data-ldrop="${r.id}">Remove</button>`)+
         `</div>`+
         (lk.url?'':`<div class="hint">Local file paths won't open from a phone browser. Put the workbook in OneDrive or Google Drive and paste the share link. "Excel app" sends it straight to Excel instead of a read-only web viewer \u2014 leave it off if Excel isn't installed.</div>`);
+      }
       const sl=schedLabel(r);
       return `<div class="pitem">`+
         `<div class="pname">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</div>`+
@@ -1369,6 +1385,8 @@ document.addEventListener('click',e=>{
     S.sched[id]=Object.assign({},S.sched[id],{anchor:null});
     save(S); buildRows(); paintSchedule(); paint(); return;
   }
+  const la=e.target.closest('[data-laddid]');
+  if(la){ linkOpen.add(la.dataset.laddid); paintSchedule(); return; }
   const lc=e.target.closest('[data-lcopy]');
   if(lc){
     const id=lc.dataset.lcopy, r=ROUTINES.find(x=>x.id===id); if(!r)return;
@@ -1378,10 +1396,18 @@ document.addEventListener('click',e=>{
     let n=0;
     ROUTINES.filter(x=>x.group===r.group).forEach(x=>{
       S.links[x.id]=Object.assign({},S.links[x.id],{url:src.url,app:src.app});
+      linkOpen.add(x.id);          /* so the copies are visible and editable */
       n++;
     });
     save(S); buildRows(); paintSchedule(); paint();
     toast('Linked '+n+' '+r.group+' items'); return;
+  }
+  const ld=e.target.closest('[data-ldrop]');
+  if(ld){
+    const id=ld.dataset.ldrop;
+    if(S.links) delete S.links[id];
+    linkOpen.delete(id);
+    save(S); buildRows(); paintSchedule(); paint(); return;
   }
   const lx=e.target.closest('[data-lclear]');
   if(lx){
@@ -1890,11 +1916,11 @@ const GROUPS={
 
 const ROUTINES=[
  /* ---- Training ---- */
- {id:'tr_push',  group:'Training', l:'Push \u2014 chest, shoulders, triceps', sched:{dow:[2]},
+ {id:'tr_push', link:1,  group:'Training', l:'Push \u2014 chest, shoulders, triceps', sched:{dow:[2]},
   note:"Tuesday."},
- {id:'tr_pull',  group:'Training', l:'Pull \u2014 back, biceps', sched:{dow:[4]},
+ {id:'tr_pull', link:1,  group:'Training', l:'Pull \u2014 back, biceps', sched:{dow:[4]},
   note:"Thursday."},
- {id:'tr_legs',  group:'Training', l:'Legs', sched:{dow:[6]},
+ {id:'tr_legs', link:1,  group:'Training', l:'Legs', sched:{dow:[6]},
   note:"Saturday."},
  {id:'tr_cardio',group:'Training', l:'Elliptical \u2014 30 min', sched:{dow:[1,3,5]}, t:1800,
   note:"Monday, Wednesday, Friday. Hit the timer and leave it running \u2014 the row fills as it goes."},
@@ -2752,7 +2778,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-h';
+const BUILD='2026.08.01-l';
 try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
