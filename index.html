@@ -653,12 +653,12 @@ const SLOTS = [
    ========================================================= */
 const PHASES = [
  {name:"Morning — before the shower", steps:[
+  {id:'weigh', l:"Weigh in", opt:1, note:"First thing, before you drink anything. Same time and same conditions daily is the only way the number means anything \u2014 and the full glass in step {am_water} is a pound on the scale by itself, which is why this sits above it and not below."},
   {id:'am_water', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
   {id:'contacts', l:"Contacts", note:"Acuvue Oasys 1-Day for Astigmatism. Wash and dry hands first \u2014 wet fingers make the lens stick to you instead of your eye. Check it isn't inverted: the edge should curve up like a bowl, not flare out. Both eyes are the same prescription, so there's no left/right sorting. After it's in, blink several times and give it 10\u201330 seconds \u2014 a toric lens has to rotate into its axis before vision sharpens, so early blur usually means it hasn't settled, not that it's the wrong lens. Daily disposables: new pair every day, never sleep in them, never rinse and reuse, never tap water."},
   {id:'meds', l:"Medication", note:"Wellbutrin XL 450mg (one 300mg + one 150mg) and Adderall XR 20mg (two 10mg). Swallow whole \u2014 don't split, crush, or chew any of them; an extended-release tablet dumps its entire dose at once if it's broken, and that matters most with bupropion. Same time every morning, and early \u2014 both are activating and a late dose costs you sleep. Keep acidic drinks away from the Adderall: orange juice and vitamin C measurably reduce amphetamine absorption."},
-  {id:'weigh', l:"Weigh in", opt:1, note:"Same time daily is the only way the number means anything."},
   {id:'am_floss', l:"Floss", slot:'floss', note:"Before brushing, not after."},
-  {id:'am_rinse', l:"Mouthwash", slot:'mouthwash', note:"See the note \u2014 the before/after question is a real tradeoff.", warns:[
+  {id:'am_rinse', l:"Mouthwash", slot:'mouthwash', note:"Before brushing, not after \u2014 rinsing afterward washes off the fluoride the toothpaste just left on your teeth. The one exception is a fluoride rinse, which belongs at midday instead, away from brushing at either end.", warns:[
     {when:'fluorideRinse', text:"Wrong slot. Used after brushing, a fluoride rinse washes away the much stronger fluoride your toothpaste just left behind — and used before, it's redundant. Move it to midday or after lunch (step {lunch}). This is the mistake almost everyone makes with mouthwash."}
   ]},
   {id:'am_brush', l:"Brush", slot:'toothpaste', timer:120, note:"Two minutes. Soft bristles, 45°, small circles.", warns:[
@@ -666,7 +666,7 @@ const PHASES = [
   ]},
   {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
   {id:'am_spit', sub:1, l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
-  {id:'breakfast', l:"Breakfast", opt:1, note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
+  {id:'breakfast', l:"Breakfast", note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
   {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
  ]},
  {name:"The shower", big:1,
@@ -681,11 +681,11 @@ const PHASES = [
   {id:'shampoo', l:"Shampoo — scalp only", slot:'shampoo', warns:[
     {when:'harshShampoo', text:"Rotation only — once or twice a week after a shift. Daily will strip your scalp and it'll overproduce oil to compensate, which is the problem you were trying to solve."}
   ]},
-  {id:'shampoo_dwell', sub:1, l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
+  {id:'shampoo_dwell', sub:1, l:"Let the shampoo sit", dwellOf:'shampoo', showIf:'dwell'},
   {id:'shampoo_rinse', sub:1, l:"Rinse shampoo", note:"The length gets cleaned by runoff on the way down."},
   {id:'cond', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
-  {id:'cond_dwell', sub:1, l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
-  {id:'shave_body', sub:1, l:"Shave body hair", opt:1, note:"Use the dwell time. With the grain on the first pass.", warns:[
+  {id:'cond_dwell', sub:1, l:"Let the conditioner sit", dwellOf:'conditioner', showIf:'condDwell'},
+  {id:'shave_body', sub:1, l:"Shave \u2014 maintenance", opt:1, note:"Touch-up only, on areas you already keep bare. Use the dwell time. With the grain on the first pass. The full clipper pass is the every-14-days item in the non-daily list, not this.", warns:[
     {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
   ]},
   {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
@@ -694,7 +694,7 @@ const PHASES = [
   ]},
   {id:'scrubber', sub:1, l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
   {id:'body_rinse', sub:1, l:"Rinse body", note:"Conditioner residue running down your back and sitting there is a common cause of back acne — which is why the body wash comes after the rinse, not before."},
-  {id:'sh_face', l:"Face last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
+  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', note:"Turn the heat down first. Don't cleanse under hot water."},
   {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
   {id:'cold_finish', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
  ],
@@ -702,7 +702,7 @@ const PHASES = [
   {id:'bath_pre', l:"Rinse off before you get in", note:"Thirty seconds under the shower head. Everything you don't rinse off now is what you spend the next fifteen minutes soaking in."},
   {id:'bath_fill', l:"Fill it warm, not hot", note:"Warmer than a shower feels, and it matters more here. A shower is a few minutes of contact; a bath is fifteen, and hot water pulls barrier lipids the entire time. If your skin is pink when you stand up, it was too hot."},
   {id:'bath_soak', l:"Soak", timer:900, note:"Ten to fifteen minutes. There's no benefit past that and there is a cost \u2014 pruney fingers are the skin waterlogged, and an over-hydrated barrier loses more moisture once you're out than it gained. The timer is the point of this step."},
-  {id:'shave_body', l:"Shave body hair", opt:1, note:"The one thing a bath does better than a shower. Fifteen minutes of soaking is far more softening than a shower ever gets, so this is the pass that doesn't irritate.", warns:[
+  {id:'shave_body', l:"Shave \u2014 maintenance", opt:1, note:"Touch-up only, on areas you already keep bare; the full clipper pass is the every-14-days item in the non-daily list. The one thing a bath does better than a shower. Fifteen minutes of soaking is far more softening than a shower ever gets, so this is the pass that doesn't irritate.", warns:[
     {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
   ]},
   {id:'bodywash', l:"Wash body", slot:'bodywash', note:"Soap where it matters \u2014 pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen.", warns:[
@@ -713,15 +713,15 @@ const PHASES = [
   {id:'shampoo', l:"Shampoo \u2014 scalp only", slot:'shampoo', warns:[
     {when:'harshShampoo', text:"Rotation only \u2014 once or twice a week after a shift. Daily will strip your scalp and it'll overproduce oil to compensate, which is the problem you were trying to solve."}
   ]},
-  {id:'shampoo_dwell', sub:1, l:"Let it sit", dwellOf:'shampoo', showIf:'dwell'},
+  {id:'shampoo_dwell', sub:1, l:"Let the shampoo sit", dwellOf:'shampoo', showIf:'dwell'},
   {id:'shampoo_rinse', sub:1, l:"Rinse shampoo", note:"Clean water from the shower head, not what's left in the tub."},
   {id:'cond', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
-  {id:'cond_dwell', sub:1, l:"Let it sit", dwellOf:'conditioner', showIf:'condDwell'},
+  {id:'cond_dwell', sub:1, l:"Let the conditioner sit", dwellOf:'conditioner', showIf:'condDwell'},
   {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
   {id:'bath_rinse', l:"Rinse yourself off clean", note:"The step people skip. Standing water leaves a film of soap, dead skin and whatever came off you \u2014 drying on its own and a genuine contributor to back acne. Thirty seconds of clean water fixes it."},
-  {id:'sh_face', l:"Face last", slot:'facecleanser', note:"At the sink or under the shower head with the heat down. Never with bathwater."},
+  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', note:"At the sink or under the shower head with the heat down. Never with bathwater."},
   {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
-  {id:'bath_moisturize', l:"Out and straight to the towel", note:"The three-minute window is tighter after a bath than a shower, because you're starting from a more waterlogged barrier. Pat dry and keep moving \u2014 the next phase is the whole return on this one."}
+  {id:'bath_moisturize', l:"Out and straight to the towel", note:"The three-minute window is tighter after a bath than a shower, because you're starting from a more waterlogged barrier. Don't stand around drying off \u2014 the next phase is the whole return on this one."}
    ]
   }
  },
@@ -761,7 +761,7 @@ const PHASES = [
   {id:'neck', l:"Neck strays", note:"If you're between cuts."},
   {id:'am_lips', l:"Lip balm", slot:'lipbalm'},
   {id:'eyedrops', l:"Eye drops", opt:1, note:"If the dry air is getting you."},
-  {id:'dressed', l:"Get dressed", note:"Everything except the top layer."},
+  {id:'dressed', l:"Get dressed", note:"Everything except your shirt \u2014 cologne goes on before that, not over it."},
   {id:'cologne', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', warns:[
     {when:'scented', text:"Your deodorant is scented. That's two fragrances arguing under your shirt six inches apart. Switch to unscented or drop the cologne — the deodorant wins regardless, it's closer to your nose all day."}
   ]},
@@ -786,7 +786,9 @@ const PHASES = [
   {id:'pm_moist', l:"Moisturizer", slot:'moisturizer', warns:[
     {when:'retinoid', text:"If the adapalene is irritating you, moisturize BEFORE it as well as after. Buffering doesn't kill the effect — quitting does."}
   ]},
-  {id:'pm_lotion', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"If the exfoliant is drying you out."},
+  {id:'pm_lotion', l:"Body lotion", opt:1, hideIf:'noBodyLotion', note:"Shins and forearms first if you're only doing part of it \u2014 fewest oil glands, first to crack.", warns:[
+    {when:'exfoliant', text:"Your body wash is an exfoliating acid, so this stops being optional at night. An acid with no moisturizer behind it makes the dryness you were treating worse, not better."}
+  ]},
   {id:'pm_floss', l:"Floss", slot:'floss', note:"If one thing survives a bad day, it's this."},
   {id:'pm_rinse', l:"Mouthwash", slot:'mouthwash', warns:[
     {when:'fluorideRinse', text:"Same problem as step {am_rinse} — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
@@ -1931,13 +1933,13 @@ const GROUPS={
 const ROUTINES=[
  /* ---- Training ---- */
  {id:'tr_push', link:1,  group:'Training', l:'Push \u2014 chest, shoulders, triceps', sched:{dow:[2]},
-  note:"Tuesday."},
+  note:"Open the tracker before the first set, not after the last one \u2014 progression only happens if last week's numbers are in front of you while you pick today's."},
  {id:'tr_pull', link:1,  group:'Training', l:'Pull \u2014 back, biceps', sched:{dow:[4]},
-  note:"Thursday."},
+  note:"Last week's numbers open before the first set. Pull is the day that quietly stalls, because back volume is the easiest thing to eyeball wrong."},
  {id:'tr_legs', link:1,  group:'Training', l:'Legs', sched:{dow:[6]},
-  note:"Saturday."},
+  note:"Last week's numbers open before the first set. This is the session that gets cut when the week runs long, so it's the one worth defending."},
  {id:'tr_cardio',group:'Training', l:'Elliptical \u2014 30 min', sched:{dow:[1,3,5]}, t:1800,
-  note:"Monday, Wednesday, Friday. Hit the timer and leave it running \u2014 the row fills as it goes."},
+  note:"Hit the timer and leave it running \u2014 the row fills as it goes."},
  /* ---- Food ---- */
  {id:'fd_plan',  group:'Food', l:'Plan meals for the week', sched:{dow:[0]},
   note:"Before the grocery run, not after. Ten minutes here is what makes the prep actually happen."},
@@ -1954,17 +1956,17 @@ const ROUTINES=[
  {id:'hh_pillow',  group:'Household', l:'Change pillowcase', sched:{everyDays:7},
   note:"The highest-leverage skincare change nobody makes. You sleep hot, so oil and sweat load the fabric every night."},
  {id:'hh_sheets',  group:'Household', l:'Change sheets', sched:{everyDays:7},
-  note:""},
+  note:"Same cadence as the pillowcase. If the two have drifted onto different days, reset both to today so the bed turns over in one pass instead of two."},
  {id:'hh_bottle',  group:'Household', l:'Deep clean the Owala', sched:{dow:[0,3]},
   note:"Sunday and Wednesday, alongside the prep \u2014 you're already at the sink. Lid off, straw out, and pop the spout gasket off with its pull tab; that gasket is the part that grows things, and rinsing the bottle without removing it accomplishes nothing. Straw brush through the straw, sponge or brush into the lid nooks. Everything air dries fully before it goes back together, and the bottle stores with the lid open. Lid and straw are top-rack dishwasher safe, gasket in the utensil basket. Stubborn buildup: soak the parts in white vinegar first."},
  {id:'hh_towel',   group:'Household', l:'Swap bath towel', sched:{everyDays:3},
   note:"Damp fabric in a warm room. Three days is the outside limit."},
  {id:'hh_trash',   group:'Household', l:'Trash out', sched:{everyDays:3},
-  note:""},
+  note:"On the timer, not on how full it looks. Three days is about smell and fruit flies, and by the time volume tells you to go it's already late."},
  {id:'hh_bath',    group:'Household', l:'Clean bathroom', sched:{dow:[6]},
   note:"Sink, toilet, shower. Fifteen minutes weekly beats an hour monthly."},
  {id:'hh_vac',     group:'Household', l:'Vacuum / floors', sched:{dow:[6]},
-  note:""},
+  note:"Bedroom first \u2014 that's the floor you walk barefoot before getting into the bed you just changed."},
  {id:'hh_sheetsdesk',group:'Household',l:'Wipe desk, peripherals, phone screen', sched:{dow:[6]}, opt:1,
   note:"Your phone touches your face. So does your pillow."},
 
@@ -1979,8 +1981,8 @@ const ROUTINES=[
   note:"A swept-back shape depends on structure. Past five weeks it stops holding."},
  {id:'gr_dentist',group:'Grooming \u2014 non-daily', l:'Book dentist', sched:{everyMonths:6},
   note:"No amount of flossing replaces it."},
- {id:'gr_shave',  group:'Grooming \u2014 non-daily', l:'Body hair trim', sched:{everyDays:14}, opt:1,
-  note:"With the grain first pass. Not on a night adapalene goes on."},
+ {id:'gr_shave',  group:'Grooming \u2014 non-daily', l:'Full body trim \u2014 clippers', sched:{everyDays:14}, opt:1,
+  note:"The bulk pass with a guard. The shave step in the shower maintains what this sets \u2014 it doesn't replace it, and doing this one every two weeks is what keeps the daily one to thirty seconds. With the grain first pass. Not on a night adapalene goes on."},
 
  /* ---- Admin ---- */
  {id:'ad_restock',group:'Admin', l:'Check what\u2019s running low', sched:{dow:[0]}, opt:1,
