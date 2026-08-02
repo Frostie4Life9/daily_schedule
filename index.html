@@ -286,7 +286,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
 .body{flex:1;min-width:0;}
 .label{font-size:15.5px;font-weight:500;letter-spacing:-.01em;}
 .prod{color:var(--done);font-weight:600;}
-.note{font-size:12.5px;color:var(--dim);margin-top:3px;line-height:1.4;}
+.note{font-size:12.5px;color:var(--dim);margin-top:3px;line-height:1.4;white-space:pre-line;}
 .warn{font-size:12px;color:var(--warn);margin-top:6px;line-height:1.4;
   padding-left:9px;border-left:2px solid var(--warn);}
 .tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
@@ -298,10 +298,27 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   color:var(--dimmer);padding:3px 6px;border-radius:4px;cursor:pointer;opacity:.55;}
 .skip:hover,.skip:focus-visible{opacity:1;border-color:var(--warn);color:var(--warn);}
 .step.off .skip{opacity:1;border-color:var(--opt);color:var(--opt);}
-.step.off{opacity:.34;}
-.step.off .box{border-style:dashed;}
-.step.off .timer{display:none;}
+/* A skipped row is a placeholder, not a task. Everything that exists to help you
+   DO the thing goes away — note, warnings, timer, checkbox, schedule chips,
+   product prompt — leaving the title and the undo button. Same for a skipped
+   routine, which is why the selectors reach .meta and .resched too. */
+.step.off{opacity:.42;min-height:0;padding:7px 12px 7px 10px;}
+.step.off.big{min-height:0;padding:7px 12px 7px 10px;}
+.step.off .box,
+.step.off .note,
+.step.off .warn,
+.step.off .meta,
+.step.off .resched,
+.step.off .noprod,
+.step.off .late,
+.step.off .tag,
+.step.off .lrow,
+.step.off .golink,
+.step.off .timer{display:none !important;}
+.step.off .label{font-size:13px;color:var(--dim);padding-right:44px;}
+.step.off .num{padding-top:1px;}
 .step.off:active{background:transparent;}
+.step.off .skip{top:4px;}
 .step.routine .num{color:var(--opt);}
 .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;}
 .sched{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
@@ -667,6 +684,9 @@ const PHASES = [
   {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
   {id:'am_spit', sub:1, l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
   {id:'breakfast', l:"Breakfast", note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
+  {id:'shave_face', l:"Trim face \u2014 electric", opt:1, note:"HERE, BEFORE THE SHOWER, on purpose: a trimmer needs hair dry and stiff enough to stand up and get caught, and waterlogged hair lies flat and slips past the blades \u2014 which is the opposite of wet-shaving advice, where softened hair genuinely does cut better. Doing it now also means the clippings rinse off you in the shower instead of landing in the sink and inside your collar. Face should be clean and dry; grease and product gum the cutter and give you an uneven cut.\n\nTHE PASS: guard on and set before you turn it on, skin pulled taut with your free hand, head held flat against your face rather than pressed in, moving slowly against the grain \u2014 with a guard that gives an even length rather than a closer cut. Overlap each stroke slightly, and go over a patchy area from two directions.\n\nTHE LINES LAST: cheek line, then the neckline, in the best light you have. These are the only parts anyone actually notices and the only parts that are hard to undo. Check both sides straight-on rather than at an angle before you put it down.\n\nBrush the cutter out every time \u2014 blades hold moisture and clippings, and that is what dulls them.", warns:[
+    {when:'retinoid', text:"Electric is gentler than a razor, but it's still dragging metal across skin \u2014 don't trim on a night adapalene is going on. Pick one."}
+  ]},
   {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
  ]},
  {name:"The shower", big:1,
@@ -685,7 +705,7 @@ const PHASES = [
   {id:'shampoo_rinse', sub:1, l:"Rinse shampoo", note:"The length gets cleaned by runoff on the way down."},
   {id:'cond', l:"Conditioner", slot:'conditioner', hideIf:'noCond'},
   {id:'cond_dwell', sub:1, l:"Let the conditioner sit", dwellOf:'conditioner', showIf:'condDwell'},
-  {id:'shave_body', sub:1, l:"Shave or trim \u2014 touch-up", opt:1, note:"NOT a daily step. 'Areas you keep bare' means anywhere you actually take down to skin and want to stay that way \u2014 for most people that's a short list or an empty one. If you trim to a guard length instead of going bare, this step isn't yours at all and the every-14-days full trim is your real cadence. Even on genuinely bare areas the right interval is every few days, not every shower: a razor over the same skin daily is how you get razor burn and ingrowns, and the hair isn't back yet anyway. Check it, and if nothing's grown, skip it \u2014 skipping is the correct answer most days. When you do run it: use the conditioner dwell time, with the grain on the first pass.", warns:[
+  {id:'shave_body', sub:1, l:"Shave or trim \u2014 touch-up", opt:1, group:'The shower', sched:{everyDays:3}, note:"Scheduled, not daily \u2014 set the interval or the days in the schedule panel and this row only appears when it's due. 'Areas you keep bare' means anywhere you actually take down to skin and want to stay that way \u2014 for most people that's a short list or an empty one. If you trim to a guard length instead of going bare, this step isn't yours at all and the every-14-days full trim is your real cadence. Even on genuinely bare areas the right interval is every few days, not every shower: a razor over the same skin daily is how you get razor burn and ingrowns, and the hair isn't back yet anyway. Check it, and if nothing's grown, skip it \u2014 skipping is the correct answer most days. When you do run it: use the conditioner dwell time, with the grain on the first pass.", warns:[
     {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
   ]},
   {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
@@ -694,7 +714,7 @@ const PHASES = [
   ]},
   {id:'scrubber', sub:1, l:"Scrubber", slot:'scrubber', hideIf:'exfoliant', hideIf2:'noScrub'},
   {id:'body_rinse', sub:1, l:"Rinse body", note:"Conditioner residue running down your back and sitting there is a common cause of back acne — which is why the body wash comes after the rinse, not before."},
-  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', note:"Last for three reasons, and all three are about what's above your face. Shampoo, conditioner and body wash all rinse DOWNWARD across your forehead and cheeks on their way to the drain \u2014 cleanse at the start and you spend the rest of the shower recoating your face in the exact residue you just removed, which is a real contributor to hairline and jaw breakouts. Second, ten minutes of steam has already softened the oil and grime, so the cleanser has less to do. Third, going last is what lets you turn the temperature down for it: hot water strips facial skin far faster than body skin, and this is the only step where that matters enough to change the dial. Turn the heat down first, step out of the direct stream, fingertips only."},
+  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', always:"WHY LAST, and all three reasons are about what's above your face. (1) Shampoo, conditioner and body wash rinse DOWNWARD across your forehead and cheeks on the way to the drain \u2014 cleanse first and you spend the rest of the shower recoating your face in the exact residue you just removed, which is a real contributor to hairline and jaw breakouts. (2) By now several minutes of steam have softened the oil and grime, so the cleanser has less work to do. (3) Going last is what lets you drop the temperature for it \u2014 hot water strips facial skin far faster than body skin, and this is the only step where that's worth changing the dial for. Turn the heat down, step out of the direct stream, fingertips only."},
   {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
   {id:'cold_finish', l:"Cold finish", opt:1, timer:30, note:"Won't do anything for your skin. Closes out the shower and wakes you up."}
  ],
@@ -702,7 +722,7 @@ const PHASES = [
   {id:'bath_pre', l:"Rinse off before you get in", note:"Thirty seconds under the shower head. Everything you don't rinse off now is what you spend the next fifteen minutes soaking in."},
   {id:'bath_fill', l:"Fill it warm, not hot", note:"Warmer than a shower feels, and it matters more here. A shower is a few minutes of contact; a bath is fifteen, and hot water pulls barrier lipids the entire time. If your skin is pink when you stand up, it was too hot."},
   {id:'bath_soak', l:"Soak", timer:900, note:"Ten to fifteen minutes. There's no benefit past that and there is a cost \u2014 pruney fingers are the skin waterlogged, and an over-hydrated barrier loses more moisture once you're out than it gained. The timer is the point of this step."},
-  {id:'shave_body', l:"Shave or trim \u2014 touch-up", opt:1, note:"NOT a daily step \u2014 only areas you take fully down to skin and want kept that way, and only every few days rather than every wash. If you trim to a guard length instead, the every-14-days full trim is your cadence and this isn't yours. The one thing a bath does better than a shower. Fifteen minutes of soaking is far more softening than a shower ever gets, so this is the pass that doesn't irritate.", warns:[
+  {id:'shave_body', l:"Shave or trim \u2014 touch-up", opt:1, group:'The shower', sched:{everyDays:3}, note:"Scheduled, not daily \u2014 only areas you take fully down to skin and want kept that way, and only every few days rather than every wash. If you trim to a guard length instead, the every-14-days full trim is your cadence and this isn't yours. The one thing a bath does better than a shower. Fifteen minutes of soaking is far more softening than a shower ever gets, so this is the pass that doesn't irritate.", warns:[
     {when:'retinoid', text:"Not the face, and not on a night adapalene is going on. Retinoid plus a razor on the same skin is how the flare starts."}
   ]},
   {id:'bodywash', l:"Wash body", slot:'bodywash', note:"Soap where it matters \u2014 pits, groin, feet and between the toes, butt, behind the ears. Arms, legs, chest and back only need it when they're actually dirty: a shift, a workout, sunscreen.", warns:[
@@ -719,7 +739,7 @@ const PHASES = [
   {id:'cond_dwell', sub:1, l:"Let the conditioner sit", dwellOf:'conditioner', showIf:'condDwell'},
   {id:'cond_rinse', sub:1, l:"Rinse conditioner completely", showIf:'condDwell', note:"Head tilted back so it doesn't sheet down your back."},
   {id:'bath_rinse', l:"Rinse yourself off clean", note:"The step people skip. Standing water leaves a film of soap, dead skin and whatever came off you \u2014 drying on its own and a genuine contributor to back acne. Thirty seconds of clean water fixes it."},
-  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', note:"Last because everything above it rinses down over your face \u2014 shampoo and conditioner runoff across the forehead and cheeks is a real contributor to hairline breakouts, so cleansing first just means recoating. The soak has also already softened the oil, so there's less work to do. At the sink or under the shower head with the heat turned down. Never with bathwater."},
+  {id:'sh_face', l:"Cleanse face \u2014 last", slot:'facecleanser', always:"WHY LAST: everything above it rinses down over your face. Shampoo and conditioner runoff across the forehead and cheeks is a real contributor to hairline breakouts, so cleansing first just means recoating it a minute later. The soak has also already softened the oil, so there's less work to do. At the sink or under the shower head with the heat turned down \u2014 never with bathwater."},
   {id:'sh_face_rinse', sub:1, l:"Rinse face, cool water"},
   {id:'bath_moisturize', l:"Out and straight to the towel", note:"The three-minute window is tighter after a bath than a shower, because you're starting from a more waterlogged barrier. Don't stand around drying off \u2014 the next phase is the whole return on this one."}
    ]
@@ -729,9 +749,6 @@ const PHASES = [
   {id:'am_patdry', l:"Pat dry, don't rub", note:"Press the towel on and lift it off; don't drag it. Stop while you're still slightly damp \u2014 that means no water running, no beads sitting on you, skin that looks matte rather than shiny, and a surface that feels cool and very slightly tacky when you touch it, not slick and not squeaky. Squeaky is too dry and it's the most common mistake. WHAT LOTION SHOULD FEEL LIKE ON IT: it spreads with almost no effort, thins out into a film rather than sitting in a blob, feels faintly slippery for a few seconds and then stops feeling like anything. If it drags, grabs, or rolls into little pills, you dried too much or used too much product. If it feels watery and slides around without ever gripping, you're too wet and you're diluting it \u2014 blot once more and go again. You're not putting water into your skin here, you're putting a lid on the water that's already there, which is why the window is short."},
   {id:'toes', sub:1, l:"Dry between every toe", note:"Individually. This is the entire athlete's foot protocol and it takes ten seconds."},
   {id:'ears', l:"Ears \u2014 entrance only", note:"Microfiber over a fingertip, the outer ear and the bowl only. Nothing enters the canal \u2014 not the cloth, not a corner of it, not a swab. The canal migrates wax outward on its own; anything pushed in packs it against the eardrum instead, and impaction is the injury, not the wax. Softest right after the shower, which is why it sits here."},
-  {id:'shave_face', l:"Trim face \u2014 electric", opt:1, note:"DRY, and that's the opposite of wet-shaving advice for a reason: a blade cuts softened hair better, but a trimmer needs hair stiff enough to stand up and be caught, and waterlogged hair just lies flat and slips past the blades. If you've showered, be fully dry first. Clean, too \u2014 grease and product gum the cutter and give you an uneven cut. THE PASS: guard on and set before you turn it on, skin pulled taut with your free hand, head held flat against your face rather than pressed in, and move slowly against the grain, which with a guard gives an even length rather than a closer cut. Overlap each stroke slightly. Go over the same area from two directions if the length looks patchy. THE LINES LAST: cheek line, then the neckline, in the best light you have \u2014 these are what people actually see and they're the only part that's hard to undo. Check both sides straight-on, not at an angle, before you put it down. Brush the cutter out every time; blades hold moisture and clippings and that's what dulls them. WORTH CONSIDERING: doing this before the shower instead, so the clippings rinse off you rather than landing in the sink and on your shirt.", warns:[
-    {when:'retinoid', text:"Electric is gentler than a razor, but it's still dragging metal across skin \u2014 don't trim on a night adapalene is going on. Pick one."}
-  ]},
   {id:'serum', l:"Serum", opt:1, slot:'serum', hideIf:'noSerum', note:"DO YOU NEED ONE? Only if you can name the problem it's solving. A serum is one concentrated active \u2014 it doesn't do anything a moisturizer does, it does something extra. The three worth knowing: vitamin C in the morning (antioxidant, mops up some of the UV damage that gets past sunscreen, evens tone over months), niacinamide (oil control and redness), hyaluronic acid (dehydration only, and it needs moisturizer over it or it dries you out in Colorado air). If your skin is behaving and you're already running SPF in the morning and a treatment at night, a serum is the lowest-value addition on this list and it's also the one most likely to tip you into irritation by stacking a second active on top of the one that's already working. The honest answer: skip it until you have a specific complaint you can say out loud. If you do add one, add it alone and give it six weeks before changing anything else."},
   {id:'eyecream', l:"Eye cream", opt:1, note:"DO YOU NEED ONE? Almost certainly not. Eye cream is mostly face moisturizer in a smaller jar at several times the price per ounce \u2014 the genuine differences are that it's fragrance-free and lower in actives so it won't sting, and that some add caffeine, which briefly constricts vessels and reduces puffiness for a few hours. Neither is a reason to buy one if your regular moisturizer already sits fine around your eyes. The two real reasons to own one: your face moisturizer or SPF stings, migrates, or blurs your vision when it creeps in, or a dermatologist told you to. Under-eye darkness is usually vascular or structural \u2014 thin skin over blood vessels \u2014 and no cream touches that; sleep and hydration do more. Verdict: skip it, and spend the money on sunscreen you'll actually reapply. If you use one anyway: ring finger, tap don't drag, orbital bone not the lid."},
   {id:'am_moist', l:"Face moisturizer", slot:'moisturizer', hideIf:'spfCombo'},
@@ -756,7 +773,7 @@ const PHASES = [
   {id:'styling_shape', sub:1, l:"Shape it", hideIf:'noStyling', note:"Set it while it dries. Hands off once it's dry."},
  ]},
  {name:"Grooming & dressing", steps:[
-  {id:'noseear', l:"Nose and ear hair", note:"TOOL: a rotary trimmer head (the rounded one on a multigroom) or blunt-tipped scissors. Never tweezers, never wax, never regular pointed scissors. Plucking a nose hair pulls the follicle open inside a warm damp space that drains toward your face, and nasal vestibulitis is a genuinely nasty infection for a hair you could have cut.\n\nNOSE: bright light and a mirror, head tilted back so you can see the nostril openings. You are only removing what is VISIBLE past the rim of the nostril \u2014 the rest of it filters everything you breathe and you want it there. Rest the trimmer head just inside the opening, no more than about a quarter inch, and rotate it slowly around the rim of each nostril for a few seconds. Do not push it up and do not chase a hair you can only see by opening your nostril with a finger; nobody else is doing that. Blow your nose afterward to clear the clippings.\n\nEARS: outer ear only \u2014 the rim, the folds, and the tuft that grows at the mouth of the canal. Nothing goes inside the canal, same rule as the drying step. Look at your ear from the side in the mirror, or take a photo of each side with your phone, because the hairs that show to other people are exactly the ones you can't see head-on. Run the trimmer over the visible tuft and along the outer rim where it catches light.\n\nCADENCE: ten seconds of checking daily in good light, an actual trim about weekly. It grows faster and coarser with age and it's the single most commonly missed thing on a face, because you stop seeing your own."},
+  {id:'noseear', l:"Nose and ear hair", note:"TOOL: a rotary trimmer head (the rounded one on a multigroom) or blunt-tipped scissors. Never tweezers, never wax, never regular pointed scissors. Plucking a nose hair pulls the follicle open inside a warm damp space that drains toward your face, and nasal vestibulitis is a genuinely nasty infection for a hair you could have cut.\n\nNOSE: bright light and a mirror, head tilted back so you can see the nostril openings. You are only removing what is VISIBLE past the rim of the nostril \u2014 the rest of it filters everything you breathe and you want it there. Rest the trimmer head just inside the opening, no more than about a quarter inch, and rotate it slowly around the rim of each nostril for a few seconds. Do not push it up and do not chase a hair you can only see by opening your nostril with a finger; nobody else is doing that. Blow your nose afterward to clear the clippings.\n\nEARS \u2014 SAME ROTARY TRIMMER, not a shaver. A foil or rotary SHAVING head is built to sit flat against a broad surface like a cheek; an ear is nothing but curves and folds, so a shaver head can't make contact where the hair actually is, and pressing it there to try is how you nick the rim. The nose-and-ear attachment is a small guarded rotating cutter designed for exactly this and it's the same head you just used on your nose \u2014 wipe it between the two. Never a razor on an ear. Outer ear only \u2014 the rim, the folds, and the tuft that grows at the mouth of the canal. Nothing goes inside the canal, same rule as the drying step. Look at your ear from the side in the mirror, or take a photo of each side with your phone, because the hairs that show to other people are exactly the ones you can't see head-on. Run the trimmer over the visible tuft and along the outer rim where it catches light.\n\nCADENCE: ten seconds of checking daily in good light, an actual trim about weekly. It grows faster and coarser with age and it's the single most commonly missed thing on a face, because you stop seeing your own."},
   {id:'brows', l:"Eyebrows", note:"There are exactly two safe zones and everything else is how brows get ruined.\n\nZONE 1 \u2014 BETWEEN. Find the line: hold something straight (a phone edge works) vertically along the outer edge of your nostril, running up to the inner corner of your eye. Your brow should begin at about that line. Anything growing INSIDE it \u2014 toward and across the bridge of your nose \u2014 is fair game. Anything outside it is brow and stays.\n\nZONE 2 \u2014 BELOW. Only hairs that are clearly separated from the brow: sitting on the eyelid or well beneath the bottom edge with visible bare skin between them and the brow itself. The test is the gap. If a hair is touching the underside of the brow or blends continuously into it, leave it \u2014 that edge is part of the shape, and thinning it is what makes brows read as done.\n\nNEVER THE TOP. The upper edge and the tail are what give a brow its thickness and its arch, they're the first thing anyone notices, and they take six to twelve weeks to come back. There is no version of this where you touch the top.\n\nHOW: tweezers, one hair at a time, pull in the direction it grows rather than straight out \u2014 against the grain snaps it at the skin and it's back in two days. Easiest right after a shower when the follicles are soft. Or use the trimmer's narrow detail head across the bridge if you'd rather not tweeze; you'll trade a cleaner result for stubble in a few days.\n\nTHE RULE THAT MATTERS: step back from the mirror before removing more. Up close every hair looks like a stray. At normal conversational distance almost none of them do, and over-plucking is the only failure mode here that you can't fix the same week."},
   {id:'neck', l:"Neck strays", note:"Two different necklines, two different rules.\n\nTHE BACK (the barber's line). Fuzz grows in below it within a week or two. You can clean that up, and the single rule is DO NOT RAISE THE LINE \u2014 only remove hair below where the barber left it. Every time you tidy it slightly higher than last time, the line creeps up your neck, and after a month of that the haircut sits wrong and nobody can tell you why. Trimmer with no guard, held flat rather than dug in, working upward from the bottom and stopping short of the existing edge. Use your phone's camera or a second mirror; doing this blind is exactly how the line climbs. If you're on a four-week cut cycle, leaving it entirely and letting the barber reset it is a completely defensible choice and it's the one that never goes wrong.\n\nTHE FRONT (under the jaw). The neckline should sit roughly one to one and a half finger-widths above your Adam's apple, then curve upward in a shallow U to meet the back of your jaw just below each ear. Everything below that curve gets cleared. The two errors are setting it at the jawbone itself, which reads as a strip of beard floating on your chin, and letting it drift down the throat until it's neck hair with no line at all. Find the curve with your head level and looking straight ahead \u2014 tilting your chin up stretches the skin and you'll cut the line too high.\n\nSIDES: where the sideburn meets the jaw, keep it in line with the front edge of your ear. Check the two sides against each other straight-on before you finish, because they drift apart faster than you'd think."},
   {id:'am_lips', l:"Lip balm", slot:'lipbalm'},
@@ -773,14 +790,14 @@ const PHASES = [
   {id:'dinner', l:"Dinner", note:"Lands before the night sequence, not after. Step {water_only} closes the kitchen, so on a late shift this happens earlier than it feels like it should."}
  ]},
  {name:"End of day", steps:[
-  {id:'pm_clothes', l:"Change out of work clothes", note:"Straight into their own bag, separate from the rest of the laundry."},
-  {id:'pm_wash', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you."},
-  {id:'bottle_rinse', l:"Rinse the Owala, lid open", note:"Empty it, hot water through the bottle and the straw, and leave every part apart on the rack overnight. Fifteen seconds, and it's what makes twice-weekly deep cleaning enough instead of underkill \u2014 the manufacturer and every food-safety source say daily. Mold grows in a sealed damp lid, not an open dry one."},
-  {id:'cleanse1', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil'},
-  {id:'cleanse2', sub:1, l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', note:"Now it can actually reach your skin."},
+  {id:'pm_clothes', l:"Change out of work clothes", group:'End of day', sched:{dow:[1,2,3,4,5]}, note:"Set your actual shift days in the schedule panel \u2014 this row only appears on days it applies.\n\nStraight into their own bag, separate from the rest of the laundry. The bag matters as much as the change does: work fabric left in the open hamper transfers grease smell onto everything touching it, and you end up washing clean clothes to fix a problem one bag would have prevented."},
+  {id:'pm_wash', l:"Wash hands and face", note:"If you're not showering right away. Ten hours of airborne grease is sitting on you.\n\nIS IT ENOUGH? Mostly, but not entirely, and it's worth knowing what's left. Ranked by how much smell each one holds: HAIR first by a wide margin \u2014 it's porous, there's a lot of surface area, and cooking aerosol condenses into it and stays. Then the clothes, which the change handles. Then skin, and on skin it concentrates where it's warm and exposed: hands, face, forearms, and the neck just under your collar.\n\nSo extend this past hands and face to FOREARMS AND NECK and you've covered nearly all of the skin contribution in another thirty seconds. Reapply deodorant if you're going anywhere. What you cannot fix without washing it is your hair \u2014 if you can smell the shift on yourself an hour later, that's where it's coming from, and no amount of face-washing touches it. Light shift, this is fine. Heavy one, the shower is the answer and this is the holdover until you take it."},
+  {id:'bottle_rinse', l:"Rinse the Owala", note:"Empty it, hot water through the bottle and the straw. Fifteen seconds, and it's what makes twice-weekly deep cleaning enough instead of underkill \u2014 the manufacturer and every food-safety source say daily.\n\nOVERNIGHT ON THE RACK IS NOT THE REQUIREMENT. The actual rule is: never seal it while damp. Mold needs standing moisture in a closed dark space, and the only part that reliably holds it is the groove behind the spout gasket. So if you use the bottle around the clock, do this instead \u2014 rinse, pop the gasket off with its pull tab, dry the gasket and the lid nooks with a towel or paper towel, reassemble, and go. Thirty seconds and it's genuinely as good as air-drying, because you removed the water rather than waiting for it to leave.\n\nEven simpler if you're refilling immediately: a bottle FULL of clean water isn't the risk. A sealed bottle with a damp air pocket and yesterday's residue is. Refilling right away and leaving the spout cover open is fine on the nights the towel feels like too much."},
+  {id:'cleanse1', l:"First cleanse", slot:'oilcleanser', hideIf:'noOil', always:"THIS IS A DIFFERENT PRODUCT from your face cleanser \u2014 that's why the slot is empty. First cleanse is an OIL or BALM cleanser, used on dry skin with dry hands, before any water touches your face. Second cleanse is your normal water-based cleanser. Running the same water-based cleanser twice is not a double cleanse; it's just washing twice, and it doesn't solve the problem this step exists for.\n\nTHE PROBLEM: sunscreen, cooking grease and your own sebum are all oil-based, and a water-based cleanser slides over them rather than lifting them. Oil dissolves oil, then water rinses the whole thing off. If you wear SPF daily and work a fryer-adjacent shift, this is the step that decides whether the rest of your night routine reaches skin at all.\n\nIF YOU DON'T OWN ONE you have two honest options: buy one (any basic cleansing oil or balm \u2014 this is a commodity, not a place to spend), or set the single-cleanse flag in your product settings so this row disappears instead of sitting here unattached. Leaving it empty and ignoring it is the worst of the three."},
+  {id:'cleanse2', sub:1, l:"Second cleanse", slot:'facecleanser', hideIf:'singleCleanse', always:"Your regular face cleanser, the same one from the shower \u2014 not a second product. Now that the oil layer is gone it can actually reach skin instead of sitting on top of sunscreen."},
   {id:'pm_patdry', sub:1, l:"Pat dry"},
   {id:'drydown', sub:1, l:"Wait until fully dry", dryOf:'treatment', showIf:'retinoid'},
-  {id:'treatment', l:"Treatment", opt:1, slot:'treatment', hideIf:'noTreatment', warns:[
+  {id:'treatment', l:"Treatment", opt:1, slot:'treatment', hideIf:'noTreatment', always:"DO YOU NEED ONE? This is the one optional category where the answer is often yes, and it splits by what you're actually seeing.\n\nADAPALENE (a retinoid, OTC as Differin) if you get clogged pores, blackheads, or recurring breakouts along the jaw, forehead or back \u2014 or if you want the long-term texture and tone benefit, which is real and is the only OTC category with serious evidence behind it. Start twice a week, not nightly, and expect weeks two through five to look WORSE before better; that purge is the reason most people quit, and quitting at week four is the same as never starting. Non-negotiable pairing: sunscreen every morning, because it raises photosensitivity.\n\nBENZOYL PEROXIDE if your breakouts are the red inflamed kind rather than clogged pores. It bleaches fabric permanently \u2014 old pillowcase, old towel.\n\nAN EXFOLIATING ACID (AHA/BHA) if the complaint is dullness or rough texture rather than acne. Don't stack it with a retinoid on the same night when you're starting out.\n\nSKIP IT ENTIRELY if your skin is clear and comfortable. There's no preventive case for running an active on skin that isn't asking for one, and every one of these has an irritation cost. If you do start, start ONE, alone, and give it eight to twelve weeks before judging it or adding anything else.", warns:[
     {when:'bleaches', text:"Benzoyl peroxide bleaches fabric. Old pillowcase, old towel, and give it a few minutes before anything touches your face."}
   ]},
   {id:'pm_moist', l:"Moisturizer", slot:'moisturizer', warns:[
@@ -1293,19 +1310,19 @@ function paintSchedule(){
   const todayDow=new Date().getDay();
   let g='';
   for(let d=0;d<7;d++){
-    const fixed=ROUTINES.filter(r=>{const sc=schedOf(r);return sc.dow&&sc.dow.indexOf(d)>-1;});
+    const fixed=SCHEDALL().filter(r=>{const sc=schedOf(r);return sc.dow&&sc.dow.indexOf(d)>-1;});
     g+=`<div class="wcol${d===todayDow?' now':''}"><h4>${DOW[d]}</h4><ul>`+
        fixed.map(r=>`<li>${esc(r.l.split(' \u2014 ')[0])}</li>`).join('')+
-       (d===todayDow?ROUTINES.filter(r=>{const sc=schedOf(r);return !sc.dow&&!sc.monthDay&&dueToday(r);})
+       (d===todayDow?SCHEDALL().filter(r=>{const sc=schedOf(r);return !sc.dow&&!sc.monthDay&&dueToday(r);})
          .map(r=>`<li class="floaty">${esc(r.l)}</li>`).join(''):'')+
        `</ul></div>`;
   }
   document.getElementById('weekgrid').innerHTML=g;
 
   const groups=[];
-  ROUTINES.forEach(r=>{ if(groups.indexOf(r.group)===-1) groups.push(r.group); });
+  SCHEDALL().forEach(r=>{ if(groups.indexOf(r.group)===-1) groups.push(r.group); });
   document.getElementById('planlist').innerHTML=groups.map(grp=>{
-    const items=ROUTINES.filter(r=>r.group===grp);
+    const items=SCHEDALL().filter(r=>r.group===grp);
     return `<div class="pgroup"><h3>${esc(grp)}</h3>`+items.map(r=>{
       const sc=schedOf(r), st=statusLabel(r), due=dueToday(r);
       const modes=[['dow','Days of week'],['everyDays','Every N days'],['everyMonths','Every N months']];
@@ -1370,7 +1387,7 @@ document.addEventListener('click',e=>{
   const dw=e.target.closest('[data-dow]');
   if(dw){
     const id=dw.dataset.rid, d=+dw.dataset.dow;
-    const r=ROUTINES.find(x=>x.id===id); if(!r)return;
+    const r=schedItem(id); if(!r)return;
     const sc=schedOf(r); const arr=(sc.dow||[]).slice();
     const at=arr.indexOf(d); if(at>-1)arr.splice(at,1); else arr.push(d);
     S.sched=S.sched||{}; S.sched[id]=Object.assign({},S.sched[id],{dow:arr.sort()});
@@ -1379,7 +1396,7 @@ document.addEventListener('click',e=>{
   const mb=e.target.closest('[data-rmode]');
   if(mb){
     const id=mb.dataset.rid, mode=mb.dataset.rmode;
-    const r=ROUTINES.find(x=>x.id===id); if(!r)return;
+    const r=schedItem(id); if(!r)return;
     const sc=schedOf(r);
     S.sched=S.sched||{};
     S.sched[id]=Object.assign({},S.sched[id],{
@@ -2098,7 +2115,7 @@ const PRODNOTE={
  shampoo:"Daily cleanser, no treatment active, so no dwell time needed. Scalp only, fingertips not nails. The 33.8oz bottle is the best per-ounce value in your whole routine \u2014 don't switch to the small one.",
  lipbalm:"Petrolatum-based, which is why it works better than wax sticks. Preventatively \u2014 before the cold, not after the cracking.",
  bodywash:"Plain cleanser, no exfoliating acid \u2014 which is why the GOSHI towel is fine to use alongside it. Soap where it matters; skip the arms and legs unless they're actually dirty.",
- cologne:"Eau de parfum at 50ml \u2014 concentrated, so two sprays is genuinely enough and more will read as too much indoors. Chest and base of the neck, onto moisturized skin, no rubbing. At this price, treat the bottle as a year-plus purchase, not a monthly one."
+ cologne:"THE WRIST TRICK IS HALF RIGHT AND THE RUBBING IS THE WRONG HALF. Wrists are a fine place to spray \u2014 they're warm and they're a pulse point. Two problems with using them as your main spot: rubbing crushes the top notes and the friction heat flashes off the light material early, so you throw away the opening and shorten the whole thing; and your wrists are the single most-washed, most-rubbed-against part of your body, so on a shift it's gone within an hour. CHEST AND BASE OF THE NECK IS BETTER for you specifically: it's warm, it's sheltered under the shirt, nothing washes it, and scent rises, so it stays in your own space rather than trailing off your hands into everything you touch. Spray, don't rub, and let it dry down before the shirt goes on. A thin, watery spray is normal for a light eau de parfum and isn't a sign of a weak one \u2014 hold it about six inches out so it lands as a mist rather than a wet patch. Eau de parfum at 50ml \u2014 concentrated, so two sprays is genuinely enough and more will read as too much indoors. Chest and base of the neck, onto moisturized skin, no rubbing. At this price, treat the bottle as a year-plus purchase, not a monthly one."
 };
 
 /* Used when a slot has no product attached — technique that holds regardless of type. */
@@ -2140,9 +2157,31 @@ function dwellCovers(slot,F){
   return false;
 }
 
+/* =========================================================
+   SCHEDULED STEPS — a step can carry the same `sched` object a routine does.
+   It then behaves like a routine for due-dates and rescheduling, but keeps its
+   position inside its phase, so an every-few-days item still appears woven into
+   the shower rather than in a list underneath it. Everything downstream
+   (schedOf, dueToday, routineState, the reschedule panel) is keyed on `.id` and
+   `.sched`, so it works on either kind of object without special-casing.
+   ========================================================= */
+function schedSteps(){
+  const out=[];
+  PHASES.forEach(ph=>variantSteps(ph).forEach(st=>{ if(st.sched) out.push(st); }));
+  return out;
+}
+/* One lookup for both kinds, so the schedule controls don't care which it is. */
+function schedItem(id){
+  return ROUTINES.find(x=>x.id===id) || schedSteps().find(x=>x.id===id) || null;
+}
+function SCHEDALL(){ return ROUTINES.concat(schedSteps()); }
+
 function stepData(st){
   const F=flags();
   let hidden=false;
+  /* not due today is the same as hidden for rendering and counting, but the
+     number is still reserved, exactly like a product flag switching a step off */
+  if(st.sched && !routineState(st).due) hidden=true;
   if(st.showIf && !F.has(st.showIf)) hidden=true;
   if(st.hideIf && F.has(st.hideIf)) hidden=true;
   if(st.hideIf2 && F.has(st.hideIf2)) hidden=true;
@@ -2169,6 +2208,10 @@ function stepData(st){
     if(c&&c.dryTimer){ timer=c.dryTimer;
       note="Before the treatment goes on. Applying a retinoid to damp skin drives it in harder — the main reason people flame up and quit."; }
   }
+  /* `always` is structural — why the step sits where it sits. A product note
+     explains the product and can be swapped out with it; this can't, so it is
+     prepended rather than replaced. */
+  if(st.always) note = st.always + (note ? '\n\n' + note : '');
   const warns=(st.warns||[]).filter(w=>F.has(w.when)).map(w=>resolveRefs(w.text));
   note=resolveRefs(note);
   const needsSetup = !!st.slot && !chosen(st.slot);
@@ -2264,18 +2307,26 @@ function buildRows(){
       sec.innerHTML=`<div class="phead"><h2>${esc(phaseName(p))}</h2>${modeBtns(p)}<em>${meta}</em></div>`;
       active.forEach(st=>{
         const d=stepData(st);
+        const ss=st.sched?routineState(st):null;
+        const ssl=st.sched?schedLabel(st):null, sst=st.sched?statusLabel(st):null;
         const row=document.createElement('div');
-        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.id)?' off':'');
+        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.id)?' off':'')+(ss&&ss.late?' slipped':'');
         row.dataset.n=st.id;
         row.setAttribute('role','checkbox'); row.tabIndex=0;
         row.innerHTML=
           `<div class="sweep"></div>`+
           `<div class="num">${numOf(st.id)}</div>`+
           `<div class="box">${CHECK}</div>`+
-          `<div class="body"><div class="label">${d.label}${st.opt?'<span class="tag">optional</span>':''}</div>`+
+          `<div class="body"><div class="label">${d.label}${st.opt?'<span class="tag">optional</span>':''}`+
+            (ss&&ss.late?lateChip(st.id,ss.from):'')+`</div>`+
+          (st.sched&&(ssl||sst)?`<div class="meta">`+
+            (ssl?`<span class="sched">${esc(ssl)}</span>`:'')+
+            (sst?`<span class="rstat${ss.late?'':' ok'}">${esc(sst)}</span>`:'')+
+          `</div>`:'')+
           (d.note?`<div class="note">${d.note}${d.mine?'<span class="mine-note">Your note</span>':''}</div>`:'')+
           d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
           (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:'')+
+          (st.sched?reschedPanel(st.id,ss.from):'')+
           `</div>`+
           (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
           `<button class="skip" data-skip="${st.id}" title="Skip this item" aria-label="Skip this item">${isOff(st.id)?'undo':'skip'}</button>`;
@@ -2415,6 +2466,14 @@ function toggle(row){
     if(i>-1) delete S.rlog[id];
     else { S.rlog[id]=new Date().toISOString();
            if(S.defer) delete S.defer[id]; }   /* doing it settles any deferral */
+    save(S); buildRows(); paintSchedule(); paint(); return;
+  }
+  /* a scheduled step drives its own interval off rlog, same as a routine */
+  const sstep=schedSteps().find(x=>x.id===n);
+  if(sstep){
+    S.rlog=S.rlog||{};
+    if(i>-1) delete S.rlog[n];
+    else { S.rlog[n]=new Date().toISOString(); if(S.defer) delete S.defer[n]; }
     save(S); buildRows(); paintSchedule(); paint(); return;
   }
   const core=coreIds();
