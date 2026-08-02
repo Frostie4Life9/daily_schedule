@@ -1167,9 +1167,23 @@ Object.keys(LINKDEFAULTS).forEach(k=>{
 });
 if(linkSeededNew) save(S);
 
-if(S.date!==today()){
+/* Turning the day over. Also runs when the app is brought back to the front,
+   because a page left open past midnight otherwise keeps reporting yesterday. */
+function rollover(){
+  if(S.date===today()) return false;
   if(S.last!==yesterday() && S.last!==today()) S.streak=0;
   S.date=today(); S.checked=[]; save(S);
+  return true;
+}
+rollover();
+
+/* The widget renders from S.summary as stored on the Worker. If that digest is
+   missing, from an older build, or describes a different day, the widget has
+   nothing usable and shows a placeholder. Checking the version alone missed the
+   common case by far: on a new day the digest is current-version but yesterday's
+   date, so nothing pushed until the first checkmark happened to trigger one. */
+function digestStale(){
+  return !S.summary || S.summary.v!==DIGEST || S.summary.date!==today();
 }
 
 /* ---------------- flags ---------------- */
@@ -2707,15 +2721,19 @@ function syncPull(){
 
   /* Coming back to the app is the moment another device's changes matter. */
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible' && syncCfg().url){
-      syncPull().then(r=>{ if(r==='pulled') toast('Updated from another device'); });
-    }
+    if(document.visibilityState!=='visible') return;
+    if(rollover()) rebuild();          /* the day may have turned while away */
+    if(!syncCfg().url) return;
+    syncPull().then(r=>{
+      if(r==='pulled') toast('Updated from another device');
+      if(r!=='error' && digestStale()) syncPush();
+    });
   });
 
   syncReady=true;
   if(c.url) syncPull().then(r=>{
     if(r==='pulled') toast('Updated from another device');
-    if(r!=='error' && (!S.summary || S.summary.v!==DIGEST)) syncPush();
+    if(r!=='error' && digestStale()) syncPush();
   });
 })();
 
@@ -2778,7 +2796,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-n';
+const BUILD='2026.08.01-o';
 try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
