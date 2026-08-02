@@ -38,6 +38,17 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 .wrap{max-width:680px;margin:0 auto;padding:0 var(--pad);}
+/* Any scrollIntoView elsewhere in the file lands under the sticky header without
+   this. The jump buttons do their own maths and don't rely on it. */
+html{scroll-padding-top:96px;}
+/* Landing at the top of the viewport is ambiguous on a phone — one flash tells
+   you which row you were sent to. */
+@keyframes jumpflash{
+  0%{background:rgba(124,137,240,.20);}
+  100%{background:transparent;}
+}
+.step.jumped{animation:jumpflash 1.1s ease-out;}
+@media (prefers-reduced-motion:reduce){ .step.jumped{animation:none;} }
 
 header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
   backdrop-filter:blur(12px);border-bottom:1px solid var(--line);}
@@ -452,6 +463,7 @@ body.hideopt .step.optional{display:none;}
   <div class="controls">
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="jump">Jump to next unchecked</button>
+    <button class="ctl" id="jumpx">Jump to next extra</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
     <button class="ctl" id="addbtn">+ One-off task</button>
   </div>
@@ -2573,10 +2585,48 @@ function paintOpt(){
   paint();
 }
 optbtn.addEventListener('click',()=>{S.hideopt=!S.hideopt;save(S);paintOpt();});
+/* =========================================================
+   JUMP — why this doesn't use scrollIntoView any more.
+   Two things broke it on mobile. First, focus() performs its OWN scroll unless
+   told not to, and that scroll is instant, so it cancelled the smooth animation
+   mid-flight and re-landed the row wherever the browser felt like — usually
+   tucked under the sticky header. On desktop the target is often already close
+   enough that focus() does nothing, which is exactly why it looked fine there.
+   Second, block:'center' is measured against the visual viewport, which on a
+   phone changes height as the address bar collapses during the scroll, so the
+   destination moved while we were travelling to it.
+   Computing an absolute document offset once, scrolling the window to it, and
+   focusing with preventScroll removes both failure modes.
+   ========================================================= */
+function scrollToRow(el){
+  if(!el) return;
+  const header=document.querySelector('header');
+  const hh=header?header.getBoundingClientRect().height:0;
+  const y=(window.pageYOffset||document.documentElement.scrollTop||0)
+          + el.getBoundingClientRect().top - hh - 14;
+  const max=Math.max(0,(document.documentElement.scrollHeight||0)-window.innerHeight);
+  const top=Math.max(0,Math.min(y,max));
+  if('scrollBehavior' in document.documentElement.style){
+    window.scrollTo({top:top,behavior:'smooth'});
+  }else{
+    window.scrollTo(0,top);   /* older iOS Safari ignores the object form entirely */
+  }
+  try{ el.focus({preventScroll:true}); }catch(e){ /* ancient browsers: skip focus */ }
+  allRows().forEach(r=>r.classList.remove('jumped'));
+  void el.offsetWidth;                 /* restart the animation if it's the same row */
+  el.classList.add('jumped');
+  setTimeout(()=>el.classList.remove('jumped'),1200);
+}
+function jumpIn(rows,emptyMsg,noneMsg){
+  if(!rows.length){ toast(noneMsg); return; }
+  const next=rows.find(r=>!r.classList.contains('done'));
+  if(next) scrollToRow(next); else toast(emptyMsg);
+}
 document.getElementById('jump').addEventListener('click',()=>{
-  const next=visibleRows().find(r=>!r.classList.contains('done'));
-  if(next){next.scrollIntoView({behavior:'smooth',block:'center'});next.focus();}
-  else toast('Everything is checked');
+  jumpIn(dailyRows(),'Protocol is clear \u2014 extras are below','Nothing on the list');
+});
+document.getElementById('jumpx').addEventListener('click',()=>{
+  jumpIn(extraRows(),'Extras are all clear','No extras today');
 });
 document.getElementById('schedreset').addEventListener('click',()=>{
   S.sched={}; save(S); buildRows(); paintSchedule(); paint(); toast('Schedules reset');
