@@ -65,6 +65,74 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
 .bar{height:2px;background:var(--line);}
 .bar div{height:100%;width:0;background:var(--done);transition:width .3s ease;}
 
+/* ---------------- tabs ---------------- */
+.tabs{display:flex;gap:6px;padding:14px 0 0;}
+.tab{flex:1 1 0;min-height:44px;background:var(--panel);border:1px solid var(--line);
+  color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;padding:11px 10px;border-radius:8px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;}
+.tab[aria-selected="true"]{background:var(--panel-2);border-color:var(--opt);color:var(--ink);}
+.tab:focus-visible{outline:2px solid var(--opt);outline-offset:2px;}
+.tcount{font-size:10px;color:var(--opt);font-weight:700;}
+.tab[aria-selected="true"] .tcount{color:var(--opt);}
+/* The header stats describe the daily protocol and mean nothing over here. */
+body.on-lists .hstats,body.on-lists .bar{display:none;}
+
+/* ---------------- lists view ---------------- */
+.lintro{color:var(--dim);font-size:12.5px;line-height:1.6;margin:18px 0 14px;}
+.newlist{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.newlist input{flex:1 1 180px;min-width:0;min-height:44px;padding:10px 12px;font-size:14px;
+  background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:8px;}
+.newlist input::placeholder{color:var(--dimmer);}
+.newlist .ctl{min-height:44px;}
+.llist{border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden;
+  background:var(--panel);}
+.lbar{display:flex;align-items:center;gap:10px;padding:13px 12px;cursor:pointer;
+  background:var(--panel-2);}
+.lbar h3{margin:0;flex:1;min-width:0;font-family:'Space Grotesk',sans-serif;font-size:15px;
+  font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lbar .lnum{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dimmer);
+  font-variant-numeric:tabular-nums;flex:0 0 auto;}
+.lbar .lcaret{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dimmer);flex:0 0 auto;}
+.lbody{padding:4px 0 10px;}
+.llist.shut .lbody{display:none;}
+.litem{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;cursor:pointer;
+  border-top:1px solid var(--line);min-height:46px;}
+.litem:first-child{border-top:none;}
+.lbox{width:22px;height:22px;flex:0 0 22px;border:2px solid var(--dimmer);border-radius:5px;
+  display:grid;place-items:center;margin-top:1px;transition:border-color .12s,background .12s;}
+.lbox svg{width:13px;height:13px;stroke:var(--ground);stroke-width:3.5;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);
+  transition:opacity .12s,transform .12s;}
+.litem.done .lbox{background:var(--done);border-color:var(--done);}
+.litem.done .lbox svg{opacity:1;transform:scale(1);}
+.ltext{flex:1;min-width:0;font-size:14.5px;line-height:1.4;word-break:break-word;}
+.litem.done .ltext{color:var(--dimmer);text-decoration:line-through;}
+.lx{flex:0 0 auto;background:transparent;border:1px solid var(--line);color:var(--dimmer);
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 7px;border-radius:4px;cursor:pointer;opacity:.6;}
+.lx:hover,.lx:focus-visible{opacity:1;border-color:var(--warn);color:var(--warn);}
+.ladd{display:flex;gap:7px;padding:10px 12px 2px;border-top:1px solid var(--line);}
+.ladd input{flex:1;min-width:0;min-height:40px;padding:9px 11px;font-size:13.5px;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:6px;}
+.ladd input::placeholder{color:var(--dimmer);}
+.ladd button{flex:0 0 auto;min-height:40px;background:none;border:1px solid var(--line);
+  color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;padding:0 12px;border-radius:6px;cursor:pointer;}
+.ladd button:hover{border-color:var(--opt);color:var(--opt);}
+.ltools{display:flex;gap:7px;flex-wrap:wrap;padding:10px 12px 0;}
+.ltools button{background:none;border:1px solid var(--line);color:var(--dimmer);
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  padding:6px 9px;border-radius:5px;cursor:pointer;}
+.ltools button:hover{border-color:var(--opt);color:var(--opt);}
+.ldone{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dimmer);padding:14px 12px 4px;border-top:1px solid var(--line);}
+.lempty{color:var(--dimmer);font-size:12.5px;padding:14px 12px;line-height:1.5;}
+.lnone{color:var(--dimmer);font-size:13px;line-height:1.6;padding:22px 2px;}
+
 .controls{display:flex;gap:8px;flex-wrap:wrap;padding:16px 0 4px;}
 .ctl{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
   text-transform:uppercase;background:var(--panel);border:1px solid var(--line);
@@ -464,6 +532,13 @@ body.hideopt .step.optional{display:none;}
 
 <div class="wrap">
   <div id="alertmount"></div>
+
+  <div class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" id="tab-today" role="tab" aria-selected="true">Today</button>
+    <button class="tab" id="tab-lists" role="tab" aria-selected="false">Lists<span class="tcount" id="ltotal"></span></button>
+  </div>
+
+<div id="view-today" role="tabpanel" aria-labelledby="tab-today">
   <div class="controls">
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="jump">Jump to next unchecked</button>
@@ -573,6 +648,22 @@ body.hideopt .step.optional{display:none;}
       <button class="reset" id="wipeprod">Clear all products</button>
     </div>
   </section>
+</div><!-- /view-today -->
+
+<div id="view-lists" role="tabpanel" aria-labelledby="tab-lists" hidden>
+  <p class="lintro">No dates, no schedule, no streak. Nothing in here ever goes late, nothing counts against a day, and nothing follows you to tomorrow — it just sits until you get to it.</p>
+  <div class="newlist">
+    <input id="newlistname" type="text" placeholder="New list name" autocomplete="off" maxlength="60">
+    <button class="ctl" id="newlistgo">Add list</button>
+  </div>
+  <div id="lists"></div>
+  <div class="foot">
+    <b>Kept with everything else.</b> These ride along in sync and in Backup / restore, same as the rest of your data.
+    <div class="footbtns">
+      <button class="reset" id="listsclear">Clear all completed</button>
+    </div>
+  </div>
+</div><!-- /view-lists -->
 </div>
 
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1158,6 +1249,7 @@ if(!S){ /* one-time migration from the previous key */
 }
 S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
 /* Carry-over needs a starting line. Without one a fresh copy of the file reads
    every past occurrence in the schedule as missed and opens with a wall of late
@@ -2533,6 +2625,195 @@ function toggle(row){
   paint();
 }
 
+
+/* =========================================================
+   LISTS — the standing tab. Deliberately NOT built on steps:
+   no ids in S.checked, no schedule, no rlog, no carry-over.
+   Completion is stored on the item itself, like a one-off task,
+   because S.checked is wiped at midnight and none of this
+   belongs to a day. Nothing here can touch the streak, and
+   allRows() never sees it because these rows are .litem,
+   not .step.
+   ========================================================= */
+const LISTSEED=['Albums to listen to','Things I want to buy','Someday / maybe'];
+function newId(pfx){ return pfx+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function seedLists(){
+  S.lists=S.lists||[];
+  if(S.listsSeeded) return 0;          /* once only — a deleted seed stays deleted */
+  S.listsSeeded=true;
+  if(S.lists.length) return 0;
+  S.lists=LISTSEED.map(n=>({id:newId('L'),name:n,items:[],shut:false}));
+  return S.lists.length;
+}
+function listById(id){ return (S.lists||[]).find(l=>l.id===id)||null; }
+function openCount(l){ return (l.items||[]).filter(i=>!i.done).length; }
+function listsOpenTotal(){ return (S.lists||[]).reduce((a,l)=>a+openCount(l),0); }
+
+function paintLists(){
+  const host=document.getElementById('lists');
+  if(!host) return;
+  S.lists=S.lists||[];
+  const tot=document.getElementById('ltotal');
+  const n=listsOpenTotal();
+  if(tot) tot.textContent = n ? String(n) : '';
+  if(!S.lists.length){
+    host.innerHTML='<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
+    return;
+  }
+  host.innerHTML=S.lists.map(l=>{
+    const items=l.items||[];
+    const open=items.filter(i=>!i.done), done=items.filter(i=>i.done);
+    const rowFor=i=>`<div class="litem${i.done?' done':''}" data-lit="${esc(l.id)}|${esc(i.id)}" role="checkbox" aria-checked="${!!i.done}" tabindex="0">`+
+      `<div class="lbox">${CHECK}</div>`+
+      `<div class="ltext">${esc(i.text)}</div>`+
+      `<button class="lx" data-lidel="${esc(l.id)}|${esc(i.id)}" aria-label="Delete item">del</button>`+
+      `</div>`;
+    return `<div class="llist${l.shut?' shut':''}">`+
+      `<div class="lbar" data-lshut="${esc(l.id)}" role="button" tabindex="0" aria-expanded="${!l.shut}">`+
+        `<h3>${esc(l.name)}</h3>`+
+        `<span class="lnum">${open.length}${done.length?' / '+items.length:''}</span>`+
+        `<span class="lcaret">${l.shut?'Open':'Close'}</span>`+
+      `</div>`+
+      `<div class="lbody">`+
+        (items.length?open.map(rowFor).join(''):'<p class="lempty">Nothing here yet.</p>')+
+        (done.length?`<div class="ldone">Done \u00b7 ${done.length}</div>`+done.map(rowFor).join(''):'')+
+        `<div class="ladd">`+
+          `<input type="text" placeholder="Add to ${esc(l.name)}" data-ladd="${esc(l.id)}" autocomplete="off" maxlength="200">`+
+          `<button data-laddgo="${esc(l.id)}">Add</button>`+
+        `</div>`+
+        `<div class="ltools">`+
+          `<button data-lren="${esc(l.id)}">Rename</button>`+
+          (done.length?`<button data-lclr="${esc(l.id)}">Clear done</button>`:'')+
+          `<button data-ldel="${esc(l.id)}">Delete list</button>`+
+        `</div>`+
+      `</div>`+
+    `</div>`;
+  }).join('');
+}
+
+function addListItem(lid,text){
+  const l=listById(lid); if(!l) return false;
+  const t=String(text||'').trim(); if(!t) return false;
+  l.items=l.items||[];
+  l.items.push({id:newId('i'),text:t,done:false,added:new Date().toISOString()});
+  save(S); paintLists(); return true;
+}
+
+/* ---------------- tabs ---------------- */
+function showView(which){
+  const lists = which==='lists';
+  const vt=document.getElementById('view-today'), vl=document.getElementById('view-lists');
+  if(vt) vt.hidden=lists;
+  if(vl) vl.hidden=!lists;
+  document.body.classList.toggle('on-lists',lists);
+  const tt=document.getElementById('tab-today'), tl=document.getElementById('tab-lists');
+  if(tt) tt.setAttribute('aria-selected',String(!lists));
+  if(tl) tl.setAttribute('aria-selected',String(lists));
+  S.tab = lists ? 'lists' : 'today';
+  save(S);
+  if(lists) paintLists();
+  window.scrollTo(0,0);
+}
+document.getElementById('tab-today').addEventListener('click',()=>showView('today'));
+document.getElementById('tab-lists').addEventListener('click',()=>showView('lists'));
+
+/* ---------------- list interactions ---------------- */
+const listsRoot=document.getElementById('view-lists');
+
+function createList(){
+  const inp=document.getElementById('newlistname');
+  const nm=(inp.value||'').trim();
+  if(!nm){ toast('Name the list first'); return; }
+  S.lists=S.lists||[];
+  S.lists.push({id:newId('L'),name:nm,items:[],shut:false});
+  inp.value=''; save(S); paintLists(); toast('List added');
+}
+document.getElementById('newlistgo').addEventListener('click',createList);
+document.getElementById('newlistname').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){ e.preventDefault(); createList(); }
+});
+
+document.getElementById('listsclear').addEventListener('click',()=>{
+  const n=(S.lists||[]).reduce((a,l)=>a+(l.items||[]).filter(i=>i.done).length,0);
+  if(!n){ toast('Nothing completed yet'); return; }
+  if(!confirm('Remove '+n+' completed item'+(n>1?'s':'')+' across every list?')) return;
+  (S.lists||[]).forEach(l=>{ l.items=(l.items||[]).filter(i=>!i.done); });
+  save(S); paintLists(); toast('Cleared');
+});
+
+listsRoot.addEventListener('click',e=>{
+  const del=e.target.closest('[data-lidel]');
+  if(del){
+    e.stopPropagation();
+    const [lid,iid]=del.dataset.lidel.split('|');
+    const l=listById(lid); if(!l) return;
+    l.items=(l.items||[]).filter(i=>i.id!==iid);
+    save(S); paintLists(); return;
+  }
+  const go=e.target.closest('[data-laddgo]');
+  if(go){
+    const lid=go.dataset.laddgo;
+    const inp=listsRoot.querySelector('[data-ladd="'+lid+'"]');
+    if(inp && addListItem(lid,inp.value)) inp.value='';
+    const again=listsRoot.querySelector('[data-ladd="'+lid+'"]');
+    if(again) again.focus();
+    return;
+  }
+  const ren=e.target.closest('[data-lren]');
+  if(ren){
+    const l=listById(ren.dataset.lren); if(!l) return;
+    const nm=prompt('Rename list',l.name);
+    if(nm===null) return;
+    const t=nm.trim(); if(!t) return;
+    l.name=t; save(S); paintLists(); return;
+  }
+  const clr=e.target.closest('[data-lclr]');
+  if(clr){
+    const l=listById(clr.dataset.lclr); if(!l) return;
+    l.items=(l.items||[]).filter(i=>!i.done);
+    save(S); paintLists(); return;
+  }
+  const dl=e.target.closest('[data-ldel]');
+  if(dl){
+    const l=listById(dl.dataset.ldel); if(!l) return;
+    const n=(l.items||[]).length;
+    if(!confirm('Delete "'+l.name+'"'+(n?' and its '+n+' item'+(n>1?'s':''):'')+'?')) return;
+    S.lists=(S.lists||[]).filter(x=>x.id!==l.id);
+    save(S); paintLists(); toast('List deleted'); return;
+  }
+  const bar=e.target.closest('[data-lshut]');
+  if(bar){
+    const l=listById(bar.dataset.lshut); if(!l) return;
+    l.shut=!l.shut; save(S); paintLists(); return;
+  }
+  const it=e.target.closest('[data-lit]');
+  if(it){
+    const [lid,iid]=it.dataset.lit.split('|');
+    const l=listById(lid); if(!l) return;
+    const item=(l.items||[]).find(x=>x.id===iid); if(!item) return;
+    item.done=!item.done;
+    item.doneAt=item.done?new Date().toISOString():null;
+    save(S); paintLists(); return;
+  }
+});
+
+listsRoot.addEventListener('keydown',e=>{
+  if(e.target.dataset && e.target.dataset.ladd && e.key==='Enter'){
+    e.preventDefault();
+    if(addListItem(e.target.dataset.ladd,e.target.value)){ e.target.value=''; }
+    return;
+  }
+  if((e.key==='Enter'||e.key===' ')){
+    const it=e.target.closest && e.target.closest('[data-lit],[data-lshut]');
+    if(it){ e.preventDefault(); it.click(); }
+  }
+});
+
+if(seedLists()) save(S);
+paintLists();
+showView(S.tab==='lists'?'lists':'today');
+
 let toastT;
 function toast(msg){
   const t=document.getElementById('toast');
@@ -2792,8 +3073,10 @@ function syncAdopt(remote){
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
+  S.lists=S.lists||[];
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
   seedLinks();     /* ...and may predate links this build ships with */
+  seedLists();
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
@@ -2951,8 +3234,10 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
+  S.lists=S.lists||[];
   migrateIds(S);   /* a backup written before the id split still holds numbers */
   seedLinks();     /* and predates any link default added since it was written */
+  seedLists();
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
