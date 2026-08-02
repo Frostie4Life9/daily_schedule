@@ -428,6 +428,10 @@ body.hideopt .step.optional{display:none;}
 .foot{margin-top:36px;padding:18px 0 0;border-top:1px solid var(--line);
   color:var(--dimmer);font-size:12.5px;line-height:1.6;}
 .foot b{color:var(--dim);font-weight:600;}
+/* On a phone these were wrapping up onto the end of the build line, reading as
+   part of the sentence. Their own flex row keeps them clear of it. */
+.footbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
+.footbtns .reset{margin-top:0;}
 .reset{margin-top:14px;background:none;border:1px solid var(--line);color:var(--dimmer);
   font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
   text-transform:uppercase;padding:8px 12px;border-radius:6px;cursor:pointer;}
@@ -478,12 +482,14 @@ body.hideopt .step.optional{display:none;}
   <main id="list"></main>
 
   <div class="foot">
-    <b>Not in here on purpose.</b> Pillowcase, sheets, towel, nails, toothbrush, haircut, dentist — those stay in Microsoft To Do. They're calendar-shaped, and To Do already does them well.<br><br>
-    <b>Timers.</b> The amber button starts the dwell. The row fills as it runs. A check says you shampooed; the timer says you left it on long enough.<br><br>
+    <b>Timers.</b> Tap the dial on a step to start its dwell. The ring fills clockwise as it runs and the row sweeps behind it; both go teal when the time is up. A check says you shampooed — the timer says you left it on long enough.<br><br>
+    <b>Non-daily items</b> live in Full schedule below, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
     <b>Resets at midnight.</b> Streak counts days where every core step got checked.<br>
     <b>Build <span id="buildid">-</span>.</b> Two devices showing different builds means one is on a cached copy — hard-refresh it.
-    <button class="reset" id="reset">Reset today</button>
-    <button class="reset" id="backupbtn">Backup / restore</button>
+    <div class="footbtns">
+      <button class="reset" id="reset">Reset today</button>
+      <button class="reset" id="backupbtn">Backup / restore</button>
+    </div>
     <div id="backup" style="display:none">
       <p>Everything this file knows about you — checks, streak, schedules, products, prices, links — as one block of text. Copy it somewhere safe before you move to a new copy of the file, then paste it back in here and hit Restore.</p>
       <textarea id="bkarea" rows="4" spellcheck="false" placeholder="Paste a backup here to restore it"></textarea>
@@ -828,7 +834,7 @@ const PHASES = [
   {id:'water_only', sub:1, l:"Nothing but water after this"},
   {id:'nightguard', l:"Nightguard", opt:1, note:"If you grind."},
   {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters, which is why it sits after the oral block and not before it. Floss drags across your lips, mouthwash swishes over them and toothpaste is a detergent \u2014 stripping an occlusive is exactly what SLS does. Applied here it's still on you eight hours later. If your lips are already cracked and toothpaste stings them, a throwaway smear beforehand is fine; this is the coat that does the work."},
-  {id:'journal', l:"Journal", note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else."}
+  {id:'journal', l:"Journal", group:'End of day', sched:{dow:[0,1,2,3,4,5,6]}, link:1, note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else.\n\nThe button on this row opens Day One straight to a new entry. Paste a different URL under Full schedule \u2192 End of day if you ever switch apps."}
  ]}
 ];
 
@@ -1183,7 +1189,10 @@ if(seededNew) save(S);
 const LINKDEFAULTS={
   tr_push:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false},
   tr_pull:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false},
-  tr_legs:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false}
+  tr_legs:{url:'https://1drv.ms/x/c/3a2e412bb93e5f51/IQDoD2vOnqKhTrnAFY77HuAdAS5NxYwwlHv-kMBc980WLWA', name:'Tracker', app:false},
+  /* Day One's documented URL scheme. `post` opens a brand new entry; you can
+     pre-fill it with ?entry=text and ?tags=a,b if you ever want a template. */
+  journal:{url:'dayone://post', name:'Day One', app:false}
 };
 S.linkSeeded=S.linkSeeded||[];
 let linkSeededNew=0;
@@ -1365,7 +1374,7 @@ function paintSchedule(){
       } else {
       ctrl+=`<div class="lrow"><span class="lbl">Link</span>`+
         `<input class="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" `+
-        `placeholder="Paste a OneDrive / Google Drive / Sheets URL" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
+        `placeholder="Paste a web URL, or an app link like dayone://post" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
         `<div class="lrow">`+
         `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
         `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
@@ -1820,8 +1829,13 @@ function routineState(r){
     }
     /* scheduled today stays on the list after checking, like every other row */
   } else {
-    /* interval and anchored items already persist until done */
-    if(!dueToday(r)) return {due:false, late:false, from:null};
+    /* interval and anchored items already persist until done — but once done,
+       they stay on today's list rather than vanishing under your finger. A dow
+       item already behaves this way; this makes the interval ones match. */
+    if(!dueToday(r)){
+      return doneOn(r.id)===t ? {due:true, late:false, from:null}
+                              : {due:false, late:false, from:null};
+    }
     const ls=sc.anchor?lastScheduled(sc):null;
     from=ls?isoOf(ls):null;
   }
@@ -2244,10 +2258,14 @@ function linkOf(id){
   if(!l||!l.url||!String(l.url).trim()) return null;
   let base=String(l.url).trim();
   if(!/^[a-z][a-z0-9+.-]*:/i.test(base)) base='https://'+base;
+  /* Anything that isn't http(s) is an app hand-off (dayone://, shortcuts://,
+     ms-excel: ...). Those must open in place — iOS silently drops a custom
+     scheme opened into a new tab, which looks exactly like a dead button. */
+  const custom=!/^https?:/i.test(base);
   return {
     href: l.app ? 'ms-excel:ofe|u|'+base : base,
     name: (l.name&&String(l.name).trim()) || 'Open',
-    app: !!l.app
+    app: !!l.app || custom
   };
 }
 function linkBtn(id){
@@ -2340,6 +2358,7 @@ function buildRows(){
           (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:'')+
           (st.sched?reschedPanel(st.id,ss.from):'')+
           `</div>`+
+          linkBtn(st.id)+
           (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
           `<button class="skip" data-skip="${st.id}" title="Skip this item" aria-label="Skip this item">${isOff(st.id)?'undo':'skip'}</button>`;
         sec.appendChild(row);
@@ -2486,13 +2505,16 @@ function toggle(row){
     S.rlog=S.rlog||{};
     if(i>-1) delete S.rlog[n];
     else { S.rlog[n]=new Date().toISOString(); if(S.defer) delete S.defer[n]; }
-    save(S); buildRows(); paintSchedule(); paint(); return;
   }
+  /* A scheduled step is still a protocol step, so the streak check has to run
+     for it too — a non-optional one can easily be the last box on the board. */
   const core=coreIds();
   if(core.length && core.every(x=>S.checked.includes(x)) && S.last!==today()){
     S.last=today(); S.streak++; toast('Protocol complete · day '+S.streak);
   }
-  save(S); paint();
+  save(S);
+  if(sstep){ buildRows(); paintSchedule(); }
+  paint();
 }
 
 let toastT;
