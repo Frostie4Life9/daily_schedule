@@ -1944,7 +1944,9 @@ function routineState(r){
          if it was missed after carry-over started tracking (see S.since) */
       if(S.since && from<S.since) return {due:false, late:false, from:null};
       const d=doneOn(r.id);
-      if(d && d>=from) return {due:false, late:false, from:null};
+      /* ...but if it was caught up TODAY it stays until the day turns, same as
+         everything else on the board. */
+      if(d && d>=from && d!==t) return {due:false, late:false, from:null};
     }
     /* scheduled today stays on the list after checking, like every other row */
   } else {
@@ -1970,7 +1972,9 @@ function dueRoutines(){ return ROUTINES.filter(r=>routineState(r).due); }
    ========================================================= */
 function customToday(){
   const t=today();
-  return (S.custom||[]).filter(c=>!c.done && c.date<=t)
+  /* A finished one-off stays on today's board and drops off tomorrow. Checking
+     something off should show you the checkmark, not make the row evaporate. */
+  return (S.custom||[]).filter(c=>(!c.done || c.done===t) && c.date<=t)
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
 }
 function customState(c){ return {due:true, late:c.date<today(), from:c.date}; }
