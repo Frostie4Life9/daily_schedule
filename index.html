@@ -632,6 +632,7 @@ body.hideopt .step.optional{display:none;}
       </div>
       <button class="reset" id="syncpull">Pull from server</button>
       <button class="reset" id="syncpush">Push to server</button>
+      <button class="reset" id="syncundo">Undo last pull</button>
       <button class="reset" id="syncoff">Disconnect</button>
     </div>
   </section>
@@ -793,10 +794,10 @@ const PHASES = [
   {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
   {id:'am_spit', sub:1, l:"Spit — don't rinse", note:"Leave the fluoride film on. Rinsing with water throws away the point of the toothpaste."},
   {id:'breakfast', l:"Breakfast", note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
-  {id:'shave_face', l:"Trim face \u2014 electric", opt:1, note:"HERE, BEFORE THE SHOWER, on purpose: a trimmer needs hair dry and stiff enough to stand up and get caught, and waterlogged hair lies flat and slips past the blades \u2014 which is the opposite of wet-shaving advice, where softened hair genuinely does cut better. Doing it now also means the clippings rinse off you in the shower instead of landing in the sink and inside your collar. Face should be clean and dry; grease and product gum the cutter and give you an uneven cut.\n\nTHE PASS: guard on and set before you turn it on, skin pulled taut with your free hand, head held flat against your face rather than pressed in, moving slowly against the grain \u2014 with a guard that gives an even length rather than a closer cut. Overlap each stroke slightly, and go over a patchy area from two directions.\n\nTHE LINES LAST: cheek line, then the neckline, in the best light you have. These are the only parts anyone actually notices and the only parts that are hard to undo. Check both sides straight-on rather than at an angle before you put it down.\n\nBrush the cutter out every time \u2014 blades hold moisture and clippings, and that is what dulls them.", warns:[
+  {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."},
+  {id:'shave_face', l:"Trim face \u2014 electric", opt:1, group:'Morning \u2014 before the shower', sched:{everyDays:3}, note:"Scheduled, not daily \u2014 set the interval or the days in the schedule panel. Facial hair grows about a third of a millimetre a day, so at any guard length above the shortest one a daily pass removes almost nothing and just costs you skin. Every two to four days is the range that actually holds a length; three is a reasonable middle to start from.\n\nThe exception is the LINES. Cheek line and neckline show stray growth faster than the bulk does, because there the contrast is against bare skin rather than against more hair. If you want those cleaner between trims, run the trimmer over just the edges without touching the guard \u2014 that's ten seconds and it doesn't shorten anything.\n\nHERE, BEFORE THE SHOWER, on purpose: a trimmer needs hair dry and stiff enough to stand up and get caught, and waterlogged hair lies flat and slips past the blades \u2014 which is the opposite of wet-shaving advice, where softened hair genuinely does cut better. Doing it now also means the clippings rinse off you in the shower instead of landing in the sink and inside your collar. Face should be clean and dry; grease and product gum the cutter and give you an uneven cut.\n\nTHE PASS: guard on and set before you turn it on, skin pulled taut with your free hand, head held flat against your face rather than pressed in, moving slowly against the grain \u2014 with a guard that gives an even length rather than a closer cut. Overlap each stroke slightly, and go over a patchy area from two directions.\n\nTHE LINES LAST: cheek line, then the neckline, in the best light you have. These are the only parts anyone actually notices and the only parts that are hard to undo. Check both sides straight-on rather than at an angle before you put it down.\n\nBrush the cutter out every time \u2014 blades hold moisture and clippings, and that is what dulls them.", warns:[
     {when:'retinoid', text:"Electric is gentler than a razor, but it's still dragging metal across skin \u2014 don't trim on a night adapalene is going on. Pick one."}
-  ]},
-  {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."}
+  ]}
  ]},
  {name:"The shower", big:1,
   toggle:{key:'washmode', def:'shower', options:[
@@ -1309,10 +1310,24 @@ if(seedLinks()) save(S);
 
 /* Turning the day over. Also runs when the app is brought back to the front,
    because a page left open past midnight otherwise keeps reporting yesterday. */
+/* Set for the life of this page load when the board was cleared by the clock
+   rather than by the user. It is deliberately NOT persisted: it describes this
+   session's reasoning, not a fact about the data. */
+var rolledThisLoad=false;
 function rollover(){
   if(S.date===today()) return false;
   if(S.last!==yesterday() && S.last!==today()) S.streak=0;
-  S.date=today(); S.checked=[]; save(S);
+  S.date=today(); S.checked=[];
+  /* QUIET ON PURPOSE. Clearing the board at midnight is not an edit — it is a
+     local recalculation that every device performs independently from the same
+     clock. Saving it loudly stamps a fresh mtime, which made a device that had
+     done nothing all day look like the holder of the newest state: it then won
+     the mtime comparison in syncPull and pushed its empty day over a device
+     that had actually been used. A passive device must stay clean so that it
+     ADOPTS rather than overwrites. */
+  rolledThisLoad=true;
+  const q=syncQuiet; syncQuiet=true;
+  try{ save(S); } finally{ syncQuiet=q; }
   return true;
 }
 rollover();
@@ -3068,7 +3083,11 @@ function syncPush(){
     .then(v=>{ syncInFlight=false; return v; });
 }
 function syncAdopt(remote){
+  /* Keep the copy we are about to replace. Sync is the only thing in the app
+     that can destroy data it didn't ask you about, so it gets an undo. */
+  try{ localStorage.setItem(KEY+'_prev', JSON.stringify(S)); }catch(e){}
   syncQuiet=true;
+  rolledThisLoad=false;   /* the adopted copy is now our record of today */
   S=remote;
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
@@ -3117,6 +3136,15 @@ function syncPull(){
 
       const rt=+remote.mtime||0, lt=+S.mtime||0;
 
+      /* Date beats clock. Two machines never agree on the time, and a stale
+         local copy with a fast clock could otherwise bury a whole real day.
+         The second clause is the important one: if OUR today is empty only
+         because we just rolled the day over, we have no claim on it at all,
+         and a server copy that already describes today always wins. */
+      if(remote.date===today() &&
+         (S.date!==today() || (rolledThisLoad && !S.checked.length))){
+        syncAdopt(remote); syncStatus('ok'); return 'pulled';
+      }
       /* Genuine conflict: unsynced edits here AND a different copy there. */
       if(rt>lt){ syncAdopt(remote); syncStatus('ok'); return 'pulled'; }
       return syncPush().then(()=>'pushed');
@@ -3163,6 +3191,26 @@ function syncPull(){
     if(!syncCfg().url){ toast('Add the Worker URL first'); return; }
     syncPush().then(r=>toast(r==='pushed'?'Pushed to server':'Push failed'));
   });
+  document.getElementById('syncundo').addEventListener('click',()=>{
+    let prev=null;
+    try{ prev=JSON.parse(localStorage.getItem(KEY+'_prev')||'null'); }catch(e){}
+    if(!prev||!Array.isArray(prev.checked)){ toast('No pre-pull snapshot saved'); return; }
+    if(!confirm('Roll this device back to the state it held before the last pull?\n\n'+
+      prev.checked.length+' checked · '+(prev.date||'unknown date')+
+      '\n\nPush to server afterwards if you want it on your other devices.')) return;
+    syncQuiet=true;
+    S=prev;
+    S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[];
+    S.links=S.links||{}; S.products=S.products||{}; S.seeded=S.seeded||[];
+    S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{};
+    S.custom=S.custom||[]; S.defer=S.defer||{}; S.lists=S.lists||[];
+    migrateIds(S); seedLinks(); seedLists();
+    syncQuiet=false;
+    S.mtime=Date.now();          /* this one IS a deliberate edit and must win */
+    save(S);
+    rebuild(); paintOpt(); paintLists();
+    toast('Rolled back \u2014 push it if you want it everywhere');
+  });
   document.getElementById('syncoff').addEventListener('click',()=>{
     try{localStorage.removeItem(SYNCKEY);}catch(e){}
     SYNC.url=''; SYNC.key='';
@@ -3173,10 +3221,13 @@ function syncPull(){
   /* Coming back to the app is the moment another device's changes matter. */
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState!=='visible') return;
-    if(rollover()) rebuild();          /* the day may have turned while away */
-    if(!syncCfg().url) return;
+    if(!syncCfg().url){ if(rollover()) rebuild(); return; }
+    /* Pull FIRST. A tab left open overnight wakes up believing the day is over,
+       but another device may have been using that day for hours. Rolling over
+       before looking throws away a day this device never saw. */
     syncPull().then(r=>{
       if(r==='pulled') toast('Updated from another device');
+      if(rollover()) rebuild();        /* only if the server agrees it's a new day */
       if(r!=='error' && digestStale()) syncPush();
     });
   });
