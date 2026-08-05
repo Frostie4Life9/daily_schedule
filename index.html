@@ -560,7 +560,7 @@ body.hideopt .step.optional{display:none;}
     <b>Timers.</b> Tap the dial on a step to start its dwell. The ring fills clockwise as it runs and the row sweeps behind it; both go teal when the time is up. A check says you shampooed — the timer says you left it on long enough.<br><br>
     <b>Non-daily items</b> live in Full schedule below, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
     <b>Resets at midnight.</b> Streak counts days where every core step got checked.<br>
-    <b>Build <span id="buildid">-</span>.</b> Two devices showing different builds means one is on a cached copy — hard-refresh it.
+    <b>Build <span id="buildid">-</span>.</b> The middle code is a fingerprint of this file's own code. If two devices show different fingerprints, one is on a cached copy — hard-refresh it.
     <div class="footbtns">
       <button class="reset" id="reset">Reset today</button>
       <button class="reset" id="backupbtn">Backup / restore</button>
@@ -3345,8 +3345,25 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.01-o';
-try{ document.getElementById('buildid').textContent=BUILD+' · digest v'+DIGEST; }catch(e){}
+const BUILD='2026.08.04-a';
+/* The hand-written label above is only as reliable as my memory, and it went
+   seven builds without being touched — which quietly broke the one check the
+   footer tells you to run when two devices disagree. So the label is no longer
+   the identifier. This hashes the actual script text at load, which means it
+   changes whenever ANY line of this file changes, whether or not anyone
+   remembered to bump anything. djb2, ~1ms over 200KB. */
+function buildPrint(){
+  try{
+    let src='';
+    document.querySelectorAll('script').forEach(t=>{ src+=t.textContent; });
+    let h=5381;
+    for(let i=0;i<src.length;i++) h=(((h*33)>>>0)^src.charCodeAt(i))>>>0;
+    return ('000000'+h.toString(36)).slice(-6);
+  }catch(e){ return '??????'; }
+}
+const BUILDPRINT=buildPrint();
+try{ document.getElementById('buildid').textContent=
+       BUILD+' · '+BUILDPRINT+' · digest v'+DIGEST; }catch(e){}
 
 rebuild(); paintOpt();
 </script>
