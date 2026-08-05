@@ -3067,23 +3067,43 @@ function syncHeaders(c){
    merely sat there is NOT a candidate to overwrite anyone. */
 function syncDirty(){ return (+S.mtime||0) !== (+S.syncedAt||0); }
 
-function syncPush(){
+function syncPush(keepalive){
   const c=syncCfg(); if(!c.url) return Promise.resolve('off');
   if(syncInFlight){ syncSchedule(); return Promise.resolve('busy'); }
   syncInFlight=true; syncStatus('sync');
   syncQuiet=true;
   if(!S.mtime) S.mtime=Date.now();          /* older builds never set one */
-  S.syncedAt=+S.mtime||0;
   try{ S.summary=summarize(); delete S.summaryError; }
   catch(e){ S.summaryError=String((e&&e.message)||e); }
   save(S);
   syncQuiet=false;
-  return fetch(c.url,{method:'PUT',headers:syncHeaders(c),body:JSON.stringify(S)})
+  /* The exact revision we are about to transmit. syncedAt is NOT moved yet:
+     marking the device clean before the write lands is how a phone that lost
+     its connection mid-push came to believe it was in sync, and then adopted
+     the server's older copy on the next open — erasing a day of checkmarks
+     that only ever existed locally. Optimism about the network is not free. */
+  const stamp=+S.mtime||0;
+  const body=JSON.stringify(S);
+  const opt={method:'PUT',headers:syncHeaders(c),body:body};
+  if(keepalive) opt.keepalive=true;   /* survive the tab being backgrounded */
+  return fetch(c.url,opt)
     .then(r=>{
       if(!r.ok) throw new Error('HTTP '+r.status);
+      /* Confirmed. Clean only for the revision that actually landed — if you
+         checked something else while this was in flight, mtime has moved past
+         `stamp` and we must stay dirty so the next push carries it. */
+      if((+S.mtime||0)===stamp){
+        syncQuiet=true; S.syncedAt=stamp; save(S); syncQuiet=false;
+      }else{
+        syncSchedule();
+      }
       syncStatus('ok'); return 'pushed';
     })
-    .catch(e=>{ syncStatus('err','Sync: '+e.message); return 'error'; })
+    .catch(e=>{
+      syncStatus('err','Sync: '+e.message);
+      syncSchedule();          /* stays dirty, so try again rather than forget */
+      return 'error';
+    })
     .then(v=>{ syncInFlight=false; return v; });
 }
 function syncAdopt(remote){
@@ -3132,6 +3152,12 @@ function syncPull(){
          never agree on the time, and a state written by an older build has no
          timestamp at all — both of those broke the previous rule. */
       if(!syncDirty()){
+        /* "Clean" is a belief about the past, and beliefs can be wrong — a push
+           that silently failed, a half-written server copy. So check the clocks
+           anyway: never take a remote revision older than the one we hold. */
+        if((+S.mtime||0) > (+remote.mtime||0)){
+          return syncPush().then(()=>'pushed');
+        }
         if(JSON.stringify(remote)!==JSON.stringify(S)){
           syncAdopt(remote); syncStatus('ok'); return 'pulled';
         }
@@ -3221,6 +3247,20 @@ function syncPull(){
     u.value=''; k.value=''; syncStatus('off');
     toast('Disconnected — local data untouched');
   });
+
+  /* Leaving is the moment YOUR changes are most likely to be lost: a phone gets
+     locked seconds after the last checkmark, well inside the 1.5s debounce, and
+     a backgrounded tab's timers stop firing. Flush immediately, with keepalive
+     so the request outlives the page going away. */
+  function syncFlush(){
+    if(!syncCfg().url || !syncDirty() || syncInFlight) return;
+    clearTimeout(syncTimer);
+    try{ syncPush(true); }catch(e){}
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'){ syncFlush(); return; }
+  });
+  window.addEventListener('pagehide',syncFlush);
 
   /* Coming back to the app is the moment another device's changes matter. */
   document.addEventListener('visibilitychange',()=>{
