@@ -407,12 +407,17 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
   text-transform:uppercase;color:var(--live);border:1px solid rgba(240,121,143,.4);
   padding:2px 6px;border-radius:3px;white-space:nowrap;}
 .rstat.ok{color:var(--dimmer);border-color:var(--line);}
-/* The date chip on a one-off doubles as its reschedule control, so it needs to
-   look pressable without shouting — it is still primarily a label. */
-.schedbtn{background:none;cursor:pointer;font:inherit;font-family:'JetBrains Mono',monospace;
-  border-style:dashed;-webkit-appearance:none;appearance:none;min-height:22px;}
-.schedbtn:hover,.schedbtn:focus-visible{color:var(--opt);border-color:var(--opt);border-style:solid;}
-.schedbtn:focus-visible{outline:2px solid var(--opt);outline-offset:2px;}
+/* The date chip on a one-off doubles as its reschedule control. It must read as
+   the same chip as every other .sched tag — so this strips the button chrome and
+   nothing else. NOT `font:inherit`: that shorthand resets font-size to the row's
+   13px and the chip balloons to three times the size of its neighbours. Every
+   type metric stays with .sched; the only signal that it's pressable is the
+   cursor, and the accent it picks up on hover or focus. */
+.schedbtn{-webkit-appearance:none;appearance:none;background:none;
+  margin:0;line-height:inherit;cursor:pointer;}
+.schedbtn:hover,.schedbtn:focus-visible{color:var(--opt);border-color:var(--opt);}
+.schedbtn:focus-visible{outline:1px solid var(--opt);outline-offset:1px;}
+.schedbtn:active{opacity:.7;}
 .step.done .rstat,.step.done .sched{color:var(--dimmer);border-color:var(--line);}
 .noprod{display:inline-block;margin-top:7px;font-family:'JetBrains Mono',monospace;
   font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
@@ -3399,7 +3404,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.04-c';
+const BUILD='2026.08.04-d';
 /* The hand-written label above is only as reliable as my memory, and it went
    seven builds without being touched — which quietly broke the one check the
    footer tells you to run when two devices disagree. So the label is no longer
