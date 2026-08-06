@@ -2946,6 +2946,50 @@ function wireRows(){
   });
 }
 
+/* =========================================================
+   APP HAND-OFF for custom URL schemes (dayone://, and anything else that
+   isn't http). Clicking such a link in the top frame does two things on iOS:
+   the system correctly hands the URL to the app, AND the browser is left
+   holding a navigation it cannot resolve. Brave surfaces that leftover as
+   "Cannot Open Page — invalid address" the moment you switch back, which is
+   why the link appears to work perfectly and still throws an error.
+
+   Doing the hand-off inside a throwaway iframe keeps the unresolvable
+   navigation out of the top frame, so the app still opens and the browser has
+   nothing left to complain about. If the iframe route is blocked and nothing
+   ever takes over the screen, we fall back to the direct navigation after a
+   beat — a dialog is better than a dead button.
+   ========================================================= */
+function appHandoff(url){
+  let wentAway = document.visibilityState === 'hidden';
+  const mark = () => { if(document.visibilityState==='hidden') wentAway=true; };
+  document.addEventListener('visibilitychange', mark);
+  const f=document.createElement('iframe');
+  f.setAttribute('aria-hidden','true');
+  f.setAttribute('tabindex','-1');
+  f.style.cssText='position:absolute;left:-9999px;top:0;width:1px;height:1px;border:0;opacity:0;';
+  document.body.appendChild(f);
+  try{ f.src=url; }
+  catch(e){ try{ f.contentWindow.location.href=url; }catch(e2){} }
+  setTimeout(()=>{
+    document.removeEventListener('visibilitychange', mark);
+    try{ f.remove(); }catch(e){}
+    if(!wentAway && document.visibilityState==='visible'){
+      try{ window.location.href=url; }catch(e){}
+    }
+  },1200);
+}
+/* Capture phase: the row's own click handler calls stopPropagation() for
+   .golink, so a bubbling listener here would never run. */
+document.addEventListener('click',e=>{
+  const a=e.target && e.target.closest && e.target.closest('a.golink');
+  if(!a) return;
+  const href=a.getAttribute('href')||'';
+  if(!href || /^https?:/i.test(href)) return;   /* ordinary web links: leave alone */
+  e.preventDefault();
+  appHandoff(href);
+},true);
+
 /* stepId -> absolute end time (ms). Module-level so it outlives the row that
    started it; buildRows() replaces the DOM wholesale and the countdown used to
    live only in that row's closure. */
@@ -3404,7 +3448,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.04-d';
+const BUILD='2026.08.04-e';
 /* The hand-written label above is only as reliable as my memory, and it went
    seven builds without being touched — which quietly broke the one check the
    footer tells you to run when two devices disagree. So the label is no longer
