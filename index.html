@@ -2997,11 +2997,34 @@ function appHandoff(url,mode){
      "Cannot Open Page" dialog. Which approach behaves best is a property of the
      browser, not of this app, and it can't be determined from here — so it's a
      per-link setting instead of a guess baked into the code. */
+  /* Whatever route we take, the button must never silently do nothing. Each
+     mode watches for the page going hidden — the only reliable signal that the
+     OS actually handed off to an app — and falls back to plain navigation if
+     nothing took over. A warning dialog beats a dead button. */
+  function watchHandoff(cleanup){
+    let away = document.visibilityState === 'hidden';
+    const mark = () => { if(document.visibilityState==='hidden') away=true; };
+    document.addEventListener('visibilitychange', mark);
+    setTimeout(()=>{
+      document.removeEventListener('visibilitychange', mark);
+      try{ cleanup && cleanup(); }catch(e){}
+      if(!away && document.visibilityState==='visible'){
+        try{ window.location.href=url; }catch(e){}
+      }
+    },1200);
+  }
   if(mode==='tab'){
     let win=null;
-    try{ win=window.open(url,'_blank'); }catch(e){}
-    if(win){ setTimeout(()=>{ try{ win.close(); }catch(e){} },1200); return; }
-    /* popup blocked — fall through to the frame route */
+    /* Open blank first, then navigate. Handing window.open() a non-http URL
+       directly is what left a tab that never loaded anything and then got
+       closed underneath you — the button appeared to do nothing at all. */
+    try{ win=window.open('','_blank'); }catch(e){}
+    if(win){
+      try{ win.location.href=url; }
+      catch(e){ try{ win.close(); }catch(e2){} win=null; }
+      if(win){ watchHandoff(()=>{ try{ win.close(); }catch(e){} }); return; }
+    }
+    /* popup blocked entirely — fall through to the frame route */
   }
   if(mode==='direct'){
     try{ window.location.href=url; }catch(e){}
@@ -3499,6 +3522,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.04-h', note:"Fixed \u201Cnew tab\u201D app links doing nothing at all. Every open mode now falls back to a plain link rather than failing silently."},
   {v:'2026.08.04-g', note:"App links now have an Open setting (hidden frame / directly / new tab) under Full schedule, for browsers like Brave that warn after a hand-off."},
   {v:'2026.08.04-f', note:"The build line now says what changed, with an \u201Cearlier\u201D toggle for previous builds."},
   {v:'2026.08.04-e', note:"Day One and other app links open through a hidden frame, so Brave no longer reports \"Cannot Open Page\" when you come back."},
