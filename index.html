@@ -407,6 +407,12 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
   text-transform:uppercase;color:var(--live);border:1px solid rgba(240,121,143,.4);
   padding:2px 6px;border-radius:3px;white-space:nowrap;}
 .rstat.ok{color:var(--dimmer);border-color:var(--line);}
+/* The date chip on a one-off doubles as its reschedule control, so it needs to
+   look pressable without shouting — it is still primarily a label. */
+.schedbtn{background:none;cursor:pointer;font:inherit;font-family:'JetBrains Mono',monospace;
+  border-style:dashed;-webkit-appearance:none;appearance:none;min-height:22px;}
+.schedbtn:hover,.schedbtn:focus-visible{color:var(--opt);border-color:var(--opt);border-style:solid;}
+.schedbtn:focus-visible{outline:2px solid var(--opt);outline-offset:2px;}
 .step.done .rstat,.step.done .sched{color:var(--dimmer);border-color:var(--line);}
 .noprod{display:inline-block;margin-top:7px;font-family:'JetBrains Mono',monospace;
   font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
@@ -1990,9 +1996,9 @@ function lateChip(key,from){
   return `<button class="late" data-late="${esc(key)}" `+
     `title="Was due ${esc(d)} \u2014 tap to move it">late${d?' \u00b7 '+esc(d):''}</button>`;
 }
-function reschedPanel(key,from){
+function reschedPanel(key,from,startAt){
   return `<div class="resched" hidden>`+
-    `<input type="date" class="rdate" value="${esc(today())}">`+
+    `<input type="date" class="rdate" value="${esc(startAt||today())}">`+
     `<button class="rgo" data-move="${esc(key)}">Move</button>`+
     `<button class="rgo" data-rcancel="1">Cancel</button></div>`;
 }
@@ -2519,8 +2525,12 @@ function buildRows(){
         `<div class="box">${CHECK}</div>`+
         `<div class="body"><div class="label">${esc(c.l)}`+
           (state.late?lateChip(key,state.from):'')+`</div>`+
-          `<div class="meta"><span class="sched">added for ${esc(prettyDay(c.date))}</span></div>`+
-          reschedPanel(key,state.from)+
+          `<div class="meta"><button class="sched schedbtn" data-late="${esc(key)}" `+
+            `title="Move this to another day" aria-label="Added for ${esc(prettyDay(c.date))} \u2014 tap to move it">`+
+            `added for ${esc(prettyDay(c.date))}</button></div>`+
+          /* default the picker to the day it currently sits on, not today —
+             moving something that is not late is the whole point here */
+          reschedPanel(key,state.from,c.date)+
         `</div>`+
         `<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`;
       sec.appendChild(row);
@@ -2729,8 +2739,12 @@ function showView(which){
   const tt=document.getElementById('tab-today'), tl=document.getElementById('tab-lists');
   if(tt) tt.setAttribute('aria-selected',String(!lists));
   if(tl) tl.setAttribute('aria-selected',String(lists));
+  /* Quiet: looking at a different tab is not a change to the protocol, and
+     marking the device dirty for it made every tab tap schedule a network push
+     (and a rebuild on the other device). */
   S.tab = lists ? 'lists' : 'today';
-  save(S);
+  const q=syncQuiet; syncQuiet=true;
+  try{ save(S); } finally{ syncQuiet=q; }
   if(lists) paintLists();
   window.scrollTo(0,0);
 }
@@ -2884,9 +2898,11 @@ function wireRows(){
   document.querySelectorAll('.timer').forEach(btn=>{
     const row=btn.closest('.step'), sweep=row.querySelector('.sweep'), total=+btn.dataset.t;
     const face=btn.querySelector('span')||btn;
+    const tid=row.dataset.n;
     let raf=null,end=0;
     const setP=v=>btn.style.setProperty('--p',v.toFixed(1));
     const stop=()=>{ if(raf)cancelAnimationFrame(raf); raf=null;
+      delete RUNTIMERS[tid];
       row.classList.remove('running'); sweep.style.width='0'; setP(0); };
     function tick(){
       const left=Math.max(0,end-Date.now());
@@ -2896,6 +2912,7 @@ function wireRows(){
       setP(pct);
       if(left<=0){
         if(raf)cancelAnimationFrame(raf); raf=null;
+        delete RUNTIMERS[tid];
         row.classList.remove('running'); sweep.style.width='0';
         row.classList.add('rang'); face.textContent='done'; setP(100);
         beep(); if(navigator.vibrate)navigator.vibrate([120,80,120]);
@@ -2908,10 +2925,26 @@ function wireRows(){
       e.stopPropagation();
       if(row.classList.contains('running')){ stop(); face.textContent=fmt(total); return; }
       row.classList.remove('rang'); row.classList.add('running');
-      end=Date.now()+total*1000; tick();
+      end=Date.now()+total*1000; RUNTIMERS[tid]=end; tick();
     });
+
+    /* Resume anything that was mid-run when the rows were rebuilt. The end time
+       is absolute, so this is exact rather than a restart — and it also covers
+       coming back from a backgrounded tab, where rAF simply stops firing. */
+    const resume=RUNTIMERS[tid];
+    if(resume && resume>Date.now()){
+      row.classList.remove('rang'); row.classList.add('running');
+      end=resume; tick();
+    }else if(resume){
+      delete RUNTIMERS[tid];
+    }
   });
 }
+
+/* stepId -> absolute end time (ms). Module-level so it outlives the row that
+   started it; buildRows() replaces the DOM wholesale and the countdown used to
+   live only in that row's closure. */
+const RUNTIMERS={};
 
 function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); }
 
@@ -3067,6 +3100,17 @@ function syncHeaders(c){
    merely sat there is NOT a candidate to overwrite anyone. */
 function syncDirty(){ return (+S.mtime||0) !== (+S.syncedAt||0); }
 
+/* Fields that describe THIS device rather than the protocol. They are excluded
+   from what we send and from every equality test, so that per-device state can
+   never masquerade as a remote edit. */
+const LOCALONLY=['syncedAt','tab'];
+function stripLocal(o){
+  const c=Object.assign({},o);
+  LOCALONLY.forEach(k=>{ delete c[k]; });
+  return c;
+}
+function sameState(a,b){ return JSON.stringify(stripLocal(a))===JSON.stringify(stripLocal(b)); }
+
 function syncPush(keepalive){
   const c=syncCfg(); if(!c.url) return Promise.resolve('off');
   if(syncInFlight){ syncSchedule(); return Promise.resolve('busy'); }
@@ -3083,7 +3127,11 @@ function syncPush(keepalive){
      the server's older copy on the next open — erasing a day of checkmarks
      that only ever existed locally. Optimism about the network is not free. */
   const stamp=+S.mtime||0;
-  const body=JSON.stringify(S);
+  /* syncedAt answers "has THIS device sent its work yet" — it means nothing on
+     any other machine, and shipping it guarantees the stored copy differs from
+     the local one by that field forever. Strip it, or every single pull reports
+     a phantom change from another device. */
+  const body=JSON.stringify(stripLocal(S));
   const opt={method:'PUT',headers:syncHeaders(c),body:body};
   if(keepalive) opt.keepalive=true;   /* survive the tab being backgrounded */
   return fetch(c.url,opt)
@@ -3112,7 +3160,9 @@ function syncAdopt(remote){
   try{ localStorage.setItem(KEY+'_prev', JSON.stringify(S)); }catch(e){}
   syncQuiet=true;
   rolledThisLoad=false;   /* the adopted copy is now our record of today */
+  const keepTab=S.tab;
   S=remote;
+  S.tab=keepTab;          /* which tab you're looking at is yours, not theirs */
   S.checked=S.checked||[]; S.rlog=S.rlog||{}; S.sched=S.sched||{};
   S.off=S.off||[]; S.links=S.links||{}; S.products=S.products||{};
   S.seeded=S.seeded||[]; S.linkSeeded=S.linkSeeded||[]; S.costs=S.costs||{}; S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
@@ -3152,13 +3202,17 @@ function syncPull(){
          never agree on the time, and a state written by an older build has no
          timestamp at all — both of those broke the previous rule. */
       if(!syncDirty()){
+        /* Same revision: this is our own copy coming back to us. Bail out before
+           any deep comparison — adopting here would rebuild the DOM, kill any
+           running timer and announce a change that never happened. */
+        if((+S.mtime||0) === (+remote.mtime||0)){ syncStatus('ok'); return 'same'; }
         /* "Clean" is a belief about the past, and beliefs can be wrong — a push
            that silently failed, a half-written server copy. So check the clocks
            anyway: never take a remote revision older than the one we hold. */
         if((+S.mtime||0) > (+remote.mtime||0)){
           return syncPush().then(()=>'pushed');
         }
-        if(JSON.stringify(remote)!==JSON.stringify(S)){
+        if(!sameState(remote,S)){
           syncAdopt(remote); syncStatus('ok'); return 'pulled';
         }
         syncStatus('ok'); return 'same';
@@ -3345,7 +3399,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.04-a';
+const BUILD='2026.08.04-c';
 /* The hand-written label above is only as reliable as my memory, and it went
    seven builds without being touched — which quietly broke the one check the
    footer tells you to run when two devices disagree. So the label is no longer
