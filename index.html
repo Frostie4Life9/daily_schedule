@@ -470,6 +470,9 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .lrow .app{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
   font-size:9.5px;color:var(--dimmer);letter-spacing:.04em;text-transform:uppercase;cursor:pointer;}
 .lrow .app input{width:16px;height:16px;min-height:0;accent-color:var(--opt);}
+.lrow .lmode{margin-left:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);
+  border-radius:4px;padding:3px 5px;font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  -webkit-appearance:none;appearance:none;color-scheme:dark;min-height:0;}
 .lrow input.name{flex:1 1 120px;min-width:0;min-height:36px;padding:7px 9px;font-size:12px;
   background:var(--ground);border:1px solid var(--line);color:var(--ink);
   -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
@@ -509,6 +512,19 @@ body.hideopt .step.optional{display:none;}
 .foot b{color:var(--dim);font-weight:600;}
 /* On a phone these were wrapping up onto the end of the build line, reading as
    part of the sentence. Their own flex row keeps them clear of it. */
+.whatsnew{margin-top:9px;color:var(--dim);font-size:12px;line-height:1.5;
+  display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;}
+#buildnote{flex:1 1 200px;min-width:0;}
+#buildnote b{color:var(--ink);font-weight:600;}
+.histbtn{flex:0 0 auto;background:none;border:1px solid var(--line);color:var(--dimmer);
+  font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:3px 7px;border-radius:3px;cursor:pointer;}
+.histbtn:hover,.histbtn:focus-visible{border-color:var(--opt);color:var(--opt);}
+#histlist{margin:10px 0 0;padding:0 0 0 2px;list-style:none;
+  border-left:1px solid var(--line);}
+#histlist li{padding:6px 0 6px 12px;font-size:11.5px;line-height:1.5;color:var(--dimmer);}
+#histlist code{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.06em;
+  color:var(--dim);display:block;margin-bottom:2px;}
 .footbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
 .footbtns .reset{margin-top:0;}
 .reset{margin-top:14px;background:none;border:1px solid var(--line);color:var(--dimmer);
@@ -572,6 +588,9 @@ body.hideopt .step.optional{display:none;}
     <b>Non-daily items</b> live in Full schedule below, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
     <b>Resets at midnight.</b> Streak counts days where every core step got checked.<br>
     <b>Build <span id="buildid">-</span>.</b> The middle code is a fingerprint of this file's own code. If two devices show different fingerprints, one is on a cached copy — hard-refresh it.
+    <div class="whatsnew"><span id="buildnote"></span>
+      <button class="histbtn" id="histbtn" aria-expanded="false">earlier</button></div>
+    <ol id="histlist" hidden></ol>
     <div class="footbtns">
       <button class="reset" id="reset">Reset today</button>
       <button class="reset" id="backupbtn">Backup / restore</button>
@@ -1504,11 +1523,20 @@ function paintSchedule(){
         `<div class="lrow">`+
         `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
         `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
+        (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
+          ? `<label class="app">Open<select class="lmode" data-rid="${r.id}" data-lf="mode">`+
+            ['frame','direct','tab'].map(m=>`<option value="${m}"${(lk.mode||'frame')===m?' selected':''}>`+
+              ({frame:'hidden frame',direct:'directly',tab:'new tab'})[m]+`</option>`).join('')+
+            `</select></label>`
+          : '')+
         `<button data-lcopy="${r.id}">Apply to group</button>`+
         (r.link
           ? (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')
           : `<button data-ldrop="${r.id}">Remove</button>`)+
         `</div>`+
+        (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
+          ? `<div class="hint">This is an app link, not a web address. Some browsers \u2014 Brave on iOS especially \u2014 show a "Cannot Open Page" warning after handing off to the app even though the app opened fine. If that happens, try the other Open settings: <b>hidden frame</b> hides the hand-off in a throwaway frame, <b>new tab</b> sends it to a tab that closes itself, <b>directly</b> is the plain link. One of the three is usually quiet.</div>`
+          : '')+
         (lk.url?'':`<div class="hint">Local file paths won't open from a phone browser. Put the workbook in OneDrive or Google Drive and paste the share link. "Excel app" sends it straight to Excel instead of a read-only web viewer \u2014 leave it off if Excel isn't installed.</div>`);
       }
       const sl=schedLabel(r);
@@ -2403,12 +2431,15 @@ function linkOf(id){
   return {
     href: l.app ? 'ms-excel:ofe|u|'+base : base,
     name: (l.name&&String(l.name).trim()) || 'Open',
-    app: !!l.app || custom
+    app: !!l.app || custom,
+    custom: custom,
+    mode: l.mode || 'frame'
   };
 }
 function linkBtn(id){
   const lk=linkOf(id); if(!lk) return '';
   return `<a class="golink" href="${esc(lk.href)}"${lk.app?'':' target="_blank" rel="noopener noreferrer"'} `+
+    `data-lmode="${esc(lk.mode)}" `+
     `title="${esc(lk.name)}" aria-label="${esc(lk.name)}">${LINKICON}<span>${esc(lk.name)}</span></a>`;
 }
 
@@ -2960,7 +2991,22 @@ function wireRows(){
    ever takes over the screen, we fall back to the direct navigation after a
    beat — a dialog is better than a dead button.
    ========================================================= */
-function appHandoff(url){
+function appHandoff(url,mode){
+  /* Brave on iOS validates URLs against its own scheme allowlist before the
+     webview ever loads them, so a page-side trick cannot always suppress its
+     "Cannot Open Page" dialog. Which approach behaves best is a property of the
+     browser, not of this app, and it can't be determined from here — so it's a
+     per-link setting instead of a guess baked into the code. */
+  if(mode==='tab'){
+    let win=null;
+    try{ win=window.open(url,'_blank'); }catch(e){}
+    if(win){ setTimeout(()=>{ try{ win.close(); }catch(e){} },1200); return; }
+    /* popup blocked — fall through to the frame route */
+  }
+  if(mode==='direct'){
+    try{ window.location.href=url; }catch(e){}
+    return;
+  }
   let wentAway = document.visibilityState === 'hidden';
   const mark = () => { if(document.visibilityState==='hidden') wentAway=true; };
   document.addEventListener('visibilitychange', mark);
@@ -2987,7 +3033,7 @@ document.addEventListener('click',e=>{
   const href=a.getAttribute('href')||'';
   if(!href || /^https?:/i.test(href)) return;   /* ordinary web links: leave alone */
   e.preventDefault();
-  appHandoff(href);
+  appHandoff(href, a.dataset.lmode || 'frame');
 },true);
 
 /* stepId -> absolute end time (ms). Module-level so it outlives the row that
@@ -3448,7 +3494,21 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   toast('Restored');
 });
 
-const BUILD='2026.08.04-e';
+/* Newest first. BUILD is read from the top entry rather than written out
+   separately, so the version and the note describing it cannot drift apart —
+   which is exactly how the old hand-maintained version string sat unchanged
+   through a dozen releases without anyone noticing. */
+const CHANGELOG=[
+  {v:'2026.08.04-g', note:"App links now have an Open setting (hidden frame / directly / new tab) under Full schedule, for browsers like Brave that warn after a hand-off."},
+  {v:'2026.08.04-f', note:"The build line now says what changed, with an \u201Cearlier\u201D toggle for previous builds."},
+  {v:'2026.08.04-e', note:"Day One and other app links open through a hidden frame, so Brave no longer reports \"Cannot Open Page\" when you come back."},
+  {v:'2026.08.04-d', note:"The \u201Cadded for\u201D date chip is back to normal chip size \u2014 a CSS shorthand had silently tripled it."},
+  {v:'2026.08.04-c', note:"One-offs can be rescheduled by tapping their \u201Cadded for\u201D date, not just the late button."},
+  {v:'2026.08.04-b', note:"Fixed the phantom \u201CUpdated from another device\u201D on every open, and running timers now survive a repaint."},
+  {v:'2026.08.04-a', note:"Build ID now carries an automatic fingerprint of this file's own code, so a stale copy is visible at a glance."},
+  {v:'2026.08.01-o', note:"Everything before this shipped under one stale version string: the Lists tab, scheduled steps, skip-collapse, the mobile jump fix, two sync data-loss fixes, and extras staying checked all day."}
+];
+const BUILD=CHANGELOG[0].v;
 /* The hand-written label above is only as reliable as my memory, and it went
    seven builds without being touched — which quietly broke the one check the
    footer tells you to run when two devices disagree. So the label is no longer
@@ -3467,6 +3527,18 @@ function buildPrint(){
 const BUILDPRINT=buildPrint();
 try{ document.getElementById('buildid').textContent=
        BUILD+' · '+BUILDPRINT+' · digest v'+DIGEST; }catch(e){}
+try{
+  document.getElementById('buildnote').innerHTML='<b>New:</b> '+esc(CHANGELOG[0].note);
+  const hl=document.getElementById('histlist'), hb=document.getElementById('histbtn');
+  hl.innerHTML=CHANGELOG.slice(1).map(c=>
+    '<li><code>'+esc(c.v)+'</code>'+esc(c.note)+'</li>').join('');
+  if(CHANGELOG.length<2){ hb.hidden=true; }
+  hb.addEventListener('click',()=>{
+    hl.hidden=!hl.hidden;
+    hb.setAttribute('aria-expanded',String(!hl.hidden));
+    hb.textContent=hl.hidden?'earlier':'hide';
+  });
+}catch(e){}
 
 rebuild(); paintOpt();
 </script>
