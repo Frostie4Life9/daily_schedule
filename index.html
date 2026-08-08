@@ -133,6 +133,15 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .lempty{color:var(--dimmer);font-size:12.5px;padding:14px 12px;line-height:1.5;}
 .lnone{color:var(--dimmer);font-size:13px;line-height:1.6;padding:22px 2px;}
 
+.bulk{display:block;width:100%;margin:10px 0 2px;min-height:48px;padding:13px 14px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+  color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  letter-spacing:.09em;text-transform:uppercase;cursor:pointer;}
+.bulk:hover,.bulk:focus-visible{border-color:var(--done);color:var(--done);}
+.bulk:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.bulk:active{opacity:.75;}
+.bulk.undo{color:var(--dimmer);}
+.bulk.undo:hover,.bulk.undo:focus-visible{border-color:var(--warn);color:var(--warn);}
 .controls{display:flex;gap:8px;flex-wrap:wrap;padding:16px 0 4px;}
 .ctl{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
   text-transform:uppercase;background:var(--panel);border:1px solid var(--line);
@@ -829,7 +838,7 @@ const PHASES = [
     {when:'retinoid', text:"Electric is gentler than a razor, but it's still dragging metal across skin \u2014 don't trim on a night adapalene is going on. Pick one."}
   ]}
  ]},
- {name:"The shower", big:1,
+ {name:"The shower", big:1, bulk:1,
   toggle:{key:'washmode', def:'shower', options:[
     {v:'shower', l:'Shower', name:"The shower"},
     {v:'bath',   l:'Bath',   name:"The bath"}
@@ -2169,11 +2178,11 @@ const ROUTINES=[
  {id:'hh_trash',   group:'Household', l:'Trash out', sched:{everyDays:3},
   note:"On the timer, not on how full it looks. Three days is about smell and fruit flies, and by the time volume tells you to go it's already late."},
  {id:'hh_bath',    group:'Household', l:'Clean bathroom', sched:{dow:[6]},
-  note:"Sink, toilet, shower. Fifteen minutes weekly beats an hour monthly."},
+  note:"Fifteen minutes weekly beats an hour monthly, because soap scum and limescale stay soft for about a week and then bond. Weekly is wiping. Monthly is scrubbing.\n\nTHE KIT, AND WHAT EACH THING IS FOR:\n\u2022 BATHROOM SPRAY CLEANER (Scrubbing Bubbles, Lysol Bathroom, Method \u2014 any of them) \u2192 sink, counter, tub, shower walls, toilet OUTSIDE.\n\u2022 TOILET BOWL CLEANER, the bottle with the bent neck (Lysol or Clorox) \u2192 inside the bowl only. It's thick so it clings under the rim; it is not a surface cleaner.\n\u2022 TOILET BRUSH \u2192 inside the bowl only, nothing else, ever.\n\u2022 NON-SCRATCH SCRUB SPONGE (Scotch-Brite blue-and-white; the green one scratches) \u2192 tub, shower floor, sink basin.\n\u2022 FOUR MICROFIBER CLOTHS, and keep them straight: #1 GLASS for the mirror, #2 DRY for buffing the mirror after, #3 SURFACES for counter and fixtures, #4 TOILET for the outside of the toilet \u2014 different colour, or just use paper towel and bin it.\n\u2022 GLASS CLEANER (Windex) \u2192 mirror only.\n\u2022 WHITE VINEGAR \u2192 the white crust on the faucet and shower head. Nothing else.\n\u2022 GLOVES, and a BROOM or hand vac plus a MOP or a spare damp cloth for the floor.\nAbout $25 once, then it lasts months.\n\nSAFETY: never mix bleach with anything containing ammonia, and most glass cleaners contain ammonia. That combination makes chloramine gas in a small room with the door shut. One product at a time, rinse between, door open.\n\nORDER \u2014 TOP DOWN, TOILET LAST, because anything you knock loose falls, and nothing from the toilet should travel onto anything else.\n\n1. CLEAR IT OUT. By hand: products off the counter, bottles out of the shower, mat off the floor. Cleaning around objects is where the time actually goes.\n\n2. SPRAY, THEN WALK AWAY. BATHROOM SPRAY CLEANER onto the shower walls, tub, sink, counter and the toilet exterior. Leave it five minutes. This is the whole trick and almost nobody does it \u2014 cleaners work by dissolving, and dissolving takes time. Spraying and immediately wiping is doing by force what the chemistry would have done for free.\n\n3. MIRROR, while that dwells. GLASS CLEANER sprayed onto CLOTH #1, not onto the mirror \u2014 spraying the glass sends overspray onto the counter you're about to wipe and pools at the edges. Wipe with #1, then go over it with DRY CLOTH #2. That dry buff is what removes streaks; wet wiping alone never will.\n\n4. SINK AND COUNTER. NON-SCRATCH SPONGE around the basin and drain, then CLOTH #3 to wipe everything dry. The parts a visitor actually notices: the base of the faucet where it meets the counter, the overflow hole, and the lip of the drain \u2014 all three want the sponge corner or a corner of #3 worked into them. For the white hard-water crust on the faucet: wrap a paper towel soaked in WHITE VINEGAR around it, leave ten minutes, then wipe. Not on natural stone \u2014 vinegar etches it.\n\n5. SHOWER AND TUB. NON-SCRATCH SPONGE on the walls and floor, working top to bottom, then rinse the whole thing down with the SHOWER HEAD itself \u2014 that's your rinsing tool, no bucket needed. Shower head crusted up: rubber band a sandwich bag of WHITE VINEGAR around it and leave it while you do the toilet. Then take CLOTH #3 down the bottom eight inches of the curtain liner, inside face \u2014 that is where mildew starts every single time, and it's the part nobody looks at.\n\n6. TOILET. BOWL CLEANER squirted UNDER the rim so it runs down the sides, then leave it while you do the outside. Outside is CLOTH #4 (or paper towel) with BATHROOM SPRAY: tank, lid top AND underside, seat top AND underside, the hinges, and the base where it meets the floor. The base and the floor right around it is where the smell comes from \u2014 that's the part that matters and the part that gets skipped. Then TOILET BRUSH the bowl: up under the rim, around the waterline, down into the trap. Rest the brush under the closed seat to drip before it goes back in its holder.\n\n7. FLOOR. BROOM or hand vac first, then MOP or a damp cloth. Behind the toilet and along the baseboards.\n\nAFTERWARDS: cloths #1\u2013#3 go in the wash, #4 goes in the wash separately or in the bin. Microfiber cleans by grabbing, so a loaded cloth is just redistributing grime."},
  {id:'hh_vac',     group:'Household', l:'Vacuum / floors', sched:{dow:[6]},
-  note:"Bedroom first \u2014 that's the floor you walk barefoot before getting into the bed you just changed."},
+  note:"Bedroom first \u2014 that's the floor you walk barefoot before getting into the bed you just changed.\n\nTHE TOOLS, WHICH ARE ALL ON THE VACUUM ALREADY:\n\u2022 MAIN FLOOR HEAD \u2192 open floor, the bulk of the work.\n\u2022 CREVICE TOOL, the narrow flat one \u2192 along baseboards, into corners, around bed and desk legs, between the carpet and the wall.\n\u2022 DUSTING BRUSH, the round one with bristles \u2192 vents, baseboard tops, windowsills, anything the floor head would scuff.\n\u2022 UPHOLSTERY TOOL, the wide flat one \u2192 the desk chair, and the mattress if you've stripped it.\n\u2022 SCISSORS or a SEAM RIPPER \u2192 cutting hair off the brush roll. Not optional, see maintenance below.\nFor hard floors you also want a MICROFIBER FLAT MOP, used after vacuuming, never instead of it.\n\nCLEAR THE FLOOR FIRST, by hand. Shoes, cables, laundry, chair pushed in. Vacuuming around objects is slower than moving them and leaves exactly the patches that needed doing. If you dust, dust before you vacuum.\n\nGO SLOWER THAN FEELS RIGHT, with the MAIN FLOOR HEAD. This is the single biggest difference between a vacuumed floor and a clean one. The machine needs contact time to pull debris up out of carpet fibres, and most people move about three times faster than it can work. Lean on the PULL stroke \u2014 that's where most of the pickup happens, because the brush roll agitates the pile on the way out and the suction collects it on the way back.\n\nOVERLAP EVERY PASS by about half the head width. Edge-to-edge passes leave untouched strips between them, invisible until the light changes.\n\nTWO DIRECTIONS ON CARPET. A second set of passes at ninety degrees to the first lifts noticeably more than doing the same direction twice \u2014 carpet fibres lean, and one direction only gets one side of them.\n\nTHEN SWITCH TO THE CREVICE TOOL and run it along every baseboard, into the corners, and around the bed and desk legs. This is where dust actually accumulates \u2014 the middle of the room gets walked on and looks dirty, but the perimeter is where it settles and stays. Under the bed matters more than anywhere else in the room, since you spend eight hours a night breathing directly above it.\n\nDUSTING BRUSH on the baseboard tops and any vents while you're down there. UPHOLSTERY TOOL over the desk chair \u2014 fabric chairs hold more than people expect.\n\nEXTRA PASSES with the floor head on the three spots that get it worst: the doorway, the strip in front of your desk chair, and beside the bed where you stand up.\n\nHARD FLOORS: vacuum first, MICROFIBER FLAT MOP second. Never mop over grit \u2014 you're grinding it into the finish and scrubbing scratches in.\n\nMAINTENANCE, which is why vacuums quietly stop working. Empty the bin at two-thirds full, not when it's packed \u2014 suction falls off long before it looks full. Every few weeks, flip the machine over and cut wrapped hair off the brush roll with SCISSORS or a SEAM RIPPER; wrapped hair stops the roll agitating and leaves you with suction alone. Rinse or replace the filter on whatever schedule the manual gives. A neglected vacuum does about half the work of a maintained one and feels identical while you're pushing it.\n\nTen to fifteen minutes for a bedroom done properly."},
  {id:'hh_sheetsdesk',group:'Household',l:'Wipe desk, peripherals, phone screen', sched:{dow:[6]}, opt:1,
-  note:"Your phone touches your face. So does your pillow."},
+  note:"Your phone touches your face. So does your pillow. This is a skincare step wearing a cleaning step's clothes.\n\n\"PERIPHERALS\" just means the things around the computer that your hands are on: keyboard, mouse, headset, monitor, desk mat, controller.\n\nTHE KIT, AND WHAT EACH THING IS FOR:\n\u2022 TWO OR THREE MICROFIBER CLOTHS \u2192 one kept DRY for screens, one dampened with alcohol for plastic, one for the desk.\n\u2022 70% ISOPROPYL ALCOHOL in a small bottle, or pre-made 70% wipes \u2192 plastic shells, keycap edges, desk. Buy 70% specifically, NOT 91% or 99% \u2014 the stronger ones evaporate before they can disinfect and are harsher on plastics and coatings. The water in 70% is doing real work.\n\u2022 COTTON SWABS \u2192 seams and gaps too narrow for a cloth: scroll wheel, button edges, keycap corners.\n\u2022 A SOFT DRY BRUSH \u2014 a clean soft-bristled toothbrush kept for this, or a cheap paintbrush \u2192 ports, speaker grilles, between keycaps. DRY, always. Never a pin, paperclip or anything metal in a port.\n\u2022 DISTILLED WATER (optional, a bottle lasts forever) \u2192 the only liquid that goes near the monitor.\n\u2022 A BLOWER or CANNED AIR \u2192 loose crumbs out of the keyboard.\n\nTHE RULE THAT PREVENTS EXPENSIVE MISTAKES: never spray anything directly onto electronics. Spray the CLOTH, wipe with the CLOTH. Liquid runs downhill into seams and ports and you don't find out for days.\n\nORDER: loose debris first with the BRUSH or BLOWER, then wipe. Wiping first grinds crumbs across the surface.\n\nPHONE \u2014 the one that matters for your face. Take the CASE OFF first. Screen and back: DRY MICROFIBER for smudges, or a 70% IPA WIPE (or a cloth dampened with 70% IPA) when you want it actually disinfected \u2014 Apple explicitly permits 70% IPA on the screen. Ports and speaker grilles: SOFT DRY BRUSH only, held so debris falls out rather than in. No liquid near them at all.\n\nPHONE CASE, separately, because the seam where case meets phone collects more than either side alone. Silicone or hard plastic case: WARM WATER AND DISH SOAP in the sink, scrub the inside with your fingers or the SOFT BRUSH, rinse, and dry COMPLETELY \u2014 a damp case put back on traps water against the phone. Leather or fabric case: damp MICROFIBER only, no soap, no alcohol; both crack leather.\n\nMONITOR \u2014 read this before you touch it. NEVER alcohol, ammonia, or glass cleaner on a modern display. Panels have anti-glare and anti-reflective coatings, and those solvents strip them permanently, leaving cloudy patches nothing removes. DRY MICROFIBER only. For something stuck on: a corner of microfiber barely dampened with DISTILLED WATER, then dry with the DRY cloth. Light pressure \u2014 pressing on an OLED to shift a mark is worse than the mark.\n\nKEYBOARD. Unplug it. Turn it upside down over the bin and shake, then BLOWER between the keys. Weekly pass: SOFT DRY BRUSH between the keycaps, then a COTTON SWAB dampened with 70% IPA around the keycap edges, where finger oil builds into a visible shine. Every few months: pull the keycaps with a KEYCAP PULLER, wash them in WARM SOAPY WATER, and let them dry a full day \u2014 they hold water inside the stem longer than you'd think. Never submerge the board itself; the board gets the BRUSH and SWABS only.\n\nMOUSE. 70% IPA on a MICROFIBER for the shell and the grip sides. DRY COTTON SWAB down the scroll wheel gap and along the button seams. Then flip it over: the PTFE feet collect a grey film of desk grime, and that film \u2014 not the pad, not the sensor \u2014 is usually what makes a mouse start to feel draggy. Scrape it with a fingernail and wipe with an IPA-damp cloth, and the glide comes back.\n\nHEADSET. Earpads: MICROFIBER barely dampened with WATER, nothing stronger. Alcohol dries out pleather and cracks it, and once the pads crack they flake onto your ears. Hard plastic parts of the headband can take 70% IPA on a cloth.\n\nDESK MAT. Cloth-covered mats go through the WASHING MACHINE on cold and air dry flat \u2014 most people never do this and they hold months of hand oil. Hard mats: 70% IPA on a cloth.\n\nDESK ITSELF. Laminate or painted: all-purpose cleaner or 70% IPA on a MICROFIBER. Real wood finish: damp MICROFIBER with water only, dried straight after \u2014 solvents lift the finish.\n\nWeekly for the phone, mouse and desk. The keycap-pull deep clean is a few times a year, not now."},
 
  /* ---- Grooming, non-daily ---- */
  {id:'gr_nailsh', group:'Grooming \u2014 non-daily', l:'Nails \u2014 hands', sched:{everyDays:7},
@@ -2453,6 +2462,48 @@ function modeBtns(ph){
     `aria-pressed="${o.v===cur}">${esc(o.l)}</button>`).join('')+`</span>`;
 }
 
+/* =========================================================
+   BULK CONFIRM — the shower block is the one stretch of the day you cannot
+   reach the screen for. Rather than fifteen taps from memory afterwards, one
+   button settles the whole block, and anything you actually skipped gets
+   unchecked individually. Deliberately reversible: press it again and it
+   clears the same set, because a mis-tap here would otherwise cost more than
+   the button saves.
+   ========================================================= */
+function bulkTargets(ph){
+  return renderedSteps(ph).filter(st=>!stepData(st).hidden && !isOff(st.id));
+}
+function bulkLabel(ph){
+  if(!ph.toggle) return phaseName(ph);
+  const cur=modeOf(ph), o=ph.toggle.options.find(x=>x.v===cur);
+  return o?o.l:phaseName(ph);
+}
+function bulkPhase(ph){
+  const ids=bulkTargets(ph).map(st=>st.id);
+  if(!ids.length) return;
+  const allOn=ids.every(id=>S.checked.indexOf(id)>-1);
+  const sset=schedSteps();
+  S.rlog=S.rlog||{};
+  ids.forEach(id=>{
+    const at=S.checked.indexOf(id);
+    if(allOn){ if(at>-1) S.checked.splice(at,1); }
+    else if(at===-1) S.checked.push(id);
+    /* a scheduled step inside the block drives its own interval off rlog,
+       so bulk-checking has to stamp it exactly as a single tap would */
+    if(sset.some(x=>x.id===id)){
+      if(allOn) delete S.rlog[id];
+      else { S.rlog[id]=new Date().toISOString(); if(S.defer) delete S.defer[id]; }
+    }
+  });
+  const core=coreIds();
+  if(!allOn && core.length && core.every(x=>S.checked.indexOf(x)>-1) && S.last!==today()){
+    S.last=today(); S.streak++; toast('Protocol complete \u00b7 day '+S.streak);
+  }else{
+    toast(allOn ? 'Cleared '+ids.length : ids.length+' checked off');
+  }
+  save(S); buildRows(); paintSchedule(); paint();
+}
+
 function buildRows(){
   list.innerHTML='';
   const due=dueRoutines();
@@ -2532,6 +2583,17 @@ function buildRows(){
           `<button class="skip" data-skip="${st.id}" title="Skip this item" aria-label="Skip this item">${isOff(st.id)?'undo':'skip'}</button>`;
         sec.appendChild(row);
       });
+      if(p.bulk && vis.length && !collapsed){
+        const ids=bulkTargets(p).map(st=>st.id);
+        const left=ids.filter(id=>S.checked.indexOf(id)===-1).length;
+        const b=document.createElement('button');
+        b.type='button'; b.className='bulk'+(left?'':' undo');
+        b.dataset.bulk=p.name;
+        b.textContent = left
+          ? bulkLabel(p)+' done \u2014 check the remaining '+left
+          : 'Undo \u2014 uncheck all '+ids.length;
+        sec.appendChild(b);
+      }
       list.appendChild(sec);
     }
     /* any group anchored to this phase renders immediately after it */
@@ -2902,6 +2964,13 @@ function beep(){
 }
 
 function wireRows(){
+  document.querySelectorAll('button.bulk').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const ph=PHASES.find(x=>x.name===b.dataset.bulk);
+      if(ph) bulkPhase(ph);
+    });
+  });
   allRows().forEach(r=>{
     r.addEventListener('click',e=>{
       if(e.target.closest('.timer'))return;
@@ -2915,6 +2984,13 @@ function wireRows(){
         if(at>-1) S.off.splice(at,1);
         else { S.off.push(id); const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1); }
         save(S); buildRows(); paint(); return;
+      }
+      const bk=e.target.closest('[data-bulk]');
+      if(bk){
+        e.stopPropagation();
+        const ph=PHASES.find(x=>x.name===bk.dataset.bulk);
+        if(ph) bulkPhase(ph);
+        return;
       }
       const su=e.target.closest('[data-setup]');
       if(su){
@@ -3522,6 +3598,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.04-j', note:"Cleaning walkthroughs now name the exact tool and product for every single step, not just in a list at the top."},
+  {v:'2026.08.04-i', note:"One-tap confirm for the whole shower or bath block, and full walkthroughs for the Saturday cleaning tasks."},
   {v:'2026.08.04-h', note:"Fixed \u201Cnew tab\u201D app links doing nothing at all. Every open mode now falls back to a plain link rather than failing silently."},
   {v:'2026.08.04-g', note:"App links now have an Open setting (hidden frame / directly / new tab) under Full schedule, for browsers like Brave that warn after a hand-off."},
   {v:'2026.08.04-f', note:"The build line now says what changed, with an \u201Cearlier\u201D toggle for previous builds."},
