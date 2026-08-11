@@ -1485,10 +1485,10 @@ function paintSchedule(){
   const todayDow=new Date().getDay();
   let g='';
   for(let d=0;d<7;d++){
-    const fixed=SCHEDALL().filter(r=>{const sc=schedOf(r);return sc.dow&&sc.dow.indexOf(d)>-1;});
+    const fixed=SCHEDALL().filter(r=>{const sc=schedOf(r);return !r.leadOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(d)>-1;});
     g+=`<div class="wcol${d===todayDow?' now':''}"><h4>${DOW[d]}</h4><ul>`+
        fixed.map(r=>`<li>${esc(r.l.split(' \u2014 ')[0])}</li>`).join('')+
-       (d===todayDow?SCHEDALL().filter(r=>{const sc=schedOf(r);return !sc.dow&&!sc.monthDay&&dueToday(r);})
+       (d===todayDow?SCHEDALL().filter(r=>{const sc=schedOf(r);return (r.leadOf||sc.mode!=='dow')&&!sc.monthDay&&dueToday(r);})
          .map(r=>`<li class="floaty">${esc(r.l)}</li>`).join(''):'')+
        `</ul></div>`;
   }
@@ -1500,8 +1500,14 @@ function paintSchedule(){
     const items=SCHEDALL().filter(r=>r.group===grp);
     return `<div class="pgroup"><h3>${esc(grp)}</h3>`+items.map(r=>{
       const sc=schedOf(r), st=statusLabel(r), due=dueToday(r);
+      const li=leadInfo(r);
+      let ctrl='';
+      if(li){
+        ctrl=`<div class="nrow">Remind <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="lead" value="${li.lead}"> days before ${esc(li.parent.l.split(' \u2014 ')[0])}</div>`+
+             `<div class="hint">No schedule of its own \u2014 it reads ${esc(li.parent.l.split(' \u2014 ')[0])}\u2019s clock, so if that lands early or late this moves with it. It only appears inside the window, and it clears itself once the parent is checked off.</div>`;
+      } else {
       const modes=[['dow','Days of week'],['everyDays','Every N days'],['everyMonths','Every N months']];
-      let ctrl=`<div class="mrow">`+modes.map(m=>
+      ctrl=`<div class="mrow">`+modes.map(m=>
         `<button class="mbtn" data-rmode="${m[0]}" data-rid="${r.id}" aria-pressed="${sc.mode===m[0]}">${m[1]}</button>`
       ).join('')+`</div>`;
       if(sc.mode==='dow'){
@@ -1518,6 +1524,7 @@ function paintSchedule(){
                 : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
               `</div>`+
               (sc.anchor?'':`<div class="hint">No start date — the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
+      }
       }
       /* The link block is for items that open a workbook. Showing it on all 25
          routines buried the scheduling controls it sits under. Flagged items and
@@ -1898,7 +1905,52 @@ function nextScheduled(sc){
   }
   return new Date(last.getTime()+Math.max(1,+sc.everyDays)*dayMs);
 }
+
+/* =========================================================
+   LEAD ITEMS \u2014 a task whose only job is to fire a few days
+   before ANOTHER task comes due. It has no schedule of its
+   own on purpose. The haircut clock floats: it means "28 days
+   after the last cut," not "the 28th of anything," so a lead
+   task carrying its own copy of that schedule would drift out
+   of step the first time a cut landed early or late. Instead
+   it reads the parent's clock every time it's asked, which
+   means it can never disagree with it.
+   ========================================================= */
+function leadInfo(r){
+  if(!r.leadOf) return null;
+  const par=ROUTINES.find(x=>x.id===r.leadOf); if(!par) return null;
+  const u=(S.sched&&S.sched[r.id])||{};
+  const lead=Math.max(1,+(u.lead||r.lead||4));
+  const sc=schedOf(par);
+  let out;                                    /* days until the parent is due */
+  if(sc.mode==='dow'){
+    const now=new Date().getDay(); out=null;
+    for(let i=0;i<8;i++){ if(sc.dow.indexOf((now+i)%7)>-1){ out=i; break; } }
+  } else if(sc.anchor){
+    const nx=nextScheduled(sc);
+    out = nx ? Math.round((nx-new Date(today()+'T00:00:00'))/dayMs) : null;
+  } else {
+    const ds=daysSince(par.id);
+    const target = sc.mode==='everyMonths' ? Math.round((+sc.everyMonths)*30.44) : +sc.everyDays;
+    out = ds===null ? 0 : target-ds;          /* never logged \u2014 the parent is due now */
+  }
+  return {parent:par, lead:lead, out:out};
+}
+/* Already handled this round? The check has to be NEWER than the parent's last
+   completion \u2014 otherwise last cycle's booking would suppress this cycle's
+   reminder forever, which is the failure mode that makes a reminder worthless. */
+function leadHandled(r,li){
+  const mine=lastDone(r.id); if(!mine) return false;
+  const theirs=lastDone(li.parent.id);
+  return theirs ? mine>theirs : true;
+}
+function leadDue(r){
+  const li=leadInfo(r); if(!li||li.out===null) return false;
+  if(li.out>li.lead) return false;            /* window hasn't opened yet */
+  return !leadHandled(r,li);
+}
 function dueToday(r){
+  if(r.leadOf) return leadDue(r);
   const sc=schedOf(r), now=new Date();
   if(sc.mode==='dow') return sc.dow.indexOf(now.getDay())>-1;
   if(sc.anchor){
@@ -1914,6 +1966,7 @@ function dueToday(r){
   return ds===null ? true : ds>=target;
 }
 function schedLabel(r){
+  if(r.leadOf){ const li=leadInfo(r); return li ? li.lead+' days before '+li.parent.l.split(' \u2014 ')[0] : null; }
   const sc=schedOf(r);
   if(sc.mode==='dow'){
     if(sc.dow.length===7) return null;      /* daily needs no tag */
@@ -1936,6 +1989,12 @@ function schedLabel(r){
   return base;
 }
 function statusLabel(r){
+  if(r.leadOf){
+    const li=leadInfo(r); if(!li||li.out===null) return null;
+    if(leadHandled(r,li)) return 'booked \u00b7 done this cycle';
+    if(li.out<=li.lead) return li.out<=0 ? 'book now' : 'book now \u00b7 cut due in '+li.out+'d';
+    return 'in '+(li.out-li.lead)+'d';
+  }
   const sc=schedOf(r);
   if(sc.mode==='dow') return null;
   if(sc.anchor){
@@ -1984,7 +2043,7 @@ function routineState(r){
   const sc=schedOf(r), t=today(), df=deferOf(r.id);
   if(df && df>t) return {due:false, late:false, from:null};
   let from=null;
-  if(sc.mode==='dow'){
+  if(sc.mode==='dow' && !r.leadOf){
     from=lastDowOn(sc,t);
     if(!from) return {due:false, late:false, from:null};
     if(from!==t){
@@ -2159,6 +2218,8 @@ const ROUTINES=[
   note:"Before the grocery run, not after. Ten minutes here is what makes the prep actually happen."},
  {id:'fd_shop',  group:'Food', l:'Grocery run', sched:{dow:[0]},
   note:"With a list built from the plan. Shopping without one is how the prep food doesn't get bought."},
+ {id:'fd_thaw',  group:'Food', l:'Move Sunday\u2019s meat to the fridge', sched:{dow:[5]},
+  note:"FRIDAY, for Sunday prep. Freezer to the bottom shelf of the fridge, on a rimmed plate or sheet pan so nothing drips onto anything below it, and below any ready-to-eat food. Leave it in its packaging.\n\nWHY FRIDAY AND NOT SATURDAY. Fridge thawing is slower than people assume \u2014 USDA puts even a single pound of ground meat or boneless chicken breasts at a full day, and bulk quantities at roughly 24 hours per four to five pounds. A prep-sized haul is three to six pounds, and it usually comes frozen as one dense block rather than as separate pounds, which is slower again. One overnight does not reliably finish that; two do, with margin. Friday evening to Sunday midday is about forty hours.\n\nIT DOES NOT SPOIL IN THE EXTRA DAY. Once thawed in the fridge, ground meat, poultry and seafood are good for another day or two before cooking, and whole cuts of beef or pork for three to five. Finishing Saturday and cooking Sunday sits inside that window on everything. Thursday would not \u2014 that is when chicken and ground beef start running out the far end of it.\n\nIF IT IS A SINGLE SMALL PACKAGE, Saturday is enough; move the schedule if that becomes the normal week.\n\nIF YOU FORGOT, do not leave it on the counter \u2014 the surface is in the danger zone within an hour while the middle is still frozen. Sealed leak-proof bag, fully submerged in COLD water, changed every thirty minutes: about an hour per pound, and it has to be cooked right after, not held. You can also cook straight from frozen; it just takes about half again as long.\n\nPREPPED MORE THAN YOU THAWED? Meat thawed in the fridge can go back in the freezer uncooked. It loses a little moisture, nothing else."},
  {id:'fd_prep',  group:'Food', l:'Meal prep', sched:{dow:[0]},
   note:"Protein and a starch in bulk, vegetables separate so they don't go soft. Label with the date."},
  {id:'fd_prep2', group:'Food', l:'Mid-week top-up prep', sched:{dow:[3]}, opt:1,
@@ -2193,6 +2254,8 @@ const ROUTINES=[
   note:"Or immediately after being sick."},
  {id:'gr_cut',    group:'Grooming \u2014 non-daily', l:'Haircut', sched:{everyDays:28},
   note:"A swept-back shape depends on structure. Past five weeks it stops holding."},
+ {id:'gr_cutbook',group:'Grooming \u2014 non-daily', l:'Book the haircut', leadOf:'gr_cut', lead:4,
+  note:"You were right \u2014 the 28-day clock is the day the hair needs CUTTING, and booking is a separate action that has to happen before it. This row has no schedule of its own: it reads the haircut\u2019s clock and appears when that cut is four days out, so if a cut lands early or late the reminder moves with it instead of drifting.\n\nIT DISAPPEARS ON ITS OWN. Check it off once you\u2019ve actually booked and it stays gone until the next cycle; get the cut without ever touching this row and it clears too, because it only exists while a cut is pending.\n\nFOUR DAYS IS A STARTING NUMBER, not a researched one, and the right value is whatever YOUR shop actually is. Walk-in or app-booked chains: two or three days is plenty and you could even drop this to one. A specific barber you want by name at a specific hour: their good slots \u2014 evenings and Saturday mornings \u2014 are usually gone a week or more out, and four days will have you taking whatever\u2019s left. Book two cuts ahead if they let you, or raise this to seven to ten. Change it under Full schedule.\n\nBOOK THE APPOINTMENT FOR THE DAY THE CLOCK SAYS, not for the first opening. The whole point of a 28-day cadence is that the shape is still holding when you sit down; a cut pulled forward to day 22 wastes one, and one pushed to day 35 means two weeks of it not sitting right. If the only slot is well outside that, take the closest one and let the haircut clock reset from the day you actually go \u2014 the interval is counted from the last cut, so it self-corrects."},
  {id:'gr_dentist',group:'Grooming \u2014 non-daily', l:'Book dentist', sched:{everyMonths:6},
   note:"No amount of flossing replaces it."},
  {id:'gr_shave',  group:'Grooming \u2014 non-daily', l:'Full body trim \u2014 clippers', sched:{everyDays:14}, opt:1,
@@ -3598,6 +3661,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.10-a', note:"New lead-time reminders: \u201CBook the haircut\u201D appears a few days before the cut is due, tracks the haircut\u2019s own clock, and clears itself once either one is checked."},
+  {v:'2026.08.09-a', note:"New Friday task: move Sunday's prep meat from the freezer to the fridge, with the thaw timing and the cold-water fallback."},
   {v:'2026.08.04-j', note:"Cleaning walkthroughs now name the exact tool and product for every single step, not just in a list at the top."},
   {v:'2026.08.04-i', note:"One-tap confirm for the whole shower or bath block, and full walkthroughs for the Saturday cleaning tasks."},
   {v:'2026.08.04-h', note:"Fixed \u201Cnew tab\u201D app links doing nothing at all. Every open mode now falls back to a plain link rather than failing silently."},
