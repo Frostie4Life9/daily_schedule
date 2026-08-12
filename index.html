@@ -548,6 +548,48 @@ body.hideopt .step.optional{display:none;}
   box-shadow:0 8px 30px rgba(0,0,0,.5);}
 #toast.up{transform:translate(-50%,0);opacity:1;}
 
+
+/* ---- history heatmap ---- */
+#hist{margin-top:28px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);overflow:hidden;opacity:.62;transition:opacity .2s;}
+#hist.open,#hist:hover,#hist:focus-within{opacity:1;}
+#hist .shelfbody{display:none;padding:0 16px 16px;}
+#hist.open .shelfbody{display:block;}
+.hmwrap{overflow-x:auto;padding:2px 0 6px;-webkit-overflow-scrolling:touch;}
+.hmgrid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);
+  grid-auto-columns:11px;gap:3px;width:max-content;}
+.hmmon{display:grid;grid-auto-flow:column;grid-auto-columns:11px;gap:3px;width:max-content;
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.04em;
+  color:var(--dimmer);height:13px;margin-bottom:3px;}
+.hmmon span{white-space:nowrap;}
+.hmc{width:11px;height:11px;border-radius:2px;background:var(--panel-2);
+  border:1px solid transparent;}
+.hmc.l1{background:rgba(91,200,192,.20);}
+.hmc.l2{background:rgba(91,200,192,.42);}
+.hmc.l3{background:rgba(91,200,192,.66);}
+.hmc.l4{background:var(--done);}
+.hmc.miss{background:var(--live-soft);border-color:rgba(240,121,143,.35);}
+.hmc.pre{background:transparent;border:1px solid var(--line);}
+.hmc.fut{background:transparent;border:1px dashed var(--line);opacity:.5;}
+.hmc.today{box-shadow:0 0 0 2px var(--ground),0 0 0 3px var(--dim);}
+.hmleg{display:flex;align-items:center;gap:6px;margin-top:8px;
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--dimmer);}
+.hmleg .hmc{width:9px;height:9px;}
+.bigstats{display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 12px;}
+.bigstat{flex:1 1 120px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:8px;padding:9px 11px;}
+.bigstat b{display:block;font-size:20px;line-height:1.15;color:var(--ink);}
+.bigstat b.tealed{color:var(--done);}
+.bigstat i{display:block;font-style:normal;font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dimmer);margin-top:3px;}
+.gracebox{border:1px solid rgba(240,121,143,.4);background:var(--live-soft);
+  border-radius:8px;padding:9px 11px;margin:0 0 12px;font-size:12.5px;color:var(--ink);}
+.hstarts{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.hsbtn{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;
+  background:var(--panel-2);color:var(--dim);border:1px solid var(--line);
+  border-radius:6px;padding:5px 8px;cursor:pointer;}
+.hsbtn[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
+#gracedot{color:var(--live);font-size:11px;vertical-align:top;line-height:1;}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 @media (max-width:420px){.label{font-size:15px;}.note{font-size:12px;}}
 </style>
@@ -560,7 +602,7 @@ body.hideopt .step.optional{display:none;}
     <div class="hstats">
       <div class="stat count"><b id="cnum">0/0</b><i>Done</i></div>
       <div class="stat extra"><b id="xnum">0/0</b><i>Extras</i></div>
-      <div class="stat streak"><b><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span></b><i>Day streak</i></div>
+      <div class="stat streak"><b><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
     </div>
   </div>
   <div class="bar"><div id="prog"></div></div>
@@ -595,7 +637,7 @@ body.hideopt .step.optional{display:none;}
   <div class="foot">
     <b>Timers.</b> Tap the dial on a step to start its dwell. The ring fills clockwise as it runs and the row sweeps behind it; both go teal when the time is up. A check says you shampooed — the timer says you left it on long enough.<br><br>
     <b>Non-daily items</b> live in Full schedule below, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
-    <b>Resets at midnight.</b> Streak counts days where every core step got checked.<br>
+    <b>The day ends at <span id="footstart">4am</span></b>, not midnight — a routine finished at 1am counts for the night you were awake. The run counts days where every core step got checked, and <b>one missed day never breaks it</b>; two in a row do. Your best run is kept whatever happens to the current one. See <b>Streak &amp; history</b> below.<br>
     <b>Build <span id="buildid">-</span>.</b> The middle code is a fingerprint of this file's own code. If two devices show different fingerprints, one is on a cached copy — hard-refresh it.
     <div class="whatsnew"><span id="buildnote"></span>
       <button class="histbtn" id="histbtn" aria-expanded="false">earlier</button></div>
@@ -611,6 +653,26 @@ body.hideopt .step.optional{display:none;}
       <button class="reset" id="bkrestore">Restore from box</button>
     </div>
   </div>
+
+  <section id="hist">
+    <div class="shelfhead" id="histhead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Streak &amp; history</h2>
+      <span class="caret" id="hcaret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">The chain is one view of this and it is the most fragile one. The grid is the honest one — a bad night is one square in a season, which is what it actually was.</p>
+      <div class="bigstats" id="histstats"></div>
+      <div id="gracemount"></div>
+      <div class="hmwrap"><div id="hmmon" class="hmmon"></div><div id="hmgrid" class="hmgrid"></div></div>
+      <div class="hmleg"><span>less</span><span class="hmc"></span><span class="hmc l1"></span><span class="hmc l2"></span><span class="hmc l3"></span><span class="hmc l4"></span><span>all clear</span></div>
+      <p class="shelfnote"><b>One missed day never breaks the run.</b> Two consecutive missed days do. Completing anything renews the grace, so the only way to lose a run is to actually stop for two days — not to have one late night.</p>
+      <div class="slot">
+        <label>The day ends at</label>
+        <div class="hstarts" id="hstarts"></div>
+        <div class="hint">Everything in the app uses this, not just the streak — the board stops clearing itself out from under you, and a routine checked after midnight logs against the evening it belonged to. Set it later than you have ever been awake, earlier than you have ever woken up.</div>
+      </div>
+    </div>
+  </section>
 
   <section id="plan">
     <div class="shelfhead" id="planhead" role="button" tabindex="0" aria-expanded="false">
@@ -1248,13 +1310,14 @@ function summarize(){
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
     .concat(customToday().map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
                                    opt:false, late:customState(c).late, custom:true})));
-  return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, date:S.date,
+  return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, best:S.best||0, date:S.date,
           extras:{done:xdone, total:xids.length},
           star: !!(ids.length && done===ids.length && xdone===xids.length),
           modes:Object.assign({},S.modes||{}), next:next, routines:due};
 }
 const save=s=>{
   if(syncReady && !syncQuiet){
+    if(typeof recordDay==='function' && s===S) recordDay();
     s.mtime=Date.now();
     try{ s.summary=summarize(); delete s.summaryError; }
     catch(e){ s.summaryError=String((e&&e.message)||e); }
@@ -1262,8 +1325,33 @@ const save=s=>{
   try{localStorage.setItem(KEY,JSON.stringify(s));}catch(e){mem=s;}
   if(!syncQuiet) syncSchedule();
 };
-const today=()=>new Date().toLocaleDateString('en-CA');
-const yesterday=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString('en-CA');};
+/* =========================================================
+   THE DAY BOUNDARY. Everything in this file that asks "what
+   day is it" goes through today(), and today() is shifted by
+   S.dayStart hours. With the default of 4, brushing your teeth
+   at 1am still belongs to the day you have been awake for,
+   which is the honest answer \u2014 calendar midnight was scoring
+   a finished evening routine as a missed day AND handing the
+   check to a fresh day you then had to finish from scratch.
+
+   The shift is deliberately global rather than streak-only. A
+   routine checked at 1am logs against the day you meant it for,
+   the board does not clear itself out from under you mid-evening,
+   and dow scheduling reads the same day the board is showing.
+   The one thing that must NOT shift is arithmetic on day-key
+   strings that are already days \u2014 that stays in isoOf/dayOf.
+   ========================================================= */
+const DAY_MS=864e5;
+const DAYSTART=()=>{ const v=(typeof S!=='undefined'&&S&&S.dayStart!=null)?+S.dayStart:4;
+                     return Math.min(11,Math.max(0,v||0)); };
+const dayKeyOf=d=>new Date(d.getTime()-DAYSTART()*36e5).toLocaleDateString('en-CA');
+const today=()=>dayKeyOf(new Date());
+const shiftKey=(k,n)=>{const d=new Date(k+'T00:00:00');d.setDate(d.getDate()+n);
+                       return d.toLocaleDateString('en-CA');};
+const keyGap=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/DAY_MS);
+const yesterday=()=>shiftKey(today(),-1);
+/* The weekday of the protocol day, not of the wall clock. */
+const todayDowOf=()=>new Date(today()+'T00:00:00').getDay();
 
 /* Pre-loaded from the products settled in this project.
    Each is {classId, brand} — classId picks the technique/timer/steps. */
@@ -1288,6 +1376,11 @@ if(!S){ /* one-time migration from the previous key */
   try{ const old=localStorage.getItem('routine_v3'); if(old) S=JSON.parse(old); }catch(e){}
 }
 S = S || {date:today(), checked:[], streak:0, last:null, hideopt:false, products:{}};
+if(S.dayStart==null) S.dayStart=4;
+S.hist=S.hist||{};
+/* Personal best is seeded from whatever run is in flight so an existing
+   streak isn't retroactively erased, and it is never written down again. */
+if(S.best==null) S.best=+S.streak||0;
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
 S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
@@ -1353,9 +1446,20 @@ if(seedLinks()) save(S);
    rather than by the user. It is deliberately NOT persisted: it describes this
    session's reasoning, not a fact about the data. */
 var rolledThisLoad=false;
+/* NEVER BREAK TWICE. One missed day costs nothing \u2014 it is noise, and a
+   counter that treats one bad night as equivalent to quitting is lying about
+   which of those two things happened. Two CONSECUTIVE missed days is the
+   thing worth catching, because that is what a drift actually looks like.
+   The grace renews itself the moment a day is completed, so there is no
+   token to track: the whole rule is a gap measurement against S.last. */
+function missedRun(){
+  if(!S.last) return null;                 /* nothing completed yet */
+  return Math.max(0, keyGap(S.last, today()) - 1);
+}
 function rollover(){
   if(S.date===today()) return false;
-  if(S.last!==yesterday() && S.last!==today()) S.streak=0;
+  const missed=missedRun();
+  if(missed===null || missed>=2) S.streak=0;
   S.date=today(); S.checked=[];
   /* QUIET ON PURPOSE. Clearing the board at midnight is not an edit — it is a
      local recalculation that every device performs independently from the same
@@ -1482,7 +1586,7 @@ const plan=document.getElementById('plan'), planhead=document.getElementById('pl
 /* items expanded by hand this session */
 const linkOpen=new Set();
 function paintSchedule(){
-  const todayDow=new Date().getDay();
+  const todayDow=todayDowOf();
   let g='';
   for(let d=0;d<7;d++){
     const fixed=SCHEDALL().filter(r=>{const sc=schedOf(r);return !r.leadOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(d)>-1;});
@@ -1860,7 +1964,7 @@ function schedOf(r){
   const b=r.sched||{};
   const mode = u.mode || (b.dow?'dow':(b.everyDays?'everyDays':(b.everyMonths?'everyMonths':'dow')));
   const out={mode:mode};
-  out.dow         = u.dow         || b.dow         || [new Date().getDay()];
+  out.dow         = u.dow         || b.dow         || [todayDowOf()];
   out.everyDays   = u.everyDays   || b.everyDays   || 7;
   out.everyMonths = u.everyMonths || b.everyMonths || 3;
   out.anchor      = u.anchor || b.anchor || null;
@@ -1872,7 +1976,7 @@ function lastDone(id){
 }
 function daysSince(id){
   const d=lastDone(id); if(!d)return null;
-  return Math.floor((new Date(today()) - new Date(d.toLocaleDateString('en-CA')))/dayMs);
+  return Math.round((new Date(today()+'T00:00:00') - new Date(dayKeyOf(d)+'T00:00:00'))/dayMs);
 }
 /* Most recent scheduled occurrence on or before today, counting from the anchor.
    Calendar months for month intervals so "every 6 months" lands on the same date. */
@@ -1924,7 +2028,7 @@ function leadInfo(r){
   const sc=schedOf(par);
   let out;                                    /* days until the parent is due */
   if(sc.mode==='dow'){
-    const now=new Date().getDay(); out=null;
+    const now=todayDowOf(); out=null;
     for(let i=0;i<8;i++){ if(sc.dow.indexOf((now+i)%7)>-1){ out=i; break; } }
   } else if(sc.anchor){
     const nx=nextScheduled(sc);
@@ -1951,14 +2055,14 @@ function leadDue(r){
 }
 function dueToday(r){
   if(r.leadOf) return leadDue(r);
-  const sc=schedOf(r), now=new Date();
-  if(sc.mode==='dow') return sc.dow.indexOf(now.getDay())>-1;
+  const sc=schedOf(r);
+  if(sc.mode==='dow') return sc.dow.indexOf(todayDowOf())>-1;
   if(sc.anchor){
     const last=lastScheduled(sc);
     if(!last) return false;                  /* start date is in the future */
     const done=lastDone(r.id);
     if(!done) return true;
-    const doneDay=new Date(done.toLocaleDateString('en-CA')+'T00:00:00');
+    const doneDay=new Date(dayKeyOf(done)+'T00:00:00');
     return doneDay < last;                   /* not done since the last scheduled date */
   }
   const ds=daysSince(r.id);
@@ -2002,7 +2106,7 @@ function statusLabel(r){
     if(!last) return 'starts '+new Date(sc.anchor+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
     const done=lastDone(r.id);
     if(!done) return 'due';
-    const doneDay=new Date(done.toLocaleDateString('en-CA')+'T00:00:00');
+    const doneDay=new Date(dayKeyOf(done)+'T00:00:00');
     if(doneDay<last) return 'due';
     return 'done this cycle';
   }
@@ -2035,7 +2139,7 @@ function lastDowOn(sc,fromISO){
   }
   return null;
 }
-function doneOn(id){ const v=S.rlog&&S.rlog[id]; return v?isoOf(new Date(v)):null; }
+function doneOn(id){ const v=S.rlog&&S.rlog[id]; return v?dayKeyOf(new Date(v)):null; }
 function deferOf(id){ return (S.defer&&S.defer[id])||null; }
 
 /* {due, late, from} — from is the day it was supposed to happen. */
@@ -2560,7 +2664,7 @@ function bulkPhase(ph){
   });
   const core=coreIds();
   if(!allOn && core.length && core.every(x=>S.checked.indexOf(x)>-1) && S.last!==today()){
-    S.last=today(); S.streak++; toast('Protocol complete \u00b7 day '+S.streak);
+    bumpStreak();
   }else{
     toast(allOn ? 'Cleared '+ids.length : ids.length+' checked off');
   }
@@ -2748,13 +2852,54 @@ list.addEventListener('click',e=>{
 
 const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
 const xnum=document.getElementById('xnum'), star=document.getElementById('star');
-document.getElementById('daylabel').textContent='/ '+new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+const slabel=document.getElementById('slabel'), gracedot=document.getElementById('gracedot');
+document.getElementById('daylabel').textContent='/ '+dayOf(today()).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
 const isOff=id=>S.off.indexOf(id)>-1;
 const allRows=()=>[...document.querySelectorAll('.step')];
 const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
   && !r.classList.contains('off')
   && !(S.hideopt&&r.classList.contains('optional')));
+/* =========================================================
+   THE RUN, THE BEST, AND THE RECORD.
+
+   bumpStreak is the only place the counter moves. It also
+   forgives a single missed day at the moment of completion
+   rather than waiting for rollover, because rollover only runs
+   when the app is opened \u2014 finishing a day after a two-day gap
+   has to reset the run even if no rollover ever fired.
+
+   S.best is monotonic on purpose. The old counter erased months
+   of history on one bad night and left nothing to show it had
+   happened; a number you can only lose is not a record.
+   ========================================================= */
+function bumpStreak(){
+  const missed=missedRun();
+  if(missed===null || missed>=2) S.streak=0;
+  S.last=today(); S.streak++;
+  S.best=Math.max(+S.best||0, S.streak);
+  recordDay();
+  toast(S.streak===S.best && S.best>1
+        ? 'Protocol complete \u00b7 day '+S.streak+' \u00b7 personal best'
+        : 'Protocol complete \u00b7 day '+S.streak);
+}
+/* One entry per day: [core done, core total]. Written from S.checked and the
+   step data only \u2014 no DOM \u2014 so it is safe to call from anywhere, including
+   before the rows exist. Called from save() so it rides on writes that were
+   already happening rather than adding its own; a passive device that merely
+   painted must not stamp a new mtime, which is the sync bug from before. */
+function recordDay(){
+  try{
+    const c=coreIds(); if(!c.length) return;
+    S.hist=S.hist||{};
+    const done=c.filter(x=>S.checked.indexOf(x)>-1).length;
+    const k=today(), prev=S.hist[k];
+    if(prev && prev[0]===done && prev[1]===c.length) return;
+    S.hist[k]=[done,c.length];
+    const keys=Object.keys(S.hist);
+    if(keys.length>420){ keys.sort(); keys.slice(0,keys.length-400).forEach(x=>delete S.hist[x]); }
+  }catch(e){}
+}
 /* Streak is the daily protocol only. Routines and one-offs are real work but
    they are not the day — a Saturday legs session you push to Sunday should not
    cost you a streak you otherwise earned. They get their own counter instead. */
@@ -2778,6 +2923,9 @@ function paint(){
   xnum.textContent=`${xd}/${ex.length}`;
   prog.style.width=(day.length?dd/day.length*100:0)+'%';
   snum.textContent=S.streak;
+  const bst=+S.best||0;
+  slabel.textContent = bst>(+S.streak||0) ? 'Day run \u00b7 best '+bst : 'Day run';
+  gracedot.style.display = missedRun()===1 ? 'inline' : 'none';
   /* the star is for clearing the board — protocol and everything else */
   const clean = day.length && dd===day.length && xd===ex.length;
   star.style.display = clean ? 'inline' : 'none';
@@ -2808,7 +2956,7 @@ function toggle(row){
      for it too — a non-optional one can easily be the last box on the board. */
   const core=coreIds();
   if(core.length && core.every(x=>S.checked.includes(x)) && S.last!==today()){
-    S.last=today(); S.streak++; toast('Protocol complete · day '+S.streak);
+    bumpStreak();
   }
   save(S);
   if(sstep){ buildRows(); paintSchedule(); }
@@ -3203,7 +3351,107 @@ document.addEventListener('click',e=>{
    live only in that row's closure. */
 const RUNTIMERS={};
 
-function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); }
+
+/* =========================================================
+   HISTORY VIEW \u2014 the counter says whether the last thing went
+   well; the grid says how the last six months went. They
+   disagree constantly and the grid is the one telling the truth.
+   ========================================================= */
+const HM_WEEKS=26;
+function histRate(days){
+  const h=S.hist||{}; let full=0, seen=0;
+  for(let i=0;i<days;i++){
+    const k=shiftKey(today(),-i);
+    if(S.since && k<S.since) break;
+    seen++;
+    const v=h[k]; if(v&&v[1]&&v[0]>=v[1]) full++;
+  }
+  return {full:full, seen:seen};
+}
+function hmLevel(k){
+  if(S.since && k<S.since) return 'pre';
+  if(k>today()) return 'fut';
+  const v=(S.hist||{})[k];
+  if(!v||!v[1]||!v[0]) return 'miss';
+  const f=v[0]/v[1];
+  if(f>=1) return 'l4';
+  if(f>=.8) return 'l3';
+  if(f>=.5) return 'l2';
+  return 'l1';
+}
+function paintHist(){
+  const grid=document.getElementById('hmgrid'); if(!grid) return;
+  const t=dayOf(today());
+  const end=new Date(t); end.setDate(end.getDate()+(6-end.getDay()));   /* pad to Saturday */
+  const start=new Date(end); start.setDate(start.getDate()-(HM_WEEKS*7-1));
+  const D=d=>d.toLocaleDateString('en-CA');
+  const PRETTY=k=>dayOf(k).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+  let cells='', months='', lastMon=-1;
+  for(let w=0;w<HM_WEEKS;w++){
+    const col=new Date(start); col.setDate(col.getDate()+w*7);
+    const m=col.getMonth();
+    months+=`<span>${m!==lastMon?col.toLocaleDateString('en-US',{month:'short'}):''}</span>`;
+    lastMon=m;
+  }
+  for(let r=0;r<7;r++){
+    for(let w=0;w<HM_WEEKS;w++){
+      const d=new Date(start); d.setDate(d.getDate()+w*7+r);
+      const k=D(d), lv=hmLevel(k), v=(S.hist||{})[k];
+      const tip = lv==='fut' ? '' :
+        lv==='pre' ? PRETTY(k)+' \u2014 before you started' :
+        PRETTY(k)+' \u2014 '+(v?v[0]+'/'+v[1]:'nothing checked');
+      cells+=`<div class="hmc ${lv}${k===today()?' today':''}" style="grid-row:${r+1};grid-column:${w+1}" title="${esc(tip)}"></div>`;
+    }
+  }
+  grid.innerHTML=cells;
+  document.getElementById('hmmon').innerHTML=months;
+
+  const r30=histRate(30), r90=histRate(90);
+  const pct=o=>o.seen?Math.round(o.full/o.seen*100)+'%':'\u2014';
+  document.getElementById('histstats').innerHTML=
+    `<div class="bigstat"><b class="tealed">${S.streak||0}</b><i>Current run</i></div>`+
+    `<div class="bigstat"><b>${S.best||0}</b><i>Personal best</i></div>`+
+    `<div class="bigstat"><b>${r30.full}/${r30.seen}</b><i>Last 30 days \u00b7 ${pct(r30)}</i></div>`+
+    `<div class="bigstat"><b>${pct(r90)}</b><i>Last 90 days</i></div>`;
+
+  const missed=missedRun();
+  document.getElementById('gracemount').innerHTML = (missed===1)
+    ? `<div class="gracebox"><b>One day missed \u2014 the run is still alive.</b> That is the free one. Clear the board today and it keeps going; miss today as well and it resets to zero.</div>`
+    : '';
+
+  const hs=document.getElementById('hstarts');
+  const cur=DAYSTART();
+  hs.innerHTML=[0,2,3,4,5,6].map(h=>
+    `<button class="hsbtn" data-daystart="${h}" aria-pressed="${cur===h}">${h===0?'Midnight':h+'am'}</button>`
+  ).join('');
+  const fs=document.getElementById('footstart');
+  if(fs) fs.textContent = cur===0?'midnight':cur+'am';
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-daystart]'); if(!b) return;
+  const h=+b.dataset.daystart;
+  if(h===DAYSTART()) return;
+  S.dayStart=h;
+  /* Moving the boundary can rename the day underneath an in-progress board.
+     Re-stamp S.date rather than letting rollover() read the change as a new
+     day and wipe checks that were made ten seconds ago. */
+  S.date=today();
+  recordDay(); save(S); rebuild(); paintHist();
+  toast('Day ends at '+(h===0?'midnight':h+'am'));
+});
+const histhead=document.getElementById('histhead');
+function toggleH(force){
+  const sec=document.getElementById('hist');
+  const open=force!==undefined?force:!sec.classList.contains('open');
+  sec.classList.toggle('open',open);
+  histhead.setAttribute('aria-expanded',open);
+  document.getElementById('hcaret').textContent=open?'Close':'Open';
+  if(open) paintHist();
+}
+histhead.addEventListener('click',()=>toggleH());
+histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleH();}});
+function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); }
 
 const optbtn=document.getElementById('optbtn');
 function paintOpt(){
@@ -3661,6 +3909,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.12-a', note:"The day now ends at 4am instead of midnight, one missed day no longer breaks the run, your best run is kept permanently, and a new Streak \u0026 history panel shows the last six months as a grid."},
   {v:'2026.08.10-a', note:"New lead-time reminders: \u201CBook the haircut\u201D appears a few days before the cut is due, tracks the haircut\u2019s own clock, and clears itself once either one is checked."},
   {v:'2026.08.09-a', note:"New Friday task: move Sunday's prep meat from the freezer to the fridge, with the thaw timing and the cold-water fallback."},
   {v:'2026.08.04-j', note:"Cleaning walkthroughs now name the exact tool and product for every single step, not just in a list at the top."},
