@@ -1294,7 +1294,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=6;
+const DIGEST=7;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -1323,12 +1323,26 @@ function summarize(){
   const xdone=xids.filter(x=>S.checked.indexOf(x)>-1).length;
   /* What to do next, in the order the day actually runs. This is the thing
      the widget is for — the first few unchecked rows, wherever they fall. */
+  /* KIND, and why n is no longer numOf(). numOf falls back to returning the
+     id when a row has no display number, which is right for prose references
+     — an unresolved {step} should stay visible rather than vanish. It is
+     wrong here: routines and one-off tasks have no number, so the digest was
+     publishing internal storage keys, and the widget printed a raw
+     "c:cmsqz1d64jwr6" where a step number belongs.
+
+     kind also lets a consumer split the list without parsing key prefixes.
+     The widget shows next-up steps on one side and the day's extras on the
+     other, and extras appear in BOTH next[] and routines[] — so without a
+     tag it was listing one-off tasks twice. */
+  const kindOf=key=>key.indexOf('r:')===0 ? 'routine'
+                  : key.indexOf('c:')===0 ? 'custom' : 'step';
   const next=visibleRows()
     .filter(r=>S.checked.indexOf(r.dataset.n)===-1)
     .slice(0,9)
     .map(r=>({
-      n:numOf(r.dataset.n),
+      n:NUM[r.dataset.n]||'',
       id:r.dataset.n,
+      kind:kindOf(r.dataset.n),
       l:rowLabel(r),
       phase:rowPhase(r),
       opt:r.classList.contains('optional')
@@ -3952,6 +3966,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.12-c', note:"Widget digest v7: one-off tasks no longer show up twice on the widget, and the raw internal key no longer appears where a step number should be."},
   {v:'2026.08.12-b', note:"Jump buttons now ride along in the sticky header, so you can reach the next step from anywhere without scrolling up first \u2014 plus a Top button to get back."},
   {v:'2026.08.12-a', note:"The day now ends at 4am instead of midnight, one missed day no longer breaks the run, your best run is kept permanently, and a new Streak \u0026 history panel shows the last six months as a grid."},
   {v:'2026.08.10-a', note:"New lead-time reminders: \u201CBook the haircut\u201D appears a few days before the cut is due, tracks the haircut\u2019s own clock, and clears itself once either one is checked."},
