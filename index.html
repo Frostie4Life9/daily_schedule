@@ -3901,6 +3901,14 @@ function syncPull(){
   syncReady=true;
   if(c.url) syncPull().then(r=>{
     if(r==='pulled') toast('Updated from another device');
+    /* ROLL OVER AFTER THE PULL, exactly as the visibilitychange handler does.
+       This was missing here and the two paths must agree. rollover() runs once
+       at load, BEFORE sync; if the pull then adopts a server copy written
+       yesterday, S.date goes back to yesterday and nothing rolls it forward
+       again. The board shows yesterday's checkmarks on today's date, and the
+       push that follows sends yesterday's date straight back to the server,
+       so every device that syncs afterwards inherits it. */
+    if(rollover()) rebuild();
     if(r!=='error' && digestStale()) syncPush();
   });
 })();
@@ -3972,6 +3980,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.13-b', note:"Fixed a first-load bug: adopting a copy the server wrote yesterday could leave the app on yesterday's date, and push it back."},
   {v:'2026.08.13-a', note:"The widget now follows the same 4am day boundary as the app \u2014 between midnight and 4am it was calling current data stale and showing an empty day."},
   {v:'2026.08.12-c', note:"Widget digest v7: one-off tasks no longer show up twice on the widget, and the raw internal key no longer appears where a step number should be."},
   {v:'2026.08.12-b', note:"Jump buttons now ride along in the sticky header, so you can reach the next step from anywhere without scrolling up first \u2014 plus a Top button to get back."},
