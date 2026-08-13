@@ -1294,7 +1294,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=7;
+const DIGEST=8;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -1354,7 +1354,13 @@ function summarize(){
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
     .concat(customToday().map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
                                    opt:false, late:customState(c).late, custom:true})));
+  /* PUBLISH THE DAY BOUNDARY. The widget has to answer "is this today's data?"
+     and it was answering with calendar midnight while this file had moved to a
+     4am rollover. Between midnight and 4am they disagreed, and the widget
+     declared perfectly current data stale. Shipping the setting means the two
+     clocks cannot drift apart again \u2014 there is one source for it, here. */
   return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, best:S.best||0, date:S.date,
+          dayStart:DAYSTART(),
           extras:{done:xdone, total:xids.length},
           star: !!(ids.length && done===ids.length && xdone===xids.length),
           modes:Object.assign({},S.modes||{}), next:next, routines:due};
@@ -3966,6 +3972,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.13-a', note:"The widget now follows the same 4am day boundary as the app \u2014 between midnight and 4am it was calling current data stale and showing an empty day."},
   {v:'2026.08.12-c', note:"Widget digest v7: one-off tasks no longer show up twice on the widget, and the raw internal key no longer appears where a step number should be."},
   {v:'2026.08.12-b', note:"Jump buttons now ride along in the sticky header, so you can reach the next step from anywhere without scrolling up first \u2014 plus a Top button to get back."},
   {v:'2026.08.12-a', note:"The day now ends at 4am instead of midnight, one missed day no longer breaks the run, your best run is kept permanently, and a new Streak \u0026 history panel shows the last six months as a grid."},
