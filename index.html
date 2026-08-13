@@ -65,6 +65,33 @@ header{position:sticky;top:0;z-index:50;background:rgba(22,25,31,.94);
 .bar{height:2px;background:var(--line);}
 .bar div{height:100%;width:0;background:var(--done);transition:width .3s ease;}
 
+
+/* ---- sticky jump bar ----
+   Lives INSIDE <header> on purpose. scrollToRow() offsets by the header's
+   measured height, so anything parked in there is accounted for automatically
+   and can never end up covering the row it just scrolled to. */
+.jbar{max-width:680px;margin:0 auto;padding:0 var(--pad) 8px;display:flex;gap:6px;}
+body.on-lists .jbar{display:none;}
+.jb{flex:1 1 0;min-width:0;min-height:30px;display:inline-flex;align-items:center;
+  justify-content:center;gap:5px;background:var(--panel);border:1px solid var(--line);
+  border-radius:7px;color:var(--dim);font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:6px 6px;
+  cursor:pointer;transition:border-color .15s,color .15s,opacity .15s;}
+.jb:hover{border-color:var(--dim);color:var(--ink);}
+.jb:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.jb:active{transform:translateY(1px);}
+.jb.prime{color:var(--done);border-color:rgba(91,200,192,.32);}
+.jb.spent{opacity:.4;}
+.jb svg{width:11px;height:11px;flex:none;stroke:currentColor;stroke-width:2.4;
+  fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.jb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#jtop svg{transition:transform .15s;}
+#jtop:hover svg{transform:translateY(-1px);}
+@media (max-width:400px){
+  .jb{font-size:9px;letter-spacing:.04em;gap:4px;padding:6px 3px;}
+  .jb svg{width:10px;height:10px;}
+}
+
 /* ---------------- tabs ---------------- */
 .tabs{display:flex;gap:6px;padding:14px 0 0;}
 .tab{flex:1 1 0;min-height:44px;background:var(--panel);border:1px solid var(--line);
@@ -605,6 +632,11 @@ body.hideopt .step.optional{display:none;}
       <div class="stat streak"><b><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
     </div>
   </div>
+  <div class="jbar" id="jbar">
+    <button class="jb" id="jtop" title="Back to the top"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg><span>Top</span></button>
+    <button class="jb prime" id="jump" title="Jump to the next unchecked protocol step"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><span>Next step</span></button>
+    <button class="jb" id="jumpx" title="Jump to the next unchecked extra"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg><span>Next extra</span></button>
+  </div>
   <div class="bar"><div id="prog"></div></div>
 </header>
 
@@ -619,8 +651,6 @@ body.hideopt .step.optional{display:none;}
 <div id="view-today" role="tabpanel" aria-labelledby="tab-today">
   <div class="controls">
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
-    <button class="ctl" id="jump">Jump to next unchecked</button>
-    <button class="ctl" id="jumpx">Jump to next extra</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
     <button class="ctl" id="addbtn">+ One-off task</button>
   </div>
@@ -2853,6 +2883,7 @@ list.addEventListener('click',e=>{
 const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
 const xnum=document.getElementById('xnum'), star=document.getElementById('star');
 const slabel=document.getElementById('slabel'), gracedot=document.getElementById('gracedot');
+const jumpbtn=document.getElementById('jump'), jumpxbtn=document.getElementById('jumpx');
 document.getElementById('daylabel').textContent='/ '+dayOf(today()).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
 const isOff=id=>S.off.indexOf(id)>-1;
@@ -2929,6 +2960,10 @@ function paint(){
   /* the star is for clearing the board — protocol and everything else */
   const clean = day.length && dd===day.length && xd===ex.length;
   star.style.display = clean ? 'inline' : 'none';
+  /* Dimmed rather than disabled: there is nothing to jump to, but the tap
+     still earns the toast that says WHY, which a dead button would not. */
+  jumpbtn.classList.toggle('spent', dd>=day.length);
+  jumpxbtn.classList.toggle('spent', xd>=ex.length);
 }
 function toggle(row){
   const n=row.dataset.n, i=S.checked.indexOf(n);
@@ -3504,6 +3539,14 @@ document.getElementById('jump').addEventListener('click',()=>{
 document.getElementById('jumpx').addEventListener('click',()=>{
   jumpIn(extraRows(),'Extras are all clear','No extras today');
 });
+document.getElementById('jtop').addEventListener('click',()=>{
+  if('scrollBehavior' in document.documentElement.style){
+    window.scrollTo({top:0,behavior:'smooth'});
+  }else{
+    window.scrollTo(0,0);          /* older iOS Safari ignores the object form */
+  }
+  allRows().forEach(r=>r.classList.remove('jumped'));
+});
 document.getElementById('schedreset').addEventListener('click',()=>{
   S.sched={}; save(S); buildRows(); paintSchedule(); paint(); toast('Schedules reset');
 });
@@ -3909,6 +3952,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.12-b', note:"Jump buttons now ride along in the sticky header, so you can reach the next step from anywhere without scrolling up first \u2014 plus a Top button to get back."},
   {v:'2026.08.12-a', note:"The day now ends at 4am instead of midnight, one missed day no longer breaks the run, your best run is kept permanently, and a new Streak \u0026 history panel shows the last six months as a grid."},
   {v:'2026.08.10-a', note:"New lead-time reminders: \u201CBook the haircut\u201D appears a few days before the cut is due, tracks the haircut\u2019s own clock, and clears itself once either one is checked."},
   {v:'2026.08.09-a', note:"New Friday task: move Sunday's prep meat from the freezer to the fridge, with the thaw timing and the cold-water fallback."},
