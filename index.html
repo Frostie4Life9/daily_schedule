@@ -407,12 +407,30 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--opt);border:1px solid rgba(124,137,240,.4);
   padding:1px 5px;border-radius:3px;margin-left:7px;vertical-align:2px;white-space:nowrap;}
-.skip{position:absolute;top:6px;right:6px;z-index:2;
+/* The pair sits in one absolutely positioned flex row rather than two
+   separately positioned buttons. Offsetting the second by a hardcoded 44px
+   assumed a button width, and "NOT TODAY" is more than twice as wide as
+   "SKIP" - so the guess left a gap that changed with the label. The row owns
+   the position; the buttons only own their own size. */
+.skiprow{position:absolute;top:6px;right:6px;z-index:2;display:flex;gap:5px;align-items:center;}
+.step.off .skiprow{top:4px;}
+.skip{
   font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em;
   text-transform:uppercase;background:transparent;border:1px solid var(--line);
   color:var(--dimmer);padding:3px 6px;border-radius:4px;cursor:pointer;opacity:.55;}
 .skip:hover,.skip:focus-visible{opacity:1;border-color:var(--warn);color:var(--warn);}
 .step.off .skip{opacity:1;border-color:var(--opt);color:var(--opt);}
+/* Two buttons now sit in the corner, so they stack right-to-left rather than
+   both claiming the same spot. The pair only ever appears on a live row: a row
+   already set aside shows one undo. */
+.skip.nt:hover,.skip.nt:focus-visible{border-color:var(--live);color:var(--live);}
+/* Set aside for today reads as paused, not as removed \u2014 same collapse, but a
+   warmer edge and a slightly less faded row, because it is coming back. */
+.step.notoday{opacity:.52;border-left:2px solid rgba(240,121,143,.45);}
+.step.notoday .skip{opacity:1;border-color:var(--live);color:var(--live);}
+.step.notoday .label::after{content:' \2014 not today';font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--live);
+  opacity:.75;white-space:nowrap;}
 /* A skipped row is a placeholder, not a task. Everything that exists to help you
    DO the thing goes away — note, warnings, timer, checkbox, schedule chips,
    product prompt — leaving the title and the undo button. Same for a skipped
@@ -431,9 +449,11 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .step.off .golink,
 .step.off .timer{display:none !important;}
 .step.off .label{font-size:13px;color:var(--dim);padding-right:44px;}
+/* A live row can carry both buttons, so its title has to clear both. */
+/* Clears both buttons plus the gap between them. */
+.step:not(.off) .label{padding-right:112px;}
 .step.off .num{padding-top:1px;}
 .step.off:active{background:transparent;}
-.step.off .skip{top:4px;}
 .step.routine .num{color:var(--opt);}
 .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;}
 .sched{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
@@ -1348,7 +1368,7 @@ function summarize(){
       opt:r.classList.contains('optional')
     }));
   const due=dueRoutines()
-    .filter(r=>!isOff('r:'+r.id))
+    .filter(r=>!isAside('r:'+r.id))
     .filter(r=>!(S.hideopt&&r.opt))
     .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
@@ -1432,6 +1452,7 @@ S.hist=S.hist||{};
    streak isn't retroactively erased, and it is never written down again. */
 if(S.best==null) S.best=+S.streak||0;
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+S.notoday=S.notoday||{};
 S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
 /* Carry-over needs a starting line. Without one a fresh copy of the file reads
@@ -1510,6 +1531,7 @@ function rollover(){
   if(S.date===today()) return false;
   const missed=missedRun();
   if(missed===null || missed>=2) S.streak=0;
+  pruneNotToday();
   S.date=today(); S.checked=[];
   /* QUIET ON PURPOSE. Clearing the board at midnight is not an edit — it is a
      local recalculation that every device performs independently from the same
@@ -2688,7 +2710,7 @@ function modeBtns(ph){
    the button saves.
    ========================================================= */
 function bulkTargets(ph){
-  return renderedSteps(ph).filter(st=>!stepData(st).hidden && !isOff(st.id));
+  return renderedSteps(ph).filter(st=>!stepData(st).hidden && !isAside(st.id));
 }
 function bulkLabel(ph){
   if(!ph.toggle) return phaseName(ph);
@@ -2735,7 +2757,7 @@ function buildRows(){
     items.forEach((r,ri)=>{
       const st=statusLabel(r), sl=schedLabel(r), state=routineState(r);
       const row=document.createElement('div');
-      row.className='step routine extra'+(r.opt?' optional':'')+(isOff('r:'+r.id)?' off':'')+(state.late?' slipped':'');
+      row.className='step routine extra'+(r.opt?' optional':'')+(isAside('r:'+r.id)?' off':'')+(isNotToday('r:'+r.id)?' notoday':'')+(state.late?' slipped':'');
       row.dataset.n='r:'+r.id;
       row.setAttribute('role','checkbox'); row.tabIndex=0;
       row.innerHTML=
@@ -2753,7 +2775,7 @@ function buildRows(){
         `</div>`+
         linkBtn(r.id)+
         (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
-        `<button class="skip" data-skip="r:${r.id}" title="Skip this item" aria-label="Skip this item">${isOff('r:'+r.id)?'undo':'skip'}</button>`;
+        asideBtns('r:'+r.id);
       sec.appendChild(row);
     });
     return sec;
@@ -2777,7 +2799,7 @@ function buildRows(){
         const ss=st.sched?routineState(st):null;
         const ssl=st.sched?schedLabel(st):null, sst=st.sched?statusLabel(st):null;
         const row=document.createElement('div');
-        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isOff(st.id)?' off':'')+(ss&&ss.late?' slipped':'');
+        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isAside(st.id)?' off':'')+(isNotToday(st.id)?' notoday':'')+(ss&&ss.late?' slipped':'');
         row.dataset.n=st.id;
         row.setAttribute('role','checkbox'); row.tabIndex=0;
         row.innerHTML=
@@ -2797,7 +2819,7 @@ function buildRows(){
           `</div>`+
           linkBtn(st.id)+
           (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-          `<button class="skip" data-skip="${st.id}" title="Skip this item" aria-label="Skip this item">${isOff(st.id)?'undo':'skip'}</button>`;
+          asideBtns(st.id);
         sec.appendChild(row);
       });
       if(p.bulk && vis.length && !collapsed){
@@ -2831,7 +2853,7 @@ function buildRows(){
     cs.forEach((c,ci)=>{
       const state=customState(c), key='c:'+c.id;
       const row=document.createElement('div');
-      row.className='step routine extra custom'+(isOff(key)?' off':'')+(state.late?' slipped':'');
+      row.className='step routine extra custom'+(isAside(key)?' off':'')+(isNotToday(key)?' notoday':'')+(state.late?' slipped':'');
       row.dataset.n=key;
       row.setAttribute('role','checkbox'); row.tabIndex=0;
       row.innerHTML=
@@ -2906,7 +2928,50 @@ const slabel=document.getElementById('slabel'), gracedot=document.getElementById
 const jumpbtn=document.getElementById('jump'), jumpxbtn=document.getElementById('jumpx');
 document.getElementById('daylabel').textContent='/ '+dayOf(today()).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 
+/* =========================================================
+   TWO WAYS TO PUT A ROW ASIDE.
+
+   SKIP (S.off) is a standing decision: this step is not part of my
+   protocol. It lasts until undone, and it is stored as a list of ids.
+
+   NOT TODAY (S.notoday) is a decision about one day: today I am not
+   doing this, and tomorrow it is back. Stored as id -> the day key it
+   was dismissed on, NOT as a list to be cleared at rollover, because
+   rollover only runs when the app is opened. Comparing the stored day
+   against today() at read time means a dismissal expires on its own
+   even if the app sits closed for a week \u2014 there is no cleanup that
+   can fail to happen.
+
+   Both have the same EFFECT: the row greys out, collapses to its title,
+   and leaves the streak denominator, so a day you legitimately cannot
+   do something is not a day you failed. They differ only in how long
+   that lasts and in what the button says.
+   ========================================================= */
+function asideBtns(id){
+  const off=isOff(id), nt=isNotToday(id);
+  /* Only ever one button on a row that is already aside: the row has
+     collapsed to a title and an escape hatch, and offering the OTHER kind of
+     dismissal on something already dismissed is a choice nobody wants. */
+  const b = off
+    ? `<button class="skip" data-skip="${esc(id)}" title="Put this step back in the protocol" aria-label="Undo skip">undo</button>`
+    : nt
+    ? `<button class="skip nt" data-nt="${esc(id)}" title="Put this step back for today" aria-label="Undo not today">undo</button>`
+    : `<button class="skip nt" data-nt="${esc(id)}" title="Set this aside for today only \u2014 it returns tomorrow" aria-label="Not today">not today</button>`+
+      `<button class="skip" data-skip="${esc(id)}" title="Skip this step until you put it back" aria-label="Skip this step">skip</button>`;
+  return `<div class="skiprow">${b}</div>`;
+}
 const isOff=id=>S.off.indexOf(id)>-1;
+const isNotToday=id=>(S.notoday||{})[id]===today();
+/* Everything that asks "should this row be live?" asks this, not isOff. */
+const isAside=id=>isOff(id)||isNotToday(id);
+/* Drop dismissals from days gone by. Not load-bearing \u2014 isNotToday already
+   ignores them \u2014 but it stops the synced blob growing without bound. */
+function pruneNotToday(){
+  const t=today(), n=S.notoday||{};
+  let cut=false;
+  Object.keys(n).forEach(k=>{ if(n[k]!==t){ delete n[k]; cut=true; } });
+  return cut;
+}
 const allRows=()=>[...document.querySelectorAll('.step')];
 const visibleRows=()=>allRows().filter(r=>!r.classList.contains('hidden')
   && !r.classList.contains('off')
@@ -2956,7 +3021,7 @@ function recordDay(){
    cost you a streak you otherwise earned. They get their own counter instead. */
 function coreIds(){
   const out=[];
-  PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isOff(s.id)) out.push(s.id); }));
+  PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isAside(s.id)) out.push(s.id); }));
   return out;
 }
 const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra'));
@@ -3243,12 +3308,32 @@ function wireRows(){
       /* let the delegated handler below deal with these; do NOT stop the event */
       if(e.target.closest('[data-late]')||e.target.closest('.resched')||e.target.closest('[data-drop]'))return;
       if(e.target.closest('.golink')){e.stopPropagation();return;}
+      const nt=e.target.closest('[data-nt]');
+      if(nt){
+        e.stopPropagation();
+        const id=nt.dataset.nt;
+        S.notoday=S.notoday||{};
+        if(isNotToday(id)) delete S.notoday[id];
+        else {
+          S.notoday[id]=today();
+          /* Unchecking is the point: a row set aside must leave the count, and
+             leaving it checked would have it counted and dismissed at once. */
+          const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
+        }
+        save(S); buildRows(); paint(); return;
+      }
       const sk=e.target.closest('[data-skip]');
       if(sk){
         e.stopPropagation();
         const id=sk.dataset.skip, at=S.off.indexOf(id);
         if(at>-1) S.off.splice(at,1);
-        else { S.off.push(id); const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1); }
+        else {
+          S.off.push(id);
+          const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
+          /* A standing skip supersedes today's dismissal; leaving both set
+             would mean undoing the skip silently restored a not-today. */
+          if(S.notoday) delete S.notoday[id];
+        }
         save(S); buildRows(); paint(); return;
       }
       const bk=e.target.closest('[data-bulk]');
@@ -3980,6 +4065,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.13-c', note:"New \u201Cnot today\u201D button beside skip: greys a step out for today only and takes it out of the count, and it comes back tomorrow on its own."},
   {v:'2026.08.13-b', note:"Fixed a first-load bug: adopting a copy the server wrote yesterday could leave the app on yesterday's date, and push it back."},
   {v:'2026.08.13-a', note:"The widget now follows the same 4am day boundary as the app \u2014 between midnight and 4am it was calling current data stale and showing an empty day."},
   {v:'2026.08.12-c', note:"Widget digest v7: one-off tasks no longer show up twice on the widget, and the raw internal key no longer appears where a step number should be."},
