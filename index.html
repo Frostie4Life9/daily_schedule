@@ -1440,7 +1440,13 @@ function summarize(){
     .filter(r=>!(S.hideopt&&r.opt))
     .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
-    .concat(customToday().map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
+    /* One-off tasks need the same aside filter the routines above get. They
+       are concatenated AFTER the point where dailyRows/extraRows have already
+       excluded set-aside rows, so without this the counts and the list
+       disagreed: the header said 0/1 while the row you had just dismissed was
+       still sitting underneath it. Skips leaked the same way. */
+    .concat(customToday().filter(c=>!isAside('c:'+c.id))
+                         .map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
                                    opt:false, late:customState(c).late, custom:true})));
   /* PUBLISH THE DAY BOUNDARY. The widget has to answer "is this today's data?"
      and it was answering with calendar midnight while this file had moved to a
@@ -2439,11 +2445,20 @@ const GLOSSARY=[
    ========================================================= */
 /* Anchored by phase NAME, not index — same reason step ids are permanent.
    Matches the phase's base name, so the shower/bath toggle can't detach it. */
+/* EVERY GROUP USED BY A ROUTINE MUST BE LISTED HERE. buildRows only renders
+   group sections it finds in this map, so a routine whose group is missing is
+   due, is published in the digest, and has no row on the board \u2014 which means
+   the widget lists a task you cannot see, let alone check off or set aside.
+   The assertion below turns that from a silent omission into a loud one. */
 const GROUPS={
  'Training':                {after:'Morning \u2014 before the shower'},
  'Food':                    {after:null},
  'Household':               {after:null},
  'Grooming \u2014 non-daily':{after:null},
+ 'Health':                  {after:null},
+ 'School':                  {after:null},
+ 'Car':                     {after:null},
+ 'Money':                   {after:null},
  'Admin':                   {after:null}
 };
 
@@ -2884,8 +2899,17 @@ function bulkPhase(ph){
   save(S); buildRows(); paintSchedule(); paint();
 }
 
+/* Fails loudly in the console rather than dropping rows on the floor. Costs
+   one pass over a small array at build time and would have caught the four
+   groups added without being registered. */
+function assertGroups(){
+  const missing=[...new Set(ROUTINES.map(r=>r.group))].filter(g=>!(g in GROUPS));
+  if(missing.length) console.error('ROUTINE GROUPS NOT IN GROUPS MAP \u2014 these rows will not render:', missing);
+  return missing;
+}
 function buildRows(){
   list.innerHTML='';
+  assertGroups();
   const due=dueRoutines();
 
   function groupSection(g){
@@ -4338,6 +4362,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-a', note:"Fixed: a one-off task set to \u201Cnot today\u201D still reached the widget, so the extras count and the list underneath it disagreed."},
   {v:'2026.08.14-a', note:"The panels at the bottom are now one drawer with tabs instead of six stacked headers, plus a new Review tab showing what is overdue. Added health admin, sleep, school, car, money and maintenance items."},
   {v:'2026.08.13-c', note:"New \u201Cnot today\u201D button beside skip: greys a step out for today only and takes it out of the count, and it comes back tomorrow on its own."},
   {v:'2026.08.13-b', note:"Fixed a first-load bug: adopting a copy the server wrote yesterday could leave the app on yesterday's date, and push it back."},
