@@ -92,6 +92,40 @@ body.on-lists .jbar{display:none;}
   .jb svg{width:10px;height:10px;}
 }
 
+
+/* ---------------- the drawer ---------------- */
+#drawer{margin-top:28px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel);overflow:hidden;}
+#drawtabs{display:flex;gap:2px;overflow-x:auto;padding:6px;background:var(--panel-2);
+  border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#drawtabs::-webkit-scrollbar{display:none;}
+.dtab{flex:0 0 auto;background:transparent;border:1px solid transparent;border-radius:7px;
+  color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;padding:7px 10px;cursor:pointer;white-space:nowrap;
+  transition:color .15s,border-color .15s,background .15s;}
+.dtab:hover{color:var(--ink);}
+.dtab:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.dtab[aria-selected="true"]{background:var(--panel);border-color:var(--line);color:var(--done);}
+.dtab .dcount{color:var(--live);margin-left:5px;}
+/* Inside the drawer a section is a body, not a card: the drawer owns the frame,
+   the border and the spacing, and the old per-section header is redundant. */
+#drawer section{margin:0;border:0;border-radius:0;background:transparent;opacity:1;}
+#drawer section .shelfhead{display:none;}
+#drawer section .shelfbody{display:none;padding:14px 16px 16px;}
+#drawer section.open .shelfbody{display:block;}
+#drawer section.open{opacity:1;}
+#drawempty{padding:14px 16px;color:var(--dimmer);font-size:12.5px;}
+#drawer.anyopen #drawempty{display:none;}
+/* ---- review list ---- */
+.rvrow{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+.rvrow:last-child{border-bottom:0;}
+.rvrow b{font-weight:600;font-size:13px;color:var(--ink);flex:1;}
+.rvgrp{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dimmer);}
+.rvage{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--live);flex:none;}
+.rvage.soft{color:var(--opt);}
+.rvnone{color:var(--dimmer);font-size:12.5px;padding:6px 0;}
+
 /* ---------------- tabs ---------------- */
 .tabs{display:flex;gap:6px;padding:14px 0 0;}
 .tab{flex:1 1 0;min-height:44px;background:var(--panel);border:1px solid var(--line);
@@ -176,7 +210,7 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .ctl[aria-pressed="true"]{border-color:var(--done);color:var(--done);}
 .ctl:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
 
-#shelf,#guide,#money,#plan{margin-top:28px;border:1px solid var(--line);border-radius:10px;
+#shelf,#guide,#money,#plan{margin-top:0;border:1px solid var(--line);border-radius:10px;
   background:var(--panel);overflow:hidden;opacity:.62;transition:opacity .2s;}
 #shelf.open,#shelf:hover,#shelf:focus-within,
 #guide.open,#guide:hover,#guide:focus-within,
@@ -704,6 +738,32 @@ body.hideopt .step.optional{display:none;}
     </div>
   </div>
 
+  <!-- ============================================================
+       THE DRAWER. Six stacked collapsible panels became six headers
+       competing for the bottom of the page, each one its own decision,
+       and the pile grew every time anything was added. They are now one
+       surface with a tab strip: one header, one body, constant height,
+       and adding a seventh costs a tab rather than a row.
+
+       The sections themselves are untouched. Every id, paint function
+       and handler inside them still works exactly as before — the
+       drawer only decides which one is open. Rewriting six working
+       panels to change their container would have been the risky way
+       to do this.
+       ============================================================ -->
+  <div id="drawer">
+    <nav id="drawtabs" role="tablist" aria-label="Sections"></nav>
+
+  <section id="review">
+    <div class="shelfhead" id="reviewhead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Review</h2><span class="caret" id="rvcaret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Everything overdue, longest first. A row that has been overdue three weeks is not a reminder any more, it is furniture — do it, change its interval, or take it off the board.</p>
+      <div id="reviewlist"></div>
+    </div>
+  </section>
+
   <section id="hist">
     <div class="shelfhead" id="histhead" role="button" tabindex="0" aria-expanded="false">
       <h2>Streak &amp; history</h2>
@@ -720,6 +780,11 @@ body.hideopt .step.optional{display:none;}
         <label>The day ends at</label>
         <div class="hstarts" id="hstarts"></div>
         <div class="hint">Everything in the app uses this, not just the streak — the board stops clearing itself out from under you, and a routine checked after midnight logs against the evening it belonged to. Set it later than you have ever been awake, earlier than you have ever woken up.</div>
+      </div>
+      <div class="slot">
+        <label>History</label>
+        <button class="reset" id="histcopy">Copy history as CSV</button>
+        <div class="hint">One row per day: date, core steps done, core steps due. The heatmap lives in synced storage, so this is how you get it somewhere permanent — a spreadsheet, a note, anywhere that is not one Worker away from being gone.</div>
       </div>
     </div>
   </section>
@@ -800,6 +865,7 @@ body.hideopt .step.optional{display:none;}
       <button class="reset" id="wipeprod">Clear all products</button>
     </div>
   </section>
+  </div><!-- /drawer -->
 </div><!-- /view-today -->
 
 <div id="view-lists" role="tabpanel" aria-labelledby="tab-lists" hidden>
@@ -1077,7 +1143,9 @@ const PHASES = [
   {id:'water_only', sub:1, l:"Nothing but water after this"},
   {id:'nightguard', l:"Nightguard", opt:1, note:"If you grind."},
   {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters, which is why it sits after the oral block and not before it. Floss drags across your lips, mouthwash swishes over them and toothpaste is a detergent \u2014 stripping an occlusive is exactly what SLS does. Applied here it's still on you eight hours later. If your lips are already cracked and toothpaste stings them, a throwaway smear beforehand is fine; this is the coat that does the work."},
-  {id:'journal', l:"Journal", group:'End of day', sched:{dow:[0,1,2,3,4,5,6]}, link:1, note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else.\n\nThe button on this row opens Day One straight to a new entry. Paste a different URL under Full schedule \u2192 End of day if you ever switch apps."}
+  {id:'journal', l:"Journal", group:'End of day', sched:{dow:[0,1,2,3,4,5,6]}, link:1, note:"Digital, on the phone, already in bed. Last thing before sleep \u2014 which is also the risk. Open the journal, not everything else.\n\nThe button on this row opens Day One straight to a new entry. Paste a different URL under Full schedule \u2192 End of day if you ever switch apps."},
+  {id:'sl_screens', l:"Screens down", note:"The cutoff, not the bedtime. This is the row that makes the next one possible \u2014 deciding to sleep while still holding the phone has never once worked.\n\nThirty to sixty minutes before lights out is the usual advice, and the mechanism people quote (blue light suppressing melatonin) is the weaker half of it. The stronger half is that a phone is an engagement machine: the content keeps you awake far more reliably than the wavelength does. Night Shift and dark mode address the weak half and none of the strong half.\n\nPut the phone across the room if it charges there. The journal step above is deliberately the LAST thing on the phone, so this row is the handoff."},
+  {id:'sl_out', l:"Lights out", note:"A target, not a rule you can fail. The point of putting it on the board is that it becomes a decision you make once rather than one you renegotiate nightly at 1am.\n\nCONSISTENCY BEATS DURATION. A steady window \u2014 same lights-out, same wake time, weekends included \u2014 does more for how you feel than an extra hour grabbed at random. Shifting your wake time by hours on the weekend produces something close to jet lag, which is why Monday feels like it does.\n\nWAKE TIME IS THE ANCHOR, not bedtime. It is the one you can actually control, because you cannot force sleep but you can force getting up. Fix the wake time and the bedtime follows within a week or two.\n\nSEVEN TO NINE HOURS is the adult range and college students are the most under-slept group there is. If you are hitting five, adding one hour will do more for training, skin, mood and recall than anything else on this board \u2014 including the training.\n\nIf you are lying awake more than twenty minutes, get up and do something dull in low light rather than lying there. Time spent awake in bed teaches your brain that bed is where you are awake."}
  ]}
 ];
 
@@ -2441,7 +2509,80 @@ const ROUTINES=[
  {id:'ad_restock',group:'Admin', l:'Check what\u2019s running low', sched:{dow:[0]}, opt:1,
   note:"Log anything that ran out in the Monthly cost section \u2014 that's what turns the estimates into real numbers."},
  {id:'ad_sheets', group:'Admin', l:'Weekly reset \u2014 school + shifts', sched:{dow:[0]},
-  note:"Look at the week before it starts. Coursework, shifts, and where the gym actually fits."}
+  note:"Look at the week before it starts. Coursework, shifts, and where the gym actually fits."},
+/* ---- Health ---- */
+ {id:'hl_eye',    group:'Health', l:'Eye exam', sched:{everyMonths:12},
+  note:"Annual, and for you it is not optional in the way a check-up is: a contact lens prescription EXPIRES, usually after a year, and an expired one blocks reorders. So this row is upstream of still having lenses.\n\nToric lenses need the axis re-measured, not just the power \u2014 astigmatism drifts, and a lens rotating into a stale axis is the blurry-at-the-end-of-the-day feeling.\n\nBook it through Children's Eye Physicians, then order through Marlo once the new prescription is on file."},
+ {id:'hl_eyebook',group:'Health', l:'Book the eye exam', leadOf:'hl_eye', lead:21,
+  note:"Three weeks, because optometry books further out than a barber does and a lapsed prescription stops lens orders. Same mechanism as the haircut booking row: no schedule of its own, it reads the exam's clock and clears itself once either row is checked.\n\nIf they book more than three weeks out routinely, raise the lead under Full schedule."},
+ {id:'hl_lenses', group:'Health', l:'Reorder contact lenses', sched:{everyMonths:3},
+  note:"Dailies, both eyes, so a 90-pack per eye is a quarter. Count boxes rather than trusting the date \u2014 the interval here is an estimate and your actual burn rate is the truth.\n\nORDER AT ONE BOX REMAINING, not at zero. Shipping plus a prescription check is a week in the bad case, and the fallback when you run out is sleeping in a lens or reusing one, which is how you get a corneal ulcer.\n\nMarlo, via Children's Eye Physicians. Needs a current prescription \u2014 see the exam row above."},
+ {id:'hl_meds',   group:'Health', l:'Medication refill', sched:{everyDays:30},
+  note:"Set the interval to your actual supply length under Full schedule \u2014 30 is a placeholder, not a fact about your prescription.\n\nThis row is the day you PICK IT UP. The row below is the day you request it."},
+ {id:'hl_medsreq',group:'Health', l:'Request the refill', leadOf:'hl_meds', lead:5,
+  note:"Five days, which covers a pharmacy needing to contact the prescriber, a back-order, or a holiday weekend. Requesting on the last pill is how people end up skipping doses for reasons that have nothing to do with the medication.\n\nIf yours is same-day at the counter, drop this to two."},
+ {id:'hl_flu',    group:'Health', l:'Flu shot', sched:{everyMonths:12},
+  note:"September or October is the window \u2014 early enough that protection is up before the season, late enough that it has not waned by February.\n\nAs a pre-med student you will be around patients, and clinical placements increasingly require it. Free at most pharmacies with insurance, and the student health center will have it."},
+ {id:'hl_clin',   group:'Health', l:'Clinical health requirements', sched:{everyMonths:12},
+  note:"The paperwork that quietly blocks a placement if it lapses. TB screening is the one that actually expires annually; the rest is documentation you need to be able to produce.\n\nTB test or IGRA blood test \u2014 annual, and the one most programs check.\nHep B \u2014 series plus a titer proving it took.\nMMR and varicella \u2014 titers or documented doses.\nTdap \u2014 within ten years.\nCOVID and flu \u2014 per the site.\n\nKEEP THE ACTUAL DOCUMENTS, not just the memory of having done it. A titer you cannot produce a result for is a titer you will be redoing. Student health can usually pull your records into one file \u2014 do that once and save a copy somewhere permanent."},
+ {id:'hl_skin',   group:'Health', l:'Skin self-check', sched:{everyMonths:12},
+  note:"Ten minutes, good light, a mirror, and a second mirror or a phone camera for your back. You are at roughly 4,500 feet where UV is about 25% stronger than at sea level, which is the whole reason the SPF step exists \u2014 this is the other half of that.\n\nWHAT YOU ARE LOOKING FOR (ABCDE):\nAsymmetry \u2014 one half unlike the other.\nBorder \u2014 ragged, notched or blurred rather than clean.\nColour \u2014 more than one shade, or very dark.\nDiameter \u2014 larger than a pencil eraser, though small ones exist.\nEvolving \u2014 CHANGING. The most important one by far, and the reason a yearly look is worth more than knowing the list.\n\nAlso: anything that bleeds, itches or will not heal; and the ugly-duckling rule \u2014 the mole that does not look like your other moles.\n\nDon't skip scalp, ears, behind the ears, between toes, soles. Anything that concerns you goes to a doctor rather than a search engine."},
+ {id:'hl_phys',   group:'Health', l:'Annual physical', sched:{everyMonths:12},
+  note:"Cheap, quick, and the baseline is the point \u2014 bloodwork now is what makes bloodwork at 30 interpretable. Student health covers this while you are enrolled, which will not always be true."},
+
+ /* ---- School ---- */
+ {id:'sc_srs',    group:'School', l:'Spaced repetition \u2014 cards', sched:{dow:[0,1,2,3,4,5,6]}, t:1200,
+  note:"Anki or equivalent, every day including weekends. The daily part is not discipline theatre \u2014 the algorithm schedules cards for the day they are about to be forgotten, so skipping days does not defer the work, it compounds it. Two days off turns twenty minutes into an hour.\n\nTWENTY MINUTES IS THE DEFAULT TIMER. Reviews first, new cards second, and cap new cards low enough that the review load stays sustainable. The failure mode is adding 200 new cards in a good week and drowning nine days later.\n\nThis is the single highest-return recurring habit in pre-med, and it matters more for the MCAT and the boards than for any individual midterm."},
+ {id:'sc_hours',  group:'School', l:'Log clinical / volunteer / shadowing hours', sched:{dow:[0]},
+  note:"Weekly, because reconstructing this a year later is miserable and you WILL be asked for it precisely.\n\nPER ENTRY: date, hours, organisation, supervisor name and contact, and two sentences on what you actually did. That last part is the one everybody skips and the one the application asks for.\n\nAMCAS wants hours by category and a contact who can verify them. A supervisor who has moved on and whose email you never wrote down is an entry you cannot use."},
+ {id:'sc_prof',   group:'School', l:'Professor / mentor check-in', sched:{everyMonths:2},
+  note:"Office hours with someone who could plausibly write you a letter. Not to ask for the letter \u2014 to be a person they can describe.\n\nA strong letter needs specifics: what you asked, how you think, something you did. Those come from four or five real conversations over a couple of years, not from a good grade. Two months is the interval that makes that happen without it being a campaign.\n\nAsk about their research, not about your grade."},
+ {id:'sc_review', group:'School', l:'Week review \u2014 what slipped', sched:{dow:[6]}, opt:1,
+  note:"Five minutes on Saturday. Open the Review tab, look at what is overdue, and decide \u2014 do it, reschedule it, or take it off the board. A row that has been overdue for three weeks is not a reminder, it is furniture.\n\nThis is the maintenance step for the system itself. Without it a tracker slowly fills with things you have silently opted out of, and then you stop trusting the board."},
+
+ /* ---- Car ---- */
+ {id:'ca_oil',    group:'Car', l:'Oil change', sched:{everyMonths:6},
+  note:"MILEAGE IS THE REAL TRIGGER, not the date \u2014 this row is a fallback for the case where you are not watching the odometer. Modern synthetic is typically 7,500 to 10,000 miles; check the manual rather than the sticker, because quick-lube stickers are frequently more conservative than the manufacturer.\n\nTime matters too though: oil degrades sitting still, so six months to a year even on low mileage."},
+ {id:'ca_tires',  group:'Car', l:'Tire rotation', sched:{everyMonths:6},
+  note:"Every 5,000 to 8,000 miles, which for most people lands with alternate oil changes. Front and rear wear at different rates, and rotating is the difference between replacing four tires and replacing two, twice.\n\nWhile it is up: check pressure and tread. Cold pressure, on the door jamb sticker rather than the tire sidewall. Winter here drops pressure noticeably \u2014 cold air contracts, so a tire fine in September is low in December."},
+ {id:'ca_reg',    group:'Car', l:'Vehicle registration renewal', sched:{everyMonths:12},
+  note:"Set the interval and anchor to YOUR actual expiry under Full schedule \u2014 this is a generic yearly placeholder until you do.\n\nColorado requires emissions testing in the Denver metro area for most vehicles before renewal, so the test is upstream of the renewal, not part of it."},
+ {id:'ca_regbook',group:'Car', l:'Emissions test / start the renewal', leadOf:'ca_reg', lead:30,
+  note:"A month, because emissions has to happen first and a queue at the end of the month is normal. Late registration is a fine, and it is one of the few things on this board that costs money to forget."},
+ {id:'ca_ins',    group:'Car', l:'Insurance review', sched:{everyMonths:6},
+  note:"At renewal, check the premium against two competing quotes. Insurers price loyalty upward \u2014 the quiet annual increase on an unchanged policy is a real and well-documented practice.\n\nAlso worth checking: whether a good-student discount applies, and whether your coverage still matches the car's value."},
+
+ /* ---- Money ---- */
+ {id:'mn_week',   group:'Money', l:'Money check \u2014 15 minutes', sched:{dow:[0]},
+  note:"Sunday with the weekly reset. Three things only: what came in, what went out, anything that looks wrong.\n\nThe fraud-catching half matters more than the budgeting half at your stage \u2014 a card charge you do not recognise is far easier to dispute in week one than in month three."},
+ {id:'mn_subs',   group:'Money', l:'Subscription audit', sched:{everyMonths:3},
+  note:"Every recurring charge, out loud, with a yes or no. Subscriptions are designed to be invisible: the whole business model assumes you will not do this.\n\nCheck all three places, because they hide in different ones \u2014 the card statement, the App Store subscriptions list, and PayPal if you use it. Free trials you meant to cancel are the usual find."},
+
+ /* ---- Household additions ---- */
+ {id:'hh_pillowwash', group:'Household', l:'Wash the pillows', sched:{everyMonths:4},
+  note:"The PILLOW, not the case. It absorbs scalp oil, sweat and saliva, and almost nobody washes one \u2014 which is why it is the most likely source of a bedroom that smells faintly off even when everything else is clean.\n\nMost polyester and down pillows are machine washable: two at a time to balance the drum, warm, and a second rinse. Drying matters more than washing \u2014 a pillow that is still damp in the core grows mould. Low heat, dryer balls or clean tennis balls, and longer than you think. Memory foam usually cannot be washed; spot clean and air it.\n\nA pillow protector under the case makes this every six months instead."},
+ {id:'hh_pillownew',  group:'Household', l:'Replace the pillow', sched:{everyMonths:18},
+  note:"One to two years for most types. The test: fold it in half and let go. If it stays folded rather than springing back, the support is gone and you are sleeping on a bag of dust.\n\nA pillow that has lost its loft changes your neck angle all night, and that is a plausible and boring explanation for morning neck stiffness that people usually blame on their mattress."},
+ {id:'hh_protector',  group:'Household', l:'Wash the mattress protector', sched:{everyMonths:2},
+  note:"If you do not have one, get one \u2014 it is the difference between a washable layer and a mattress that permanently absorbs sweat. You cannot wash a mattress.\n\nWhile it is off: vacuum the mattress surface and let it air for an hour."},
+ {id:'hh_gymwash',    group:'Household', l:'Gym clothes \u2014 wash or hang, same day', sched:{dow:[2,4,6]},
+  note:"Same day, not same week. Damp synthetic in a closed hamper goes anaerobic within about a day, and that specific sour smell is the one people mistake for the room.\n\nIf you cannot wash immediately, HANG THEM TO DRY somewhere open rather than putting them in the hamper. Dry and dirty is fine; damp and dirty is the problem."},
+ {id:'hh_deepwash',   group:'Household', l:'Deep wash technical fabrics', sched:{everyMonths:1},
+  note:"Polyester traps body oils that ordinary detergent does not fully lift, and once they build up the fabric smells the moment you warm up, however recently it was washed.\n\nThe fix is a sports-specific detergent, or a wash with white vinegar in the rinse. Skip fabric softener entirely on technical fabric \u2014 it coats the fibres, seals the oils in and destroys the wicking you paid for. Cold water, inside out."},
+ {id:'hh_shoes',      group:'Household', l:'Air out the work shoes', sched:{everyDays:3},
+  note:"Slip-resistant work shoes are deliberately non-breathable, which is exactly the condition odour-causing bacteria want after an eight-hour shift.\n\nOut of the bedroom, loosened, somewhere with air. Rotating two pairs so each gets 24 hours to dry is the single most effective thing, well ahead of any spray."},
+ {id:'hh_insoles',    group:'Household', l:'Replace shoe insoles', sched:{everyMonths:6},
+  note:"Compressed insoles stop absorbing shock and hold odour permanently. Cheap, and they make a worn pair feel most of the way new."},
+ {id:'hh_brushclean', group:'Household', l:'Clean the hairbrush', sched:{everyDays:14},
+  note:"Pull the hair out, then wash the brush in warm water with a drop of shampoo. It accumulates oil, dead skin and old product, and putting that back through clean hair defeats the wash."},
+ {id:'hh_buds',       group:'Household', l:'Clean AirPods and tips', sched:{everyDays:14},
+  note:"Tips off, wiped with a slightly damp lint-free cloth, fully dry before they go back on. Dry soft brush for the speaker mesh \u2014 never anything wet or sharp into the mesh.\n\nEarwax in the mesh is the usual cause of one side sounding quiet, and people replace units over it."},
+
+ /* ---- Grooming additions ---- */
+ {id:'gr_ngclean', group:'Grooming \u2014 non-daily', l:'Deep clean the nightguard', sched:{everyDays:7},
+  note:"Rinse and brush it every morning with a soft brush and water \u2014 no toothpaste, which is abrasive enough to scratch the acrylic, and scratches are where bacteria live.\n\nWeekly, soak it: a denture cleaning tablet, or equal parts white vinegar and water for 30 minutes, then rinse thoroughly. Store it dry and vented, never sealed damp in a case.\n\nA guard that has gone cloudy or smells is one that has been stored wet."},
+ {id:'gr_razor',   group:'Grooming \u2014 non-daily', l:'Replace razor cartridge', sched:{everyDays:14},
+  note:"Five to ten shaves is the usual life; the interval here assumes roughly every other day. Irritation, tug and razor burn are dull-blade symptoms far more often than technique ones \u2014 people press harder to compensate, which is exactly wrong.\n\nRinse and shake dry after every use and store it out of the shower stream. Blades die from oxidation between shaves, not from cutting hair."}
 ];
 
 /* =========================================================
@@ -3591,7 +3732,133 @@ function toggleH(force){
 }
 histhead.addEventListener('click',()=>toggleH());
 histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleH();}});
-function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); }
+
+/* =========================================================
+   DRAWER — one surface, one open panel, a tab per section.
+
+   Each section keeps its own toggle function; this only decides
+   which is open and hands off to the existing one so the paint
+   work stays where it already lived. Adding a section later
+   means adding a line to DRAWTABS, nothing else.
+   ========================================================= */
+const DRAWTABS=[
+  {id:'review', label:'Review',   open:f=>toggleReview(f)},
+  {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
+  {id:'plan',   label:'Schedule', open:f=>toggleP(f)},
+  {id:'money',  label:'Cost',     open:f=>toggleMoney(f)},
+  {id:'guide',  label:'Guide',    open:f=>toggleGuide(f)},
+  {id:'shelf',  label:'Products', open:f=>toggleShelf(f)},
+  {id:'sync',   label:'Sync',     open:f=>window.__toggleSync(f)}
+];
+/* One function actually moves the drawer, so "open this" and "restore this"
+   cannot drift apart. The earlier version had restoreDrawer bail out early on
+   an unrecognised id without closing what was already open, which left a panel
+   showing that no tab claimed. */
+function applyDrawer(id){
+  S.drawer=id;
+  DRAWTABS.forEach(t=>{ try{ t.open(t.id===id); }catch(e){} });
+  document.getElementById('drawer').classList.toggle('anyopen', !!id);
+  paintDrawTabs();
+}
+function openDrawer(id){
+  /* Tapping the open tab closes it, so the drawer can be fully shut. */
+  applyDrawer(S.drawer===id ? null : id);
+  save(S);
+}
+function paintDrawTabs(){
+  const bar=document.getElementById('drawtabs'); if(!bar) return;
+  const overdue=reviewItems().length;
+  bar.innerHTML=DRAWTABS.map(t=>{
+    const on=S.drawer===t.id;
+    const badge=(t.id==='review'&&overdue)?`<span class="dcount">${overdue}</span>`:'';
+    return `<button class="dtab" role="tab" data-draw="${t.id}" aria-selected="${on}">${esc(t.label)}${badge}</button>`;
+  }).join('');
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-draw]'); if(!b) return;
+  openDrawer(b.dataset.draw);
+  const sec=document.getElementById(b.dataset.draw);
+  if(sec && S.drawer) sec.scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+
+/* ---------------- review ---------------- */
+/* How far past due something is, in days. Routines only: steps belong to a
+   single day and cannot be "overdue" in a way that survives it. */
+function overdueBy(r){
+  if(r.leadOf) return null;                 /* a lead item is early by design */
+  const sc=schedOf(r);
+  if(sc.mode==='dow'){
+    const last=lastDowOn(sc,today()); if(!last) return null;
+    const done=doneOn(r.id);
+    if(done && done>=last) return null;
+    return keyGap(last,today());
+  }
+  const ds=daysSince(r.id);
+  const target = sc.mode==='everyMonths' ? Math.round((+sc.everyMonths)*30.44) : +sc.everyDays;
+  if(ds===null) return null;                /* never logged: due, not overdue */
+  return ds>target ? ds-target : null;
+}
+function reviewItems(){
+  return ROUTINES
+    .filter(r=>!isAside(r.id) && !isAside('r:'+r.id))
+    .map(r=>({r:r, by:overdueBy(r)}))
+    .filter(x=>x.by!==null && x.by>0)
+    .sort((a,b)=>b.by-a.by);
+}
+function paintReview(){
+  const m=document.getElementById('reviewlist'); if(!m) return;
+  const items=reviewItems();
+  if(!items.length){
+    m.innerHTML='<div class="rvnone">Nothing overdue. Everything on the board is either done or not due yet.</div>';
+    return;
+  }
+  m.innerHTML=items.map(x=>{
+    const soft=x.by<=3?' soft':'';
+    return `<div class="rvrow"><b>${esc(x.r.l)}</b>`+
+           `<span class="rvgrp">${esc(x.r.group||'')}</span>`+
+           `<span class="rvage${soft}">${x.by}d late</span></div>`;
+  }).join('');
+}
+function toggleReview(force){
+  const sec=document.getElementById('review');
+  const open=force!==undefined?force:!sec.classList.contains('open');
+  sec.classList.toggle('open',open);
+  document.getElementById('reviewhead').setAttribute('aria-expanded',open);
+  if(open) paintReview();
+}
+
+/* ---------------- history export ---------------- */
+/* The backup box already had this logic inline; a second caller makes it worth
+   naming. The textarea fallback matters on iOS Safari, where the async
+   clipboard API is refused outside a few narrow contexts. */
+function copyText(text, okMsg){
+  const done=()=>toast(okMsg||'Copied');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done,()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,999999);
+    try{ document.execCommand('copy'); done(); }
+    catch(e){ toast('Could not copy'); }
+    document.body.removeChild(ta);
+  }
+}
+document.getElementById('histcopy').addEventListener('click',()=>{
+  const h=S.hist||{}, keys=Object.keys(h).sort();
+  if(!keys.length){ toast('No history yet'); return; }
+  const csv='date,done,due\n'+keys.map(k=>`${k},${h[k][0]},${h[k][1]}`).join('\n');
+  copyText(csv, keys.length+' days copied');
+});
+
+/* Reopen whatever was open last time. Runs once, after the toggles exist. */
+function restoreDrawer(){
+  const want=S.drawer;
+  applyDrawer(DRAWTABS.some(t=>t.id===want) ? want : null);
+}
+function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }
 
 const optbtn=document.getElementById('optbtn');
 function paintOpt(){
@@ -3904,8 +4171,14 @@ function syncPull(){
   }
   head.addEventListener('click',()=>toggleSync());
   head.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleSync();}});
+  /* The drawer needs to open this one alongside the others, and it is defined
+     inside a closure. Publishing the handle is cheaper than hoisting the whole
+     block out of the scope it depends on. */
+  window.__toggleSync=toggleSync;
   document.getElementById('syncchip').addEventListener('click',()=>{
-    toggleSync(true); sec.scrollIntoView({behavior:'smooth',block:'center'});
+    if(typeof openDrawer==='function' && S.drawer!=='sync') openDrawer('sync');
+    else toggleSync(true);
+    sec.scrollIntoView({behavior:'smooth',block:'center'});
   });
 
   let cfgT=null;
@@ -4065,6 +4338,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.14-a', note:"The panels at the bottom are now one drawer with tabs instead of six stacked headers, plus a new Review tab showing what is overdue. Added health admin, sleep, school, car, money and maintenance items."},
   {v:'2026.08.13-c', note:"New \u201Cnot today\u201D button beside skip: greys a step out for today only and takes it out of the count, and it comes back tomorrow on its own."},
   {v:'2026.08.13-b', note:"Fixed a first-load bug: adopting a copy the server wrote yesterday could leave the app on yesterday's date, and push it back."},
   {v:'2026.08.13-a', note:"The widget now follows the same 4am day boundary as the app \u2014 between midnight and 4am it was calling current data stale and showing an empty day."},
@@ -4117,7 +4391,7 @@ try{
   });
 }catch(e){}
 
-rebuild(); paintOpt();
+rebuild(); paintOpt(); restoreDrawer();
 </script>
 </body>
 </html>
