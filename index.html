@@ -93,6 +93,25 @@ body.on-lists .jbar{display:none;}
 }
 
 
+
+/* ---- collapsible descriptions ---- */
+.ntoggle{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;margin-left:6px;padding:0;vertical-align:middle;
+  background:transparent;border:1px solid var(--line);border-radius:5px;
+  color:var(--dimmer);cursor:pointer;flex:none;
+  transition:color .15s,border-color .15s;}
+.ntoggle svg{width:11px;height:11px;stroke:currentColor;stroke-width:2.6;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .15s;}
+.ntoggle:hover{color:var(--ink);border-color:var(--dim);}
+.ntoggle:focus-visible{outline:2px solid var(--done);outline-offset:2px;}
+.ntoggle.on{color:var(--done);border-color:rgba(91,200,192,.35);}
+.ntoggle.on svg{transform:rotate(180deg);}
+/* display, not max-height: these run to several paragraphs, and animating an
+   unknown height either clips the long ones or lurches on the short ones. */
+.step .note{display:none;}
+.step .note.open{display:block;}
+.step.off .note,.step.off .ntoggle{display:none;}
+
 /* ---------------- the drawer ---------------- */
 #drawer{margin-top:28px;border:1px solid var(--line);border-radius:10px;
   background:var(--panel);overflow:hidden;}
@@ -297,9 +316,6 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .vbadge{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
   text-transform:uppercase;padding:2px 5px;border-radius:3px;margin-left:6px;
   vertical-align:1px;white-space:nowrap;border:1px solid;}
-.vb-commodity{color:var(--opt);border-color:rgba(124,137,240,.45);}
-.vb-formulation{color:var(--done);border-color:rgba(91,200,192,.45);}
-.vb-preference{color:var(--dimmer);border-color:var(--line);}
 .over{color:var(--warn)!important;}
 .ceil{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dimmer);
   flex:1 1 100%;margin-top:3px;}
@@ -756,7 +772,7 @@ body.hideopt .step.optional{display:none;}
 
   <section id="review">
     <div class="shelfhead" id="reviewhead" role="button" tabindex="0" aria-expanded="false">
-      <h2>Review</h2><span class="caret" id="rvcaret">Open</span>
+      <h2>Review</h2><span class="caret">Open</span>
     </div>
     <div class="shelfbody">
       <p class="shelfnote">Everything overdue, longest first. A row that has been overdue three weeks is not a reminder any more, it is furniture — do it, change its interval, or take it off the board.</p>
@@ -1459,6 +1475,28 @@ function summarize(){
           star: !!(ids.length && done===ids.length && xdone===xids.length),
           modes:Object.assign({},S.modes||{}), next:next, routines:due};
 }
+/* =========================================================
+   COMMIT — the one place that knows the order.
+
+   Persisting a change has an order that matters and is not obvious:
+   the day's history has to be recorded BEFORE the save (it rides on
+   writes that were already happening, so a passive device never
+   stamps a fresh mtime), and the save has to happen BEFORE the
+   repaint (paint reads nothing back, but a save after a paint has
+   already lost one toggle in this file's history). Both of those
+   were bugs, both were fixed by convention, and convention is the
+   thing that decays. Callers now say what changed, not in what
+   order to do it.
+   ========================================================= */
+function commit(opts){
+  const o=opts||{};
+  save(S);
+  if(o.rebuild) buildRows();
+  if(o.schedule) paintSchedule();
+  if(o.money) paintMoney();
+  if(o.paint!==false) paint();
+  if(o.drawer) { paintReview(); paintDrawTabs(); }
+}
 const save=s=>{
   if(syncReady && !syncQuiet){
     if(typeof recordDay==='function' && s===S) recordDay();
@@ -1527,6 +1565,7 @@ S.hist=S.hist||{};
 if(S.best==null) S.best=+S.streak||0;
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
 S.notoday=S.notoday||{};
+S.notes=S.notes||{};
 S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
 /* Carry-over needs a starting line. Without one a fresh copy of the file reads
@@ -1718,12 +1757,7 @@ slotsEl.addEventListener('input',e=>{
 });
 
 const shelf=document.getElementById('shelf'), shelfhead=document.getElementById('shelfhead');
-function toggleShelf(force){
-  const open=force!==undefined?force:!shelf.classList.contains('open');
-  shelf.classList.toggle('open',open);
-  shelfhead.setAttribute('aria-expanded',open);
-  document.getElementById('caret').textContent=open?'Close':'Open';
-}
+const toggleShelf=force=>setPanel('shelf',force);
 shelfhead.addEventListener('click',()=>toggleShelf());
 shelfhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleShelf();}});
 
@@ -1815,12 +1849,7 @@ function paintSchedule(){
     }).join('')+`</div>`;
   }).join('');
 }
-function toggleP(force){
-  const open=force!==undefined?force:!plan.classList.contains('open');
-  plan.classList.toggle('open',open);
-  planhead.setAttribute('aria-expanded',open);
-  document.getElementById('pcaret').textContent=open?'Close':'Open';
-}
+const toggleP=force=>setPanel('plan',force);
 planhead.addEventListener('click',()=>toggleP());
 planhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleP();}});
 
@@ -1832,7 +1861,7 @@ document.addEventListener('click',e=>{
     const sc=schedOf(r); const arr=(sc.dow||[]).slice();
     const at=arr.indexOf(d); if(at>-1)arr.splice(at,1); else arr.push(d);
     S.sched=S.sched||{}; S.sched[id]=Object.assign({},S.sched[id],{dow:arr.sort()});
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const mb=e.target.closest('[data-rmode]');
   if(mb){
@@ -1843,21 +1872,21 @@ document.addEventListener('click',e=>{
     S.sched[id]=Object.assign({},S.sched[id],{
       mode:mode, dow:sc.dow, everyDays:sc.everyDays, everyMonths:sc.everyMonths
     });
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const rt=e.target.closest('[data-rtoday]');
   if(rt){
     const id=rt.dataset.rtoday;
     S.sched=S.sched||{};
     S.sched[id]=Object.assign({},S.sched[id],{anchor:today()});
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const rc=e.target.closest('[data-rclear]');
   if(rc){
     const id=rc.dataset.rclear;
     S.sched=S.sched||{};
     S.sched[id]=Object.assign({},S.sched[id],{anchor:null});
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const la=e.target.closest('[data-laddid]');
   if(la){ linkOpen.add(la.dataset.laddid); paintSchedule(); return; }
@@ -1873,7 +1902,7 @@ document.addEventListener('click',e=>{
       linkOpen.add(x.id);          /* so the copies are visible and editable */
       n++;
     });
-    save(S); buildRows(); paintSchedule(); paint();
+    commit({rebuild:true,schedule:true});
     toast('Linked '+n+' '+r.group+' items'); return;
   }
   const ld=e.target.closest('[data-ldrop]');
@@ -1881,7 +1910,7 @@ document.addEventListener('click',e=>{
     const id=ld.dataset.ldrop;
     if(S.links) delete S.links[id];
     linkOpen.delete(id);
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const lx=e.target.closest('[data-lclear]');
   if(lx){
@@ -1891,13 +1920,13 @@ document.addEventListener('click',e=>{
     S.links=S.links||{}; S.links[id]={url:'',name:'',app:false};
     S.linkSeeded=S.linkSeeded||[];
     if(S.linkSeeded.indexOf(id)===-1) S.linkSeeded.push(id);
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   const rr=e.target.closest('[data-rreset]');
   if(rr){
     const id=rr.dataset.rreset;
     S.rlog=S.rlog||{}; S.rlog[id]=new Date().toISOString();
-    save(S); buildRows(); paintSchedule(); paint(); toast('Clock reset'); return;
+    commit({rebuild:true,schedule:true}); toast('Clock reset'); return;
   }
 });
 function linkFieldInput(e){
@@ -1920,7 +1949,7 @@ document.addEventListener('input',e=>{
   S.sched=S.sched||{};
   const val = f==='anchor' ? (e.target.value||null) : Math.max(1,+e.target.value||1);
   S.sched[id]=Object.assign({},S.sched[id],{[f]:val});
-  save(S); buildRows(); paintSchedule(); paint();
+  commit({rebuild:true,schedule:true});
 });
 
 /* ---------------- cost ---------------- */
@@ -2068,12 +2097,7 @@ document.addEventListener('input',e=>{
   S.costs[slot][e.target.dataset.f]=e.target.value===''?null:+e.target.value;
   save(S); paintMoney();
 });
-function toggleMoney(force){
-  const open=force!==undefined?force:!money.classList.contains('open');
-  money.classList.toggle('open',open);
-  moneyhead.setAttribute('aria-expanded',open);
-  document.getElementById('mcaret').innerHTML='<b id="mtotal">'+document.getElementById('mtotal').textContent+'</b>/mo · '+(open?'Close':'Open');
-}
+const toggleMoney=force=>setPanel('money',force);
 moneyhead.addEventListener('click',()=>toggleMoney());
 moneyhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleMoney();}});
 
@@ -2093,12 +2117,7 @@ function paintGuide(){
       `<p class="whyp"><span class="lead">Why it matters</span>${g.why}</p></div>`;
   }).join('');
 }
-function toggleGuide(force){
-  const open=force!==undefined?force:!guide.classList.contains('open');
-  guide.classList.toggle('open',open);
-  guidehead.setAttribute('aria-expanded',open);
-  document.getElementById('gcaret').textContent=open?'Close':'Open';
-}
+const toggleGuide=force=>setPanel('guide',force);
 guidehead.addEventListener('click',()=>toggleGuide());
 guidehead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleGuide();}});
 
@@ -2896,20 +2915,153 @@ function bulkPhase(ph){
   }else{
     toast(allOn ? 'Cleared '+ids.length : ids.length+' checked off');
   }
-  save(S); buildRows(); paintSchedule(); paint();
+  commit({rebuild:true,schedule:true});
 }
 
 /* Fails loudly in the console rather than dropping rows on the floor. Costs
    one pass over a small array at build time and would have caught the four
    groups added without being registered. */
-function assertGroups(){
-  const missing=[...new Set(ROUTINES.map(r=>r.group))].filter(g=>!(g in GROUPS));
-  if(missing.length) console.error('ROUTINE GROUPS NOT IN GROUPS MAP \u2014 these rows will not render:', missing);
-  return missing;
+/* =========================================================
+   CONTENT SELF-CHECK.
+
+   Adding content is now the main way this file changes, and the
+   content is plain data with no compiler behind it. Every failure
+   below has either already happened or is one typo away:
+
+   - four routine groups added without registering them, so 17 rows
+     were due, were published to the widget, and had no row on the
+     board at all
+   - a lead item pointing at an id that no longer exists, which
+     silently never fires
+   - a {cross_reference} in a note whose step has been renamed,
+     which renders as literal braces
+   - a duplicate id, where the second silently shadows the first
+
+   None of these throw. They all just quietly do the wrong thing,
+   which is exactly the kind of bug worth spending twenty lines to
+   turn into a console error at boot.
+   ========================================================= */
+function assertContent(){
+  const problems=[];
+  const stepIds=[]; PHASES.forEach(p=>(p.steps||[]).forEach(st=>stepIds.push(st.id)));
+  const rIds=ROUTINES.map(r=>r.id);
+  const dup=a=>a.filter((x,i)=>a.indexOf(x)!==i);
+
+  dup(stepIds).forEach(id=>problems.push('duplicate step id: '+id));
+  dup(rIds).forEach(id=>problems.push('duplicate routine id: '+id));
+
+  [...new Set(ROUTINES.map(r=>r.group))]
+    .filter(g=>!(g in GROUPS))
+    .forEach(g=>problems.push('group not in GROUPS, its rows will not render: '+g));
+
+  ROUTINES.filter(r=>r.leadOf)
+    .filter(r=>rIds.indexOf(r.leadOf)===-1)
+    .forEach(r=>problems.push('lead item points at a missing routine: '+r.id+' -> '+r.leadOf));
+
+  ROUTINES.filter(r=>!r.leadOf && !r.sched)
+    .forEach(r=>problems.push('routine has no schedule and is not a lead item: '+r.id));
+
+  const known=new Set(stepIds);
+  const refs=(txt,where)=>String(txt||'').replace(/\{([a-z0-9_]+)\}/g,(m,id)=>{
+    if(!known.has(id)) problems.push('note in '+where+' references a step that does not exist: '+id);
+    return m;
+  });
+  PHASES.forEach(p=>(p.steps||[]).forEach(st=>refs(st.note,st.id)));
+  ROUTINES.forEach(r=>refs(r.note,r.id));
+
+  /* SLOTS, not PRODUCTS — the array is named for the slot a step attaches to,
+     and reading the wrong global made this check silently pass on everything. */
+  const slots=new Set((typeof SLOTS!=='undefined'?SLOTS:[]).map(x=>x.id));
+  if(slots.size) PHASES.forEach(p=>(p.steps||[]).forEach(st=>{
+    if(st.slot && !slots.has(st.slot)) problems.push('step points at a missing product slot: '+st.id+' -> '+st.slot);
+  }));
+
+  if(problems.length) console.error('CONTENT PROBLEMS:\n - '+problems.join('\n - '));
+  return problems;
 }
+/* Kept as a name because buildRows calls it and the tests name it. */
+function assertGroups(){
+  return assertContent().filter(m=>m.indexOf('GROUPS')>-1);
+}
+
+/* =========================================================
+   ONE ROW BUILDER.
+
+   There were three hand-written row templates — protocol steps,
+   routines, one-off tasks — sharing the same sweep / number / box /
+   label / meta / note / buttons scaffolding and differing only in
+   which pieces they filled. Every change to a row therefore had to
+   be made three times and remembered three times, which is exactly
+   how "not today" needed the same class logic patched into three
+   places, and how one of those places kept its own idea of what a
+   row looks like.
+
+   Each caller now describes its row and this decides what a row IS.
+   Anything optional is omitted by passing nothing.
+   ========================================================= */
+/* COLLAPSIBLE NOTES.
+
+   Some of these notes run to several paragraphs, which is right when you
+   need them and noise when you don't. They are collapsed by default and
+   remember their own state, per row, in S.notes.
+
+   Stored as the set of OPEN ids rather than closed ones, so a note added
+   later starts closed like everything else rather than inheriting a
+   decision you never made about it. The arrow renders only when there is
+   something to open \u2014 an affordance that does nothing is worse than none.  */
+function noteOpen(key){ return (S.notes||{})[key]===1; }
+function noteToggle(o){
+  if(!o.note) return '';
+  const open=noteOpen(o.key), lbl=open?'Hide the description':'Show the description';
+  return `<button class="ntoggle${open?' on':''}" data-note="${esc(o.key)}" `+
+         `aria-expanded="${open}" title="${lbl}" aria-label="${lbl}">`+
+         `<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>`;
+}
+function noteBlock(o){
+  if(!o.note) return '';
+  return `<div class="note${noteOpen(o.key)?' open':''}">${o.note}${o.noteTag||''}</div>`;
+}
+function rowHTML(o){
+  const cls = ['step']
+    .concat(o.cls || [])
+    .concat(o.opt ? ['optional'] : [])
+    .concat(o.hidden ? ['hidden'] : [])
+    .concat(isAside(o.key) ? ['off'] : [])
+    .concat(isNotToday(o.key) ? ['notoday'] : [])
+    .concat(o.late ? ['slipped'] : []);
+  const meta = (o.meta || []).filter(Boolean);
+  const inner =
+    `<div class="sweep"></div>`+
+    `<div class="num">${o.num == null ? '' : o.num}</div>`+
+    (o.nobox ? '' : `<div class="box">${CHECK}</div>`)+
+    `<div class="body">`+
+      `<div class="label">${o.label}`+
+        (o.opt ? '<span class="tag">optional</span>' : '')+
+        (o.late ? lateChip(o.key, o.from) : '')+
+        noteToggle(o)+
+      `</div>`+
+      (meta.length ? `<div class="meta">${meta.join('')}</div>` : '')+
+      noteBlock(o)+
+      (o.extra || '')+
+      (o.resched || '')+
+    `</div>`+
+    (o.buttons || '');
+  return {cls:cls.join(' '), html:inner};
+}
+/* Applies a built row to an element, so no caller repeats the wiring. */
+function makeRow(o){
+  const built = rowHTML(o);
+  const el = document.createElement('div');
+  el.className = built.cls;
+  el.dataset.n = o.key;
+  el.setAttribute('role','checkbox');
+  el.tabIndex = 0;
+  el.innerHTML = built.html;
+  return el;
+}
+
 function buildRows(){
   list.innerHTML='';
-  assertGroups();
   const due=dueRoutines();
 
   function groupSection(g){
@@ -2920,28 +3072,19 @@ function buildRows(){
     const req=items.filter(r=>!r.opt).length;
     sec.innerHTML=`<div class="phead"><h2>${esc(g)}</h2><em>today \u00b7 ${req} core</em></div>`;
     items.forEach((r,ri)=>{
-      const st=statusLabel(r), sl=schedLabel(r), state=routineState(r);
-      const row=document.createElement('div');
-      row.className='step routine extra'+(r.opt?' optional':'')+(isAside('r:'+r.id)?' off':'')+(isNotToday('r:'+r.id)?' notoday':'')+(state.late?' slipped':'');
-      row.dataset.n='r:'+r.id;
-      row.setAttribute('role','checkbox'); row.tabIndex=0;
-      row.innerHTML=
-        `<div class="sweep"></div>`+
-        `<div class="num">${String(ri+1).padStart(2,'0')}</div>`+
-        `<div class="box">${CHECK}</div>`+
-        `<div class="body"><div class="label">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}`+
-          (state.late?lateChip('r:'+r.id,state.from):'')+`</div>`+
-          (sl||st?`<div class="meta">`+
-            (sl?`<span class="sched">${esc(sl)}</span>`:'')+
-            (st?`<span class="rstat${state.late?'':' ok'}">${esc(st)}</span>`:'')+
-          `</div>`:'')+
-          (r.note?`<div class="note">${r.note}</div>`:'')+
-          reschedPanel('r:'+r.id,state.from)+
-        `</div>`+
-        linkBtn(r.id)+
-        (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
-        asideBtns('r:'+r.id);
-      sec.appendChild(row);
+      const st=statusLabel(r), sl=schedLabel(r), state=routineState(r), key='r:'+r.id;
+      sec.appendChild(makeRow({
+        key:key, cls:['routine','extra'], opt:r.opt, late:state.late, from:state.from,
+        num:String(ri+1).padStart(2,'0'),
+        label:esc(r.l),
+        note:r.note,
+        meta:[ sl?`<span class="sched">${esc(sl)}</span>`:'',
+               st?`<span class="rstat${state.late?'':' ok'}">${esc(st)}</span>`:'' ],
+        resched:reschedPanel(key,state.from),
+        buttons:linkBtn(r.id)+
+                (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
+                asideBtns(key)
+      }));
     });
     return sec;
   }
@@ -2963,29 +3106,21 @@ function buildRows(){
         const d=stepData(st);
         const ss=st.sched?routineState(st):null;
         const ssl=st.sched?schedLabel(st):null, sst=st.sched?statusLabel(st):null;
-        const row=document.createElement('div');
-        row.className='step'+(p.big?' big':'')+(st.opt?' optional':'')+(d.hidden?' hidden':'')+(isAside(st.id)?' off':'')+(isNotToday(st.id)?' notoday':'')+(ss&&ss.late?' slipped':'');
-        row.dataset.n=st.id;
-        row.setAttribute('role','checkbox'); row.tabIndex=0;
-        row.innerHTML=
-          `<div class="sweep"></div>`+
-          `<div class="num">${numOf(st.id)}</div>`+
-          `<div class="box">${CHECK}</div>`+
-          `<div class="body"><div class="label">${d.label}${st.opt?'<span class="tag">optional</span>':''}`+
-            (ss&&ss.late?lateChip(st.id,ss.from):'')+`</div>`+
-          (st.sched&&(ssl||sst)?`<div class="meta">`+
-            (ssl?`<span class="sched">${esc(ssl)}</span>`:'')+
-            (sst?`<span class="rstat${ss.late?'':' ok'}">${esc(sst)}</span>`:'')+
-          `</div>`:'')+
-          (d.note?`<div class="note">${d.note}${d.mine?'<span class="mine-note">Your note</span>':''}</div>`:'')+
-          d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
-          (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:'')+
-          (st.sched?reschedPanel(st.id,ss.from):'')+
-          `</div>`+
-          linkBtn(st.id)+
-          (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-          asideBtns(st.id);
-        sec.appendChild(row);
+        sec.appendChild(makeRow({
+          key:st.id, cls:p.big?['big']:[], opt:st.opt, hidden:d.hidden,
+          late:!!(ss&&ss.late), from:ss&&ss.from,
+          num:numOf(st.id),
+          label:d.label,
+          note:d.note, noteTag:d.mine?'<span class="mine-note">Your note</span>':'',
+          meta: st.sched?[ ssl?`<span class="sched">${esc(ssl)}</span>`:'',
+                           sst?`<span class="rstat${ss.late?'':' ok'}">${esc(sst)}</span>`:'' ]:[],
+          extra: d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
+                 (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:''),
+          resched: st.sched?reschedPanel(st.id,ss.from):'',
+          buttons: linkBtn(st.id)+
+                   (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
+                   asideBtns(st.id)
+        }));
       });
       if(p.bulk && vis.length && !collapsed){
         const ids=bulkTargets(p).map(st=>st.id);
@@ -3017,25 +3152,18 @@ function buildRows(){
       `<em>${cs.length} open${lateN?' \u00b7 '+lateN+' late':''}</em></div>`;
     cs.forEach((c,ci)=>{
       const state=customState(c), key='c:'+c.id;
-      const row=document.createElement('div');
-      row.className='step routine extra custom'+(isAside(key)?' off':'')+(isNotToday(key)?' notoday':'')+(state.late?' slipped':'');
-      row.dataset.n=key;
-      row.setAttribute('role','checkbox'); row.tabIndex=0;
-      row.innerHTML=
-        `<div class="sweep"></div>`+
-        `<div class="num">${String(ci+1).padStart(2,'0')}</div>`+
-        `<div class="box">${CHECK}</div>`+
-        `<div class="body"><div class="label">${esc(c.l)}`+
-          (state.late?lateChip(key,state.from):'')+`</div>`+
-          `<div class="meta"><button class="sched schedbtn" data-late="${esc(key)}" `+
-            `title="Move this to another day" aria-label="Added for ${esc(prettyDay(c.date))} \u2014 tap to move it">`+
-            `added for ${esc(prettyDay(c.date))}</button></div>`+
-          /* default the picker to the day it currently sits on, not today —
-             moving something that is not late is the whole point here */
-          reschedPanel(key,state.from,c.date)+
-        `</div>`+
-        `<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`;
-      sec.appendChild(row);
+      sec.appendChild(makeRow({
+        key:key, cls:['routine','extra','custom'], late:state.late, from:state.from,
+        num:String(ci+1).padStart(2,'0'),
+        label:esc(c.l),
+        meta:[`<button class="sched schedbtn" data-late="${esc(key)}" `+
+              `title="Move this to another day" aria-label="Added for ${esc(prettyDay(c.date))} \u2014 tap to move it">`+
+              `added for ${esc(prettyDay(c.date))}</button>`],
+        /* default the picker to the day it currently sits on, not today \u2014
+           moving something that is not late is the whole point here */
+        resched:reschedPanel(key,state.from,c.date),
+        buttons:`<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`
+      }));
     });
     list.appendChild(sec);
   })();
@@ -3228,7 +3356,7 @@ function toggle(row){
     if(i>-1) delete S.rlog[id];
     else { S.rlog[id]=new Date().toISOString();
            if(S.defer) delete S.defer[id]; }   /* doing it settles any deferral */
-    save(S); buildRows(); paintSchedule(); paint(); return;
+    commit({rebuild:true,schedule:true}); return;
   }
   /* a scheduled step drives its own interval off rlog, same as a routine */
   const sstep=schedSteps().find(x=>x.id===n);
@@ -3473,6 +3601,23 @@ function wireRows(){
       /* let the delegated handler below deal with these; do NOT stop the event */
       if(e.target.closest('[data-late]')||e.target.closest('.resched')||e.target.closest('[data-drop]'))return;
       if(e.target.closest('.golink')){e.stopPropagation();return;}
+      const nb=e.target.closest('[data-note]');
+      if(nb){
+        e.stopPropagation();
+        const key=nb.dataset.note;
+        S.notes=S.notes||{};
+        if(S.notes[key]===1) delete S.notes[key]; else S.notes[key]=1;
+        /* Toggle this one row in place. Rebuilding the board to reveal a
+           paragraph would scroll you away from the thing you were reading. */
+        const on=S.notes[key]===1, row=nb.closest('.step');
+        const nd=row&&row.querySelector('.note');
+        if(nd) nd.classList.toggle('open',on);
+        nb.classList.toggle('on',on);
+        nb.setAttribute('aria-expanded',on);
+        const lbl=on?'Hide the description':'Show the description';
+        nb.setAttribute('title',lbl); nb.setAttribute('aria-label',lbl);
+        save(S); return;
+      }
       const nt=e.target.closest('[data-nt]');
       if(nt){
         e.stopPropagation();
@@ -3485,7 +3630,7 @@ function wireRows(){
              leaving it checked would have it counted and dismissed at once. */
           const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
         }
-        save(S); buildRows(); paint(); return;
+        commit({rebuild:true}); return;
       }
       const sk=e.target.closest('[data-skip]');
       if(sk){
@@ -3499,7 +3644,7 @@ function wireRows(){
              would mean undoing the skip silently restored a not-today. */
           if(S.notoday) delete S.notoday[id];
         }
-        save(S); buildRows(); paint(); return;
+        commit({rebuild:true}); return;
       }
       const bk=e.target.closest('[data-bulk]');
       if(bk){
@@ -3746,14 +3891,7 @@ document.addEventListener('click',e=>{
   toast('Day ends at '+(h===0?'midnight':h+'am'));
 });
 const histhead=document.getElementById('histhead');
-function toggleH(force){
-  const sec=document.getElementById('hist');
-  const open=force!==undefined?force:!sec.classList.contains('open');
-  sec.classList.toggle('open',open);
-  histhead.setAttribute('aria-expanded',open);
-  document.getElementById('hcaret').textContent=open?'Close':'Open';
-  if(open) paintHist();
-}
+const toggleH=force=>setPanel('hist',force);
 histhead.addEventListener('click',()=>toggleH());
 histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleH();}});
 
@@ -3765,6 +3903,21 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    work stays where it already lived. Adding a section later
    means adding a line to DRAWTABS, nothing else.
    ========================================================= */
+/* One implementation for every panel. The six it replaced were 225-305
+   characters each and differed only in which element and which paint call \u2014
+   plus each wrote fresh text into a caret element that the drawer keeps
+   permanently hidden, which was work nobody could see. */
+const PANEL_PAINT={ hist:()=>paintHist(), money:()=>paintMoney(),
+                    guide:()=>paintGuide(), plan:()=>paintSchedule(),
+                    review:()=>paintReview(), shelf:()=>{}, sync:()=>{} };
+function setPanel(id,force){
+  const sec=document.getElementById(id); if(!sec) return;
+  const open=force!==undefined?force:!sec.classList.contains('open');
+  sec.classList.toggle('open',open);
+  const head=document.getElementById(id==='hist'?'histhead':id+'head');
+  if(head) head.setAttribute('aria-expanded',open);
+  if(open && PANEL_PAINT[id]) try{ PANEL_PAINT[id](); }catch(e){}
+}
 const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
@@ -3843,13 +3996,7 @@ function paintReview(){
            `<span class="rvage${soft}">${x.by}d late</span></div>`;
   }).join('');
 }
-function toggleReview(force){
-  const sec=document.getElementById('review');
-  const open=force!==undefined?force:!sec.classList.contains('open');
-  sec.classList.toggle('open',open);
-  document.getElementById('reviewhead').setAttribute('aria-expanded',open);
-  if(open) paintReview();
-}
+const toggleReview=force=>setPanel('review',force);
 
 /* ---------------- history export ---------------- */
 /* The backup box already had this logic inline; a second caller makes it worth
@@ -3944,7 +4091,7 @@ document.getElementById('jtop').addEventListener('click',()=>{
   allRows().forEach(r=>r.classList.remove('jumped'));
 });
 document.getElementById('schedreset').addEventListener('click',()=>{
-  S.sched={}; save(S); buildRows(); paintSchedule(); paint(); toast('Schedules reset');
+  S.sched={}; commit({rebuild:true,schedule:true}); toast('Schedules reset');
 });
 document.getElementById('reseed').addEventListener('click',()=>{
   S.products=JSON.parse(JSON.stringify(DEFAULTS));
@@ -4198,7 +4345,7 @@ function syncPull(){
   /* The drawer needs to open this one alongside the others, and it is defined
      inside a closure. Publishing the handle is cheaper than hoisting the whole
      block out of the scope it depends on. */
-  window.__toggleSync=toggleSync;
+  window.__toggleSync=force=>setPanel('sync',force);
   document.getElementById('syncchip').addEventListener('click',()=>{
     if(typeof openDrawer==='function' && S.drawer!=='sync') openDrawer('sync');
     else toggleSync(true);
@@ -4322,15 +4469,7 @@ document.getElementById('backupbtn').addEventListener('click',()=>{
 document.getElementById('bkcopy').addEventListener('click',()=>{
   const ta=document.getElementById('bkarea');
   if(!ta.value.trim()) ta.value=JSON.stringify(S);
-  ta.select(); ta.setSelectionRange(0,999999);
-  const done=()=>toast('Backup copied');
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(ta.value).then(done,()=>{
-      try{document.execCommand('copy');done();}catch(e){toast('Select the box and copy');}
-    });
-  } else {
-    try{document.execCommand('copy');done();}catch(e){toast('Select the box and copy');}
-  }
+  copyText(ta.value,'Backup copied');   /* shared helper, was a second copy of it */
 });
 document.getElementById('bkrestore').addEventListener('click',()=>{
   const v=document.getElementById('bkarea').value.trim();
@@ -4362,6 +4501,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-b', note:"Descriptions now collapse \u2014 a small arrow on each row opens the note only when you want it, and each row remembers. Plus internal cleanup: one row builder instead of three, one panel toggle instead of seven, and a content self-check at boot."},
   {v:'2026.08.15-a', note:"Fixed: a one-off task set to \u201Cnot today\u201D still reached the widget, so the extras count and the list underneath it disagreed."},
   {v:'2026.08.14-a', note:"The panels at the bottom are now one drawer with tabs instead of six stacked headers, plus a new Review tab showing what is overdue. Added health admin, sleep, school, car, money and maintenance items."},
   {v:'2026.08.13-c', note:"New \u201Cnot today\u201D button beside skip: greys a step out for today only and takes it out of the count, and it comes back tomorrow on its own."},
@@ -4416,6 +4556,7 @@ try{
   });
 }catch(e){}
 
+assertContent();   /* once at boot, not on every rebuild */
 rebuild(); paintOpt(); restoreDrawer();
 </script>
 </body>
