@@ -248,11 +248,41 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .wcol li{font-size:8.5px;line-height:1.3;color:var(--dim);margin-bottom:4px;
   word-break:break-word;}
 .wcol li.floaty{color:var(--dimmer);font-style:italic;}
-.pgroup{margin-bottom:20px;}
-.pgroup h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
-  margin:0 0 2px;padding-bottom:8px;border-bottom:1px solid var(--line);}
-.pitem{padding:12px 0;border-bottom:1px solid var(--line);}
+.wcol li .ovd{color:var(--live);font-style:normal;}
+.planbar{display:flex;flex-direction:column;gap:8px;margin:0 0 14px;}
+.pchips{display:flex;gap:5px;flex-wrap:wrap;}
+.pchip{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dimmer);padding:7px 9px;border-radius:5px;cursor:pointer;min-height:32px;}
+.pchip[aria-pressed="true"]{border-color:var(--opt);color:var(--opt);}
+.pchip.pall{margin-left:auto;}
+input.pq{width:100%;min-height:36px;padding:7px 10px;font-size:12.5px;
+  background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
+  font-family:'JetBrains Mono',monospace;-webkit-appearance:none;appearance:none;}
+input.pq::placeholder{color:var(--dimmer);}
+.pgroup{margin-bottom:14px;}
+.ghead{display:flex;align-items:center;gap:7px;cursor:pointer;
+  padding-bottom:7px;border-bottom:1px solid var(--line);}
+.ghead h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;
+  margin:0;flex:1 1 auto;min-width:0;}
+.ghead .gcar{font-size:9px;color:var(--dimmer);transition:transform .12s ease;
+  display:inline-block;line-height:1;}
+.pgroup.open .ghead .gcar{transform:rotate(90deg);}
+.ghead .gmeta{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dimmer);white-space:nowrap;}
+.pitem{border-bottom:1px solid var(--line);}
 .pitem:last-child{border-bottom:none;}
+.prow{display:flex;align-items:center;gap:10px;cursor:pointer;
+  padding:11px 0;min-height:44px;}
+.prow .pname{flex:1 1 auto;min-width:0;font-size:13.5px;line-height:1.35;}
+.prow .pmeta{display:flex;gap:5px;align-items:center;flex-wrap:wrap;
+  justify-content:flex-end;flex:0 1 auto;}
+.pitem.open .prow .pname{color:var(--opt);}
+.pedit{padding:0 0 13px;}
+.pstatline{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--live);margin-bottom:2px;}
+.pstatline.ok{color:var(--dimmer);}
 .pitem .pname{font-size:14px;}
 .pitem .pstat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--live);}
 .pitem .pstat.ok{color:var(--dimmer);}
@@ -282,6 +312,8 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
   #weekgrid{grid-template-columns:repeat(7,1fr);gap:3px;}
   .wcol{padding:5px 2px;min-height:80px;}
   .wcol li{font-size:7.5px;}
+  .prow .pname{font-size:13px;}
+  .prow .pmeta{max-width:46%;}
 }
 #money .shelfbody{display:none;padding:0 16px 16px;}
 #money.open .shelfbody{display:block;}
@@ -811,8 +843,12 @@ body.hideopt .step.optional{display:none;}
       <span class="caret" id="pcaret">Open</span>
     </div>
     <div class="shelfbody">
-      <p class="shelfnote">Everything that isn't daily, whether or not it's due today. This is the verification view — the week grid shows what lands on each day, and the list below lets you change the days without waiting on a rebuilt file.</p>
+      <p class="shelfnote">Everything that isn't daily, whether or not it's due today. The grid is the next seven days starting with today — fixed weekday items in plain text, floating and anchored ones in italic on the day they actually land, with an overdue count if they're already late. Tap any row in the list below to open its schedule.</p>
       <div id="weekgrid"></div>
+      <div class="planbar">
+        <div class="pchips" id="pchips"></div>
+        <input id="pq" class="pq" type="search" placeholder="Filter by name or group" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
       <div id="planlist"></div>
       <button class="reset" id="schedreset">Reset all schedules to file defaults</button>
     </div>
@@ -1763,92 +1799,222 @@ shelfhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.prev
 
 /* ---------------- schedule view ---------------- */
 const plan=document.getElementById('plan'), planhead=document.getElementById('planhead');
-/* items expanded by hand this session */
-const linkOpen=new Set();
+/* ---------------------------------------------------------
+   Panel state lives in module-scope Sets, never in S. Writing
+   view state into S is what made every tab switch mark the
+   device dirty and fire a phantom sync toast last time; open
+   rows are not worth a KV round trip.
+   --------------------------------------------------------- */
+const linkOpen=new Set();     /* link editor asked for by hand */
+const planOpen=new Set();     /* rows expanded into their editor */
+const pnoteOpen=new Set();     /* notes revealed inside an open row */
+const groupShut=new Set();    /* groups collapsed by hand \u2014 default is open */
+let planFilter='all', planQuery='';
+
+function planMatch(r){
+  if(planQuery){
+    const q=planQuery.toLowerCase();
+    if((r.l+' '+r.group).toLowerCase().indexOf(q)===-1) return false;
+  }
+  if(planFilter==='due')  return dueToday(r);
+  if(planFilter==='over') return overdueDays(r)>0;
+  if(planFilter==='edit') return schedEdited(r);
+  return true;
+}
+
+/* The editor that used to print for all 62 items at once. Unchanged in
+   substance \u2014 it is only built now when a row is actually open. */
+function planEditor(r){
+  const sc=schedOf(r);
+  const li=leadInfo(r);
+  let ctrl='';
+  if(li){
+    ctrl=`<div class="nrow">Remind <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="lead" value="${li.lead}"> days before ${esc(li.parent.l.split(' \u2014 ')[0])}</div>`+
+         `<div class="hint">No schedule of its own \u2014 it reads ${esc(li.parent.l.split(' \u2014 ')[0])}\u2019s clock, so if that lands early or late this moves with it. It only appears inside the window, and it clears itself once the parent is checked off.</div>`;
+  } else {
+    const modes=[['dow','Days of week'],['everyDays','Every N days'],['everyMonths','Every N months']];
+    ctrl=`<div class="mrow">`+modes.map(m=>
+      `<button class="mbtn" data-rmode="${m[0]}" data-rid="${r.id}" aria-pressed="${sc.mode===m[0]}">${m[1]}</button>`
+    ).join('')+`</div>`;
+    if(sc.mode==='dow'){
+      ctrl+=`<div class="dowrow">`+DOW.map((n,i)=>
+        `<button class="dowbtn" data-dow="${i}" data-rid="${r.id}" aria-pressed="${sc.dow.indexOf(i)>-1}">${n[0]}${n[1]}</button>`
+      ).join('')+`</div>`;
+    } else {
+      const unit = sc.mode==='everyDays' ? 'days' : 'months';
+      const f    = sc.mode==='everyDays' ? 'everyDays' : 'everyMonths';
+      ctrl+=`<div class="nrow">Every <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="${f}" value="${sc[f]}"> ${unit}</div>`+
+            `<div class="nrow">Starting <input type="date" class="dt" data-rid="${r.id}" data-sf="anchor" value="${sc.anchor||''}">`+
+            (sc.anchor
+              ? `<button data-rclear="${r.id}">Clear date</button>`
+              : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
+            `</div>`+
+            (sc.anchor?'':`<div class="hint">No start date \u2014 the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
+    }
+  }
+  /* The link block is for items that open a workbook. Flagged items and
+     anything that already has a URL keep it open; the rest ask for it. */
+  const lk=(S.links&&S.links[r.id])||{};
+  const hasNote=!!r.note;
+  if(!(r.link || lk.url || linkOpen.has(r.id))){
+    ctrl+=`<div class="lrow">`+
+      (hasNote?`<button class="addlink" data-pnote="${r.id}">${pnoteOpen.has(r.id)?'Hide notes':'Notes'}</button>`:'')+
+      `<button class="addlink" data-laddid="${r.id}">+ Link</button></div>`;
+  } else {
+    ctrl+=`<div class="lrow"><span class="lbl">Link</span>`+
+      `<input class="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" `+
+      `placeholder="Paste a web URL, or an app link like dayone://post" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
+      `<div class="lrow">`+
+      `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
+      `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
+      (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
+        ? `<label class="app">Open<select class="lmode" data-rid="${r.id}" data-lf="mode">`+
+          ['frame','direct','tab'].map(m=>`<option value="${m}"${(lk.mode||'frame')===m?' selected':''}>`+
+            ({frame:'hidden frame',direct:'directly',tab:'new tab'})[m]+`</option>`).join('')+
+          `</select></label>`
+        : '')+
+      `<button data-lcopy="${r.id}">Apply to group</button>`+
+      (r.link
+        ? (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')
+        : `<button data-ldrop="${r.id}">Remove</button>`)+
+      `</div>`+
+      (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
+        ? `<div class="hint">This is an app link, not a web address. Some browsers \u2014 Brave on iOS especially \u2014 show a "Cannot Open Page" warning after handing off to the app even though the app opened fine. If that happens, try the other Open settings: <b>hidden frame</b> hides the hand-off in a throwaway frame, <b>new tab</b> sends it to a tab that closes itself, <b>directly</b> is the plain link. One of the three is usually quiet.</div>`
+        : '')+
+      (lk.url?'':`<div class="hint">Local file paths won't open from a phone browser. Put the workbook in OneDrive or Google Drive and paste the share link. "Excel app" sends it straight to Excel instead of a read-only web viewer \u2014 leave it off if Excel isn't installed.</div>`)+
+      (hasNote?`<div class="lrow"><button class="addlink" data-pnote="${r.id}">${pnoteOpen.has(r.id)?'Hide notes':'Notes'}</button></div>`:'');
+  }
+  /* The note is the same prose already printed on the task row upstairs.
+     Reprinting all 62 of them was 74% of this panel's text. It stays
+     reachable \u2014 for an item that isn't due today this is the only place
+     to read it \u2014 but it no longer prints uninvited. */
+  if(pnoteOpen.has(r.id) && hasNote) ctrl+=`<div class="note">${r.note}</div>`;
+  return ctrl;
+}
+
+function planRow(r){
+  const open=planOpen.has(r.id);
+  const sl=schedLabel(r), st=statusLabel(r), due=dueToday(r), ov=overdueDays(r);
+  const head=`<div class="prow" data-ptog="${r.id}" role="button" tabindex="0" aria-expanded="${open}">`+
+    `<span class="pname">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</span>`+
+    `<span class="pmeta"><span class="sched">${esc(sl||'Every day')}</span>`+
+    (ov>0 ? `<span class="rstat">+${ov}d</span>`
+          : (due?`<span class="rstat">due</span>`:''))+
+    `</span></div>`;
+  if(!open) return `<div class="pitem" data-pid="${r.id}">`+head+`</div>`;
+  return `<div class="pitem open" data-pid="${r.id}">`+head+
+    `<div class="pedit">`+
+    (st?`<div class="pstatline${due?'':' ok'}">${esc(st)}</div>`:'')+
+    planEditor(r)+`</div></div>`;
+}
+
+/* Grid cells are 8.5px wide-ish, so labels get cut at the em dash. Two of
+   them collide when you do that \u2014 "Nails \u2014 hands" and "Nails \u2014 feet" both
+   became "Nails", and the old grid printed the same word twice with no way
+   to tell which was which. Only truncate where the short form is unique. */
+function gridLabels(all){
+  const seen={}, out={};
+  all.forEach(r=>{ const k=r.l.split(' \u2014 ')[0]; seen[k]=(seen[k]||0)+1; });
+  all.forEach(r=>{ const k=r.l.split(' \u2014 ')[0]; out[r.id]= seen[k]>1 ? r.l : k; });
+  return out;
+}
+
 function paintSchedule(){
-  const todayDow=todayDowOf();
+  const all=SCHEDALL();
+  const t0=today();
+  const GL=gridLabels(all);
+
+  /* Seven dated columns starting today. The old grid walked abstract weekdays
+     0..6 and could only place mode==='dow' items, so 39 of 62 rows appeared
+     nowhere but today's column. Dating the columns lets nextLandISO put the
+     floating and anchored ones where they actually fall. */
   let g='';
-  for(let d=0;d<7;d++){
-    const fixed=SCHEDALL().filter(r=>{const sc=schedOf(r);return !r.leadOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(d)>-1;});
-    g+=`<div class="wcol${d===todayDow?' now':''}"><h4>${DOW[d]}</h4><ul>`+
-       fixed.map(r=>`<li>${esc(r.l.split(' \u2014 ')[0])}</li>`).join('')+
-       (d===todayDow?SCHEDALL().filter(r=>{const sc=schedOf(r);return (r.leadOf||sc.mode!=='dow')&&!sc.monthDay&&dueToday(r);})
-         .map(r=>`<li class="floaty">${esc(r.l)}</li>`).join(''):'')+
+  for(let i=0;i<7;i++){
+    const iso=addDaysISO(t0,i), dw=dayOf(iso).getDay();
+    const fixed=all.filter(r=>{const sc=schedOf(r);return !r.leadOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(dw)>-1;});
+    const land =all.filter(r=>nextLandISO(r)===iso);
+    g+=`<div class="wcol${i===0?' now':''}"><h4>${i===0?'Today':esc(DOW[dw])}</h4><ul>`+
+       fixed.map(r=>`<li>${esc(GL[r.id])}</li>`).join('')+
+       land.map(r=>{const ov=overdueDays(r);
+         return `<li class="floaty">${esc(GL[r.id])}`+
+                (ov>0?` <b class="ovd">+${ov}d</b>`:'')+`</li>`;}).join('')+
        `</ul></div>`;
   }
   document.getElementById('weekgrid').innerHTML=g;
 
+  /* Filter chips. Counts are of the whole set, not the filtered view, so the
+     numbers don't move under your thumb as you switch between them. */
+  const nDue =all.filter(dueToday).length;
+  const nOver=all.filter(r=>overdueDays(r)>0).length;
+  const nEdit=all.filter(schedEdited).length;
+  const chips=[['all','All '+all.length],['due','Due '+nDue],['over','Late '+nOver],['edit','Changed '+nEdit]];
+  const pc=document.getElementById('pchips');
+  if(pc) pc.innerHTML=chips.map(c=>
+      `<button class="pchip" data-pfil="${c[0]}" aria-pressed="${planFilter===c[0]}">${esc(c[1])}</button>`
+    ).join('')+
+    `<button class="pchip pall" data-pallg="${groupShut.size?'open':'shut'}">${groupShut.size?'Expand all':'Collapse all'}</button>`;
+
+  const filtering = planFilter!=='all' || !!planQuery;
   const groups=[];
-  SCHEDALL().forEach(r=>{ if(groups.indexOf(r.group)===-1) groups.push(r.group); });
-  document.getElementById('planlist').innerHTML=groups.map(grp=>{
-    const items=SCHEDALL().filter(r=>r.group===grp);
-    return `<div class="pgroup"><h3>${esc(grp)}</h3>`+items.map(r=>{
-      const sc=schedOf(r), st=statusLabel(r), due=dueToday(r);
-      const li=leadInfo(r);
-      let ctrl='';
-      if(li){
-        ctrl=`<div class="nrow">Remind <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="lead" value="${li.lead}"> days before ${esc(li.parent.l.split(' \u2014 ')[0])}</div>`+
-             `<div class="hint">No schedule of its own \u2014 it reads ${esc(li.parent.l.split(' \u2014 ')[0])}\u2019s clock, so if that lands early or late this moves with it. It only appears inside the window, and it clears itself once the parent is checked off.</div>`;
-      } else {
-      const modes=[['dow','Days of week'],['everyDays','Every N days'],['everyMonths','Every N months']];
-      ctrl=`<div class="mrow">`+modes.map(m=>
-        `<button class="mbtn" data-rmode="${m[0]}" data-rid="${r.id}" aria-pressed="${sc.mode===m[0]}">${m[1]}</button>`
-      ).join('')+`</div>`;
-      if(sc.mode==='dow'){
-        ctrl+=`<div class="dowrow">`+DOW.map((n,i)=>
-          `<button class="dowbtn" data-dow="${i}" data-rid="${r.id}" aria-pressed="${sc.dow.indexOf(i)>-1}">${n[0]}${n[1]}</button>`
-        ).join('')+`</div>`;
-      } else {
-        const unit = sc.mode==='everyDays' ? 'days' : 'months';
-        const f    = sc.mode==='everyDays' ? 'everyDays' : 'everyMonths';
-        ctrl+=`<div class="nrow">Every <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="${f}" value="${sc[f]}"> ${unit}</div>`+
-              `<div class="nrow">Starting <input type="date" class="dt" data-rid="${r.id}" data-sf="anchor" value="${sc.anchor||''}">`+
-              (sc.anchor
-                ? `<button data-rclear="${r.id}">Clear date</button>`
-                : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
-              `</div>`+
-              (sc.anchor?'':`<div class="hint">No start date — the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
-      }
-      }
-      /* The link block is for items that open a workbook. Showing it on all 25
-         routines buried the scheduling controls it sits under. Flagged items and
-         anything that already has a URL keep it open; the rest ask for it. */
-      const lk=(S.links&&S.links[r.id])||{};
-      if(!(r.link || lk.url || linkOpen.has(r.id))){
-        ctrl+=`<div class="lrow"><button class="addlink" data-laddid="${r.id}">+ Link</button></div>`;
-      } else {
-      ctrl+=`<div class="lrow"><span class="lbl">Link</span>`+
-        `<input class="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" `+
-        `placeholder="Paste a web URL, or an app link like dayone://post" data-rid="${r.id}" data-lf="url" value="${esc(lk.url||'')}"></div>`+
-        `<div class="lrow">`+
-        `<input class="name" type="text" placeholder="Button label" data-rid="${r.id}" data-lf="name" value="${esc(lk.name||'')}">`+
-        `<label class="app"><input type="checkbox" data-rid="${r.id}" data-lf="app"${lk.app?' checked':''}>Excel app</label>`+
-        (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
-          ? `<label class="app">Open<select class="lmode" data-rid="${r.id}" data-lf="mode">`+
-            ['frame','direct','tab'].map(m=>`<option value="${m}"${(lk.mode||'frame')===m?' selected':''}>`+
-              ({frame:'hidden frame',direct:'directly',tab:'new tab'})[m]+`</option>`).join('')+
-            `</select></label>`
-          : '')+
-        `<button data-lcopy="${r.id}">Apply to group</button>`+
-        (r.link
-          ? (lk.url?`<button data-lclear="${r.id}">Clear</button>`:'')
-          : `<button data-ldrop="${r.id}">Remove</button>`)+
-        `</div>`+
-        (/^[a-z][a-z0-9+.-]*:/i.test(lk.url||'') && !/^https?:/i.test(lk.url||'')
-          ? `<div class="hint">This is an app link, not a web address. Some browsers \u2014 Brave on iOS especially \u2014 show a "Cannot Open Page" warning after handing off to the app even though the app opened fine. If that happens, try the other Open settings: <b>hidden frame</b> hides the hand-off in a throwaway frame, <b>new tab</b> sends it to a tab that closes itself, <b>directly</b> is the plain link. One of the three is usually quiet.</div>`
-          : '')+
-        (lk.url?'':`<div class="hint">Local file paths won't open from a phone browser. Put the workbook in OneDrive or Google Drive and paste the share link. "Excel app" sends it straight to Excel instead of a read-only web viewer \u2014 leave it off if Excel isn't installed.</div>`);
-      }
-      const sl=schedLabel(r);
-      return `<div class="pitem">`+
-        `<div class="pname">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</div>`+
-        `<div class="meta"><span class="sched">${esc(sl||'Every day')}</span>`+
-        (st?`<span class="rstat${due?'':' ok'}">${esc(st)}</span>`
-           :(due?`<span class="rstat">due today</span>`:''))+
-        `</div>`+(r.note?`<div class="note">${r.note}</div>`:'')+ctrl+`</div>`;
-    }).join('')+`</div>`;
+  all.forEach(r=>{ if(groups.indexOf(r.group)===-1) groups.push(r.group); });
+  const html=groups.map(grp=>{
+    const items=all.filter(r=>r.group===grp);
+    const shown=items.filter(planMatch);
+    if(!shown.length) return '';
+    /* A filter overrides a hand-collapsed group: hiding the thing you just
+       searched for behind a closed header would be its own bug. */
+    const open = filtering ? true : !groupShut.has(grp);
+    const dueN = shown.filter(dueToday).length;
+    return `<div class="pgroup${open?' open':''}">`+
+      `<div class="ghead" data-gtog="${esc(grp)}" role="button" tabindex="0" aria-expanded="${open}">`+
+        `<span class="gcar" aria-hidden="true">\u25B8</span><h3>${esc(grp)}</h3>`+
+        `<span class="gmeta">${shown.length}${dueN?' \u00b7 '+dueN+' due':''}</span></div>`+
+      `<div class="gbody">`+(open?shown.map(planRow).join(''):'')+`</div></div>`;
   }).join('');
+  document.getElementById('planlist').innerHTML =
+    html || `<p class="hint">Nothing matches that filter.</p>`;
 }
+
+/* --- panel interaction: group headers, row expansion, chips, search --- */
+document.addEventListener('click',e=>{
+  const gt=e.target.closest('[data-gtog]');
+  if(gt){
+    const k=gt.dataset.gtog;
+    if(groupShut.has(k)) groupShut.delete(k); else groupShut.add(k);
+    paintSchedule(); return;
+  }
+  const pt=e.target.closest('[data-ptog]');
+  if(pt){
+    const id=pt.dataset.ptog;
+    if(planOpen.has(id)){ planOpen.delete(id); pnoteOpen.delete(id); }
+    else planOpen.add(id);
+    paintSchedule(); return;
+  }
+  const pn=e.target.closest('[data-pnote]');
+  if(pn){
+    const id=pn.dataset.pnote;
+    if(pnoteOpen.has(id)) pnoteOpen.delete(id); else pnoteOpen.add(id);
+    paintSchedule(); return;
+  }
+  const pf=e.target.closest('[data-pfil]');
+  if(pf){ planFilter=pf.dataset.pfil; paintSchedule(); return; }
+  const pa=e.target.closest('[data-pallg]');
+  if(pa){
+    const all=SCHEDALL(); groupShut.clear();
+    if(pa.dataset.pallg==='shut') all.forEach(r=>groupShut.add(r.group));
+    paintSchedule(); return;
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const h=e.target.closest&&e.target.closest('[data-gtog],[data-ptog]');
+  if(!h) return;
+  e.preventDefault(); h.click();
+});
+document.addEventListener('input',e=>{
+  if(e.target && e.target.id==='pq'){ planQuery=e.target.value.trim(); paintSchedule(); }
+});
+
 const toggleP=force=>setPanel('plan',force);
 planhead.addEventListener('click',()=>toggleP());
 planhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleP();}});
@@ -2293,6 +2459,55 @@ function statusLabel(r){
 const isoOf=d=>d.toLocaleDateString('en-CA');
 const dayOf=iso=>new Date(iso+'T00:00:00');
 const prettyDay=iso=>dayOf(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+/* =========================================================
+   FORWARD PROJECTION \u2014 dueToday() can only ever answer about
+   today, so the week grid could only place mode==='dow' items
+   in a column and had to dump every floating and anchored item
+   into today's column as an aside. That hid 39 of 62 rows on
+   six days out of seven and made the grid quietly wrong.
+   nextLandISO answers "what date does this next land on",
+   which is the question the grid is actually asking.
+   Date arithmetic goes through setDate, not +n*dayMs, so a
+   DST boundary inside the seven-day window can't shift a
+   column by an hour and drop an item into the wrong day.
+   ========================================================= */
+const addDaysISO=(iso,n)=>{const d=dayOf(iso); d.setDate(d.getDate()+n); return isoOf(d);};
+function overdueDays(r){
+  if(r.leadOf){
+    const li=leadInfo(r);
+    return (li&&li.out!==null&&!leadHandled(r,li)&&li.out<0) ? -li.out : 0;
+  }
+  const sc=schedOf(r);
+  if(sc.mode==='dow') return 0;               /* a weekday item is never "late" */
+  if(sc.anchor){
+    const last=lastScheduled(sc); if(!last) return 0;
+    const done=lastDone(r.id);
+    if(done && new Date(dayKeyOf(done)+'T00:00:00')>=last) return 0;
+    return Math.round((dayOf(today())-last)/dayMs);
+  }
+  const ds=daysSince(r.id); if(ds===null) return 0;
+  const target = sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : +sc.everyDays;
+  return Math.max(0,ds-target);
+}
+function nextLandISO(r){
+  if(r.leadOf){
+    const li=leadInfo(r);
+    if(!li||li.out===null||leadHandled(r,li)) return null;
+    return addDaysISO(today(),Math.max(0,li.out-li.lead));
+  }
+  const sc=schedOf(r);
+  if(sc.mode==='dow') return null;            /* recurs \u2014 the weekday pass has it */
+  if(dueToday(r)) return today();             /* due or overdue lands on today */
+  if(sc.anchor){ const nx=nextScheduled(sc); return nx?isoOf(nx):null; }
+  const done=lastDone(r.id); if(!done) return today();
+  const target = sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : +sc.everyDays;
+  return addDaysISO(dayKeyOf(done),target);
+}
+function schedEdited(r){
+  const u=S.sched&&S.sched[r.id];
+  return !!(u&&Object.keys(u).length);
+}
 
 /* Most recent scheduled weekday on or before a date. */
 function lastDowOn(sc,fromISO){
@@ -4501,6 +4716,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-c', note:"Full schedule rebuilt. Every item is a single line you tap to open, grouped under collapsible headers, with filter chips (due / late / changed) and a search box. Notes sit behind a button instead of printing all 62 at once. The week grid is now the next seven days starting today and shows interval and lead items on the day they actually land, with an overdue count \u2014 it used to only place fixed weekday items, which was 23 of 62."},
   {v:'2026.08.15-b', note:"Descriptions now collapse \u2014 a small arrow on each row opens the note only when you want it, and each row remembers. Plus internal cleanup: one row builder instead of three, one panel toggle instead of seven, and a content self-check at boot."},
   {v:'2026.08.15-a', note:"Fixed: a one-off task set to \u201Cnot today\u201D still reached the widget, so the extras count and the list underneath it disagreed."},
   {v:'2026.08.14-a', note:"The panels at the bottom are now one drawer with tabs instead of six stacked headers, plus a new Review tab showing what is overdue. Added health admin, sleep, school, car, money and maintenance items."},
