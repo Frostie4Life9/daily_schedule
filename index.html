@@ -283,6 +283,33 @@ input.pq::placeholder{color:var(--dimmer);}
 .pstatline{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;
   text-transform:uppercase;color:var(--live);margin-bottom:2px;}
 .pstatline.ok{color:var(--dimmer);}
+.rstat.new{color:var(--opt);border-color:var(--opt);}
+.hint.obs{color:var(--dimmer);}
+.hint.obs.off{color:var(--opt);}
+#setupnudge{display:none;margin:0 0 14px;padding:10px 12px;border:1px solid var(--opt);
+  border-radius:8px;background:var(--ground);font-size:12.5px;line-height:1.45;cursor:pointer;}
+#setupnudge b{color:var(--opt);}
+.alist{margin:0 0 14px;}
+.arow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);}
+.arow:last-child{border-bottom:none;}
+.atime{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--live);
+  white-space:nowrap;min-width:64px;}
+.alab{flex:1 1 auto;min-width:0;font-size:13px;}
+.adrop{flex:0 0 auto;}
+.ahand{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+.ahand h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;margin:0 0 8px;}
+.arowset{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.arecipe{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);}
+.arecipe .shelfhead{cursor:pointer;padding:0 0 8px;border:none;}
+.arecipe h3{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;margin:0;}
+.recbody{display:none;}
+.arecipe.open .recbody{display:block;}
+.arowset .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dimmer);}
+input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(--ink);
+  -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;padding:6px 8px;
+  font-family:'JetBrains Mono',monospace;font-size:12px;min-height:34px;}
+.step .arowset{margin-bottom:4px;}
 .pitem .pname{font-size:14px;}
 .pitem .pstat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--live);}
 .pitem .pstat.ok{color:var(--dimmer);}
@@ -764,6 +791,7 @@ body.hideopt .step.optional{display:none;}
       If you don't finish it, it moves itself to tomorrow and picks up a <b>late</b> tag — tap that to move it somewhere else.</p>
   </div>
 
+  <div id="setupnudge" role="button" tabindex="0"></div>
   <main id="list"></main>
 
   <div class="foot">
@@ -809,6 +837,51 @@ body.hideopt .step.optional{display:none;}
     <div class="shelfbody">
       <p class="shelfnote">Everything overdue, longest first. A row that has been overdue three weeks is not a reminder any more, it is furniture — do it, change its interval, or take it off the board.</p>
       <div id="reviewlist"></div>
+    </div>
+  </section>
+
+  <section id="alerts">
+    <div class="shelfhead" id="alertshead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Alerts &amp; timers</h2><span class="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">This page cannot notify you. A browser tab has no access to Reminders, Calendar or the Clock, and on iOS its timers stop running the moment you switch apps or lock the phone \u2014 so a dwell that finishes while you are elsewhere rings late, when you come back, or not at all. Everything below hands off to iOS instead of pretending otherwise.</p>
+      <div id="alertlist"></div>
+      <div class="apick">
+        <div class="lrow"><span class="lbl">Add</span>
+          <select class="lmode apsel" id="apickid"></select>
+          <input type="time" class="atime-in" id="apicktime">
+          <button id="apickgo">Set</button>
+        </div>
+      </div>
+      <div class="ahand">
+        <h3>Hand timers to the Clock</h3>
+        <p class="hint">With this on, starting a dwell here also starts a real timer on your phone, so it rings on the lock screen whether or not you are looking at this page. It needs a Shortcut to receive the duration \u2014 the recipe is below.</p>
+        <div class="lrow"><label class="app"><input type="checkbox" id="handon">Also start a phone timer</label></div>
+        <div class="lrow"><span class="lbl">Shortcut</span>
+          <input class="name" type="text" id="handname" placeholder="Protocol Timer" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <label class="app">Open<select class="lmode" id="handmode">
+            <option value="frame">hidden frame</option><option value="direct">directly</option><option value="tab">new tab</option>
+          </select></label>
+        </div>
+        <div class="lrow"><span class="lbl">One off</span>
+          <input class="name" type="number" min="1" step="1" id="handmins" placeholder="Minutes">
+          <button id="handgo">Start phone timer</button>
+        </div>
+        <p class="hint">The one-off is for anything not on the board \u2014 laundry, a rest between sets, something in the oven. It goes straight to the Clock and never touches this page.</p>
+      </div>
+      <div class="arecipe">
+        <div class="shelfhead" id="rechead" role="button" tabindex="0" aria-expanded="false">
+          <h3>The two Shortcuts</h3><span class="caret">Open</span>
+        </div>
+        <div class="recbody" id="recbody">
+          <p class="hint"><b>1. Protocol Timer</b> <EM> receives a duration from this page and starts a real timer.<br>
+          New Shortcut, named exactly what you put in the Shortcut box above. One action: <b>Start Timer</b>. Set the unit to <b>seconds</b> and tap the number field, then pick the <b>Shortcut Input</b> variable. That is the whole thing. Test it by turning the toggle on and tapping any dial on the board.</p>
+          <p class="hint"><b>2. Protocol Reminders</b> <EM> writes your alerts into Reminders each morning.<br>
+          Actions in order: <b>Get Contents of URL</b> pointed at your sync URL, with method GET and a header <b>x-sync-key</b> set to your sync key (both are on the Sync tab). Then <b>Get Dictionary Value</b>, key <b>alerts</b>. Then <b>Repeat with Each</b>. Inside the repeat: <b>Get Dictionary Value</b> key <b>l</b> from Repeat Item for the title, <b>Get Dictionary Value</b> key <b>atPretty</b> from Repeat Item, then <b>Text</b> reading <b>Today at</b> followed by that value, then <b>Get Dates from Input</b>, then <b>Add New Reminder</b> with the title and that date as the alert. End Repeat.<br>
+          Then in the Shortcuts app under Automation, add a <b>Time of Day</b> automation for whenever you wake, running that shortcut, with <b>Run Immediately</b> on and Notify When Run off.</p>
+          <p class="hint">Alerts here are a published list, not a live connection. Change a time and the Shortcut picks it up the next morning <EM> or run it by hand to see it now.</p>
+      </div>
     </div>
   </section>
 
@@ -1474,6 +1547,11 @@ function summarize(){
      The widget shows next-up steps on one side and the day's extras on the
      other, and extras appear in BOTH next[] and routines[] — so without a
      tag it was listing one-off tasks twice. */
+  /* Alerts ride along in the digest so a Shortcut can read them from the same
+     endpoint the widget already uses. Additive only: the widget ignores keys
+     it does not know, so the version stays where it is rather than forcing a
+     widget update for a field the widget has no use for. */
+  const alerts=alertList();
   const kindOf=key=>key.indexOf('r:')===0 ? 'routine'
                   : key.indexOf('c:')===0 ? 'custom' : 'step';
   const next=visibleRows()
@@ -1509,7 +1587,7 @@ function summarize(){
           dayStart:DAYSTART(),
           extras:{done:xdone, total:xids.length},
           star: !!(ids.length && done===ids.length && xdone===xids.length),
-          modes:Object.assign({},S.modes||{}), next:next, routines:due};
+          modes:Object.assign({},S.modes||{}), next:next, routines:due, alerts:alerts};
 }
 /* =========================================================
    COMMIT — the one place that knows the order.
@@ -1600,6 +1678,8 @@ S.hist=S.hist||{};
    streak isn't retroactively erased, and it is never written down again. */
 if(S.best==null) S.best=+S.streak||0;
 S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
+S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
+S.alert=S.alert||{}; S.hand=S.hand||{};
 S.notoday=S.notoday||{};
 S.notes=S.notes||{};
 S.lists=S.lists||[];
@@ -1816,7 +1896,8 @@ function planMatch(r){
     const q=planQuery.toLowerCase();
     if((r.l+' '+r.group).toLowerCase().indexOf(q)===-1) return false;
   }
-  if(planFilter==='due')  return dueToday(r);
+  if(planFilter==='new')  return unstarted(r);
+  if(planFilter==='due')  return dueToday(r)&&!unstarted(r);
   if(planFilter==='over') return overdueDays(r)>0;
   if(planFilter==='edit') return schedEdited(r);
   return true;
@@ -1849,7 +1930,18 @@ function planEditor(r){
               ? `<button data-rclear="${r.id}">Clear date</button>`
               : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
             `</div>`+
-            (sc.anchor?'':`<div class="hint">No start date \u2014 the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.</div>`);
+            (sc.anchor?'':`<div class="nrow">Last done <input type="date" class="dt" data-rid="${r.id}" data-lastdone="1" max="${today()}" value="${lastDone(r.id)?dayKeyOf(lastDone(r.id)):''}">`+
+              (lastDone(r.id)?`<button data-rclearlog="${r.id}">Clear</button>`:'')+`</div>`)+
+            (sc.anchor?'':`<div class="hint">${unstarted(r)
+              ? 'This one has never been logged, so it cannot say when it is next due \u2014 that is why it is sitting in Set up rather than on the board. Put in roughly when you last did it and the clock starts from there. A guess within a few days is fine; it self-corrects the first time you check it off.'
+              : 'No start date \u2014 the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.'}</div>`)+
+            (function(){
+              const og=observedGap(r.id); if(og===null) return '';
+              const tgt = sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : +sc.everyDays;
+              const off = Math.abs(og-tgt) >= Math.max(2,Math.round(tgt*0.25));
+              return `<div class="hint obs${off?' off':''}">You actually do this about every <b>${og} days</b>${
+                off ? `, not every ${tgt}. The number above is a guess and your own history disagrees with it \u2014 worth changing to match, unless the guess is the target you are aiming at.` : `, which matches the schedule.`}</div>`;
+            })();
     }
   }
   /* The link block is for items that open a workbook. Flagged items and
@@ -1898,8 +1990,9 @@ function planRow(r){
   const head=`<div class="prow" data-ptog="${r.id}" role="button" tabindex="0" aria-expanded="${open}">`+
     `<span class="pname">${esc(r.l)}${r.opt?'<span class="tag">optional</span>':''}</span>`+
     `<span class="pmeta"><span class="sched">${esc(sl||'Every day')}</span>`+
-    (ov>0 ? `<span class="rstat">+${ov}d</span>`
-          : (due?`<span class="rstat">due</span>`:''))+
+    (unstarted(r) ? `<span class="rstat new">not set</span>`
+      : (ov>0 ? `<span class="rstat">+${ov}d</span>`
+              : (due?`<span class="rstat">due</span>`:'')))+
     `</span></div>`;
   if(!open) return `<div class="pitem" data-pid="${r.id}">`+head+`</div>`;
   return `<div class="pitem open" data-pid="${r.id}">`+head+
@@ -1944,10 +2037,12 @@ function paintSchedule(){
 
   /* Filter chips. Counts are of the whole set, not the filtered view, so the
      numbers don't move under your thumb as you switch between them. */
-  const nDue =all.filter(dueToday).length;
+  const nNew =all.filter(unstarted).length;
+  const nDue =all.filter(r=>dueToday(r)&&!unstarted(r)).length;
   const nOver=all.filter(r=>overdueDays(r)>0).length;
   const nEdit=all.filter(schedEdited).length;
-  const chips=[['all','All '+all.length],['due','Due '+nDue],['over','Late '+nOver],['edit','Changed '+nEdit]];
+  const chips=[['all','All '+all.length],['new','Set up '+nNew],['due','Due '+nDue],
+               ['over','Late '+nOver],['edit','Changed '+nEdit]];
   const pc=document.getElementById('pchips');
   if(pc) pc.innerHTML=chips.map(c=>
       `<button class="pchip" data-pfil="${c[0]}" aria-pressed="${planFilter===c[0]}">${esc(c[1])}</button>`
@@ -1996,6 +2091,14 @@ document.addEventListener('click',e=>{
     if(pnoteOpen.has(id)) pnoteOpen.delete(id); else pnoteOpen.add(id);
     paintSchedule(); return;
   }
+  const cl=e.target.closest('[data-rclearlog]');
+  if(cl){
+    const id=cl.dataset.rclearlog;
+    if(S.rlog) delete S.rlog[id];
+    if(S.rgap) delete S.rgap[id];
+    if(S.rprev) delete S.rprev[id];
+    commit({rebuild:true,schedule:true}); toast('Clock cleared'); return;
+  }
   const pf=e.target.closest('[data-pfil]');
   if(pf){ planFilter=pf.dataset.pfil; paintSchedule(); return; }
   const pa=e.target.closest('[data-pallg]');
@@ -2013,6 +2116,22 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('input',e=>{
   if(e.target && e.target.id==='pq'){ planQuery=e.target.value.trim(); paintSchedule(); }
+});
+/* Backdating writes straight to the log rather than through logDone: this is
+   a correction to history, not a completion, so it must not push a gap. */
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(!t||!t.dataset||!t.dataset.lastdone) return;
+  const id=t.dataset.rid, v=t.value;
+  if(!id) return;
+  S.rlog=S.rlog||{};
+  if(!v){ delete S.rlog[id]; }
+  else {
+    if(v>today()){ toast('That date is in the future'); paintSchedule(); return; }
+    S.rlog[id]=new Date(v+'T12:00:00').toISOString();
+  }
+  commit({rebuild:true,schedule:true});
+  toast(v?'Clock started':'Clock cleared');
 });
 
 const toggleP=force=>setPanel('plan',force);
@@ -2091,7 +2210,7 @@ document.addEventListener('click',e=>{
   const rr=e.target.closest('[data-rreset]');
   if(rr){
     const id=rr.dataset.rreset;
-    S.rlog=S.rlog||{}; S.rlog[id]=new Date().toISOString();
+    logDone(id);
     commit({rebuild:true,schedule:true}); toast('Clock reset'); return;
   }
 });
@@ -2305,6 +2424,115 @@ function lastDone(id){
   const v=S.rlog&&S.rlog[id];
   return v?new Date(v):null;
 }
+/* =========================================================
+   UNSTARTED \u2014 an interval item with no start date and no
+   completion ever recorded. dueToday() answers true for these,
+   because "days since last done" of null reads as infinitely
+   overdue, which is how 35 of 62 rows came to report "due"
+   permanently. They are not due; the app has never seen one
+   happen. Kept off the board and out of the week grid until
+   the clock is started, and surfaced as a setup list instead.
+   dow items are excluded: a weekday is a schedule on its own,
+   and an anchored item has a start date by definition.
+   ========================================================= */
+function unstarted(r){
+  if(r.leadOf) return false;
+  const sc=schedOf(r);
+  if(sc.mode==='dow'||sc.anchor) return false;
+  return !lastDone(r.id);
+}
+/* Every completion goes through here so the gap between this one and the
+   last is recorded. Four call sites used to assign S.rlog directly and
+   none of them could have known about the one before it. */
+function logDone(id,whenISO){
+  S.rlog=S.rlog||{}; S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
+  const prev=S.rlog[id];
+  const now=whenISO||new Date().toISOString();
+  if(prev){
+    const g=Math.round((dayOf(dayKeyOf(new Date(now)))-dayOf(dayKeyOf(new Date(prev))))/dayMs);
+    if(g>0){
+      const a=(S.rgap[id]=S.rgap[id]||[]);
+      a.push(g);
+      while(a.length>8) a.shift();          /* a rolling window, not a ledger */
+    }
+    S.rprev[id]=prev;
+  } else delete S.rprev[id];
+  S.rlog[id]=now;
+}
+/* Unchecking restores the previous completion rather than wiping the clock.
+   Deleting outright meant one mis-tap turned a live interval back into an
+   unstarted one. */
+function unlogDone(id){
+  S.rlog=S.rlog||{}; S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
+  const prev=S.rprev[id];
+  if(S.rgap[id]&&S.rgap[id].length&&prev) S.rgap[id].pop();
+  if(prev){ S.rlog[id]=prev; delete S.rprev[id]; }
+  else delete S.rlog[id];
+}
+/* The interval you actually keep, once there is enough history to say.
+   Median rather than mean so one three-week gap doesn't rewrite the number. */
+/* =========================================================
+   ALERTS \u2014 a time of day attached to a row. The app cannot
+   deliver these itself; it publishes them in the digest and a
+   Shortcut on the phone turns them into Reminders. Kept as a
+   plain HH:MM string per row id so the digest stays readable
+   by something that is not this app.
+   ========================================================= */
+function alertOf(id){ const v=(S.alert||{})[id]; return /^\d\d:\d\d$/.test(v||'')?v:null; }
+function setAlert(id,hhmm){
+  S.alert=S.alert||{};
+  if(!hhmm) delete S.alert[id];
+  else if(/^\d\d:\d\d$/.test(hhmm)) S.alert[id]=hhmm;
+}
+function alertList(){
+  const out=[];
+  Object.keys(S.alert||{}).forEach(id=>{
+    const at=alertOf(id); if(!at) return;
+    out.push({id:id, at:at, atPretty:prettyTime(at), l:alertLabel(id)});
+  });
+  return out.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0);
+}
+/* A row id can name a step, a routine or a one-off, and the alert list has to
+   read as English without the caller knowing which. */
+function alertLabel(id){
+  const r=document.querySelector('.step[data-n="'+cssEsc(id)+'"] .label');
+  if(r) return r.textContent.replace('optional','').trim();
+  const it=schedItem(id.replace(/^r:/,''));
+  if(it) return it.l;
+  return id;
+}
+function cssEsc(v){ return String(v).replace(/["\\]/g,'\\$&'); }
+function prettyTime(hhmm){
+  const m=/^(\d\d):(\d\d)$/.exec(hhmm||''); if(!m) return '';
+  let h=+m[1]; const ap=h<12?'AM':'PM'; h=h%12||12;
+  return h+':'+m[2]+' '+ap;
+}
+
+/* Handoff to the Clock. iOS has no URL scheme for the timer, so this runs a
+   Shortcut and passes the seconds as text. The open modes are the same three
+   the workbook links use, for the same reason: which one is quiet depends on
+   the browser, and Brave in particular throws a "Cannot Open Page" after a
+   successful hand-off. */
+function handCfg(){
+  const h=S.hand||{};
+  return {on:!!h.on, name:String(h.name||'Protocol Timer'), mode:h.mode||'frame'};
+}
+function handTimer(seconds){
+  const c=handCfg();
+  const secs=Math.max(1,Math.round(+seconds||0));
+  const url='shortcuts://run-shortcut?name='+encodeURIComponent(c.name)+
+            '&input=text&text='+encodeURIComponent(String(secs));
+  appHandoff(url,c.mode);
+  return url;
+}
+
+function observedGap(id){
+  const a=(S.rgap&&S.rgap[id])||[];
+  if(a.length<3) return null;
+  const v=a.slice().sort((x,y)=>x-y);
+  const m=v.length>>1;
+  return v.length%2 ? v[m] : Math.round((v[m-1]+v[m])/2);
+}
 function daysSince(id){
   const d=lastDone(id); if(!d)return null;
   return Math.round((new Date(today()+'T00:00:00') - new Date(dayKeyOf(d)+'T00:00:00'))/dayMs);
@@ -2432,6 +2660,7 @@ function statusLabel(r){
   }
   const sc=schedOf(r);
   if(sc.mode==='dow') return null;
+  if(unstarted(r)) return 'not started \u00b7 set a last-done date';
   if(sc.anchor){
     const last=lastScheduled(sc);
     if(!last) return 'starts '+new Date(sc.anchor+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -2486,6 +2715,7 @@ function overdueDays(r){
     if(done && new Date(dayKeyOf(done)+'T00:00:00')>=last) return 0;
     return Math.round((dayOf(today())-last)/dayMs);
   }
+  if(unstarted(r)) return 0;                  /* not late, just unconfigured */
   const ds=daysSince(r.id); if(ds===null) return 0;
   const target = sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : +sc.everyDays;
   return Math.max(0,ds-target);
@@ -2498,6 +2728,7 @@ function nextLandISO(r){
   }
   const sc=schedOf(r);
   if(sc.mode==='dow') return null;            /* recurs \u2014 the weekday pass has it */
+  if(unstarted(r)) return null;               /* no clock to project from yet */
   if(dueToday(r)) return today();             /* due or overdue lands on today */
   if(sc.anchor){ const nx=nextScheduled(sc); return nx?isoOf(nx):null; }
   const done=lastDone(r.id); if(!done) return today();
@@ -2525,6 +2756,9 @@ function deferOf(id){ return (S.defer&&S.defer[id])||null; }
 /* {due, late, from} — from is the day it was supposed to happen. */
 function routineState(r){
   const sc=schedOf(r), t=today(), df=deferOf(r.id);
+  /* Never started, so nothing is owed yet. It lives in the setup list under
+     Full schedule until a start date exists. */
+  if(unstarted(r)) return {due:false, late:false, from:null};
   if(df && df>t) return {due:false, late:false, from:null};
   let from=null;
   if(sc.mode==='dow' && !r.leadOf){
@@ -3120,8 +3354,8 @@ function bulkPhase(ph){
     /* a scheduled step inside the block drives its own interval off rlog,
        so bulk-checking has to stamp it exactly as a single tap would */
     if(sset.some(x=>x.id===id)){
-      if(allOn) delete S.rlog[id];
-      else { S.rlog[id]=new Date().toISOString(); if(S.defer) delete S.defer[id]; }
+      if(allOn) unlogDone(id);
+      else { logDone(id); if(S.defer) delete S.defer[id]; }
     }
   });
   const core=coreIds();
@@ -3534,7 +3768,64 @@ function coreIds(){
 }
 const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra'));
 const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra'));
+/* Hidden rows are easy to forget, which is the one cost of keeping unstarted
+   items off the board. This is the receipt: a single line that says how many
+   are waiting and opens the setup list. It disappears the moment the count
+   hits zero, so it can never become permanent furniture. */
+function paintAlerts(){
+  const box=document.getElementById('alertlist');
+  if(box){
+    const rows=alertList();
+    box.innerHTML = rows.length
+      ? `<div class="alist">`+rows.map(a=>
+          `<div class="arow" data-aid="${esc(a.id)}">`+
+          `<span class="atime">${esc(prettyTime(a.at))}</span>`+
+          `<span class="alab">${esc(a.l)}</span>`+
+          `<button class="adrop" data-adrop="${esc(a.id)}">Remove</button></div>`).join('')+`</div>`+
+        `<p class="hint">These are published to the widget feed. The Shortcut under Guide reads them once each morning and writes a Reminder for each one \u2014 this page is not what makes them fire.</p>`
+      : `<p class="hint">Nothing set. Open any row on the board, expand its description, and use <b>Remind me at</b> to put a time on it. Good candidates are the ones with a real clock time rather than a place in the order: weighing in, the water and food cutoffs, lights out.</p>`;
+  }
+  /* Options come from the rows actually on the board today, plus anything that
+     already has an alert set so a reminder never becomes unreachable on a day
+     its row does not appear. */
+  const sel=document.getElementById('apickid');
+  if(sel && document.activeElement!==sel){
+    const seen={}, opts=[];
+    allRows().forEach(r=>{
+      const k=r.dataset.n; if(!k||seen[k]) return; seen[k]=1;
+      const lab=(r.querySelector('.label')||{}).textContent||k;
+      opts.push([k,lab.replace('optional','').trim()]);
+    });
+    Object.keys(S.alert||{}).forEach(k=>{ if(!seen[k]){ seen[k]=1; opts.push([k,alertLabel(k)]); } });
+    const keep=sel.value;
+    sel.innerHTML=opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('');
+    if(keep) sel.value=keep;
+  }
+  const c=handCfg();
+  const on=document.getElementById('handon'); if(on) on.checked=c.on;
+  const nm=document.getElementById('handname'); if(nm && document.activeElement!==nm) nm.value=(S.hand&&S.hand.name)||'';
+  const md=document.getElementById('handmode'); if(md) md.value=c.mode;
+}
+
+function paintNudge(){
+  const el=document.getElementById('setupnudge');
+  if(!el) return;
+  const n=SCHEDALL().filter(unstarted).length;
+  if(!n){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML=`<b>${n} item${n===1?'':'s'} need a start date</b> \u2014 hidden from the board `+
+    `until the app knows when you last did ${n===1?'it':'them'}. Tap to set them up.`;
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#setupnudge')) return;
+  setPanel('plan',true);
+  planFilter='new'; paintSchedule();
+  const el=document.getElementById('plan');
+  if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'start'});
+});
+
 function paint(){
+  paintNudge();
   allRows().forEach(r=>{
     const on=S.checked.includes(r.dataset.n);
     r.classList.toggle('done',on);
@@ -3568,8 +3859,8 @@ function toggle(row){
   }
   if(n.indexOf('r:')===0){
     const id=n.slice(2); S.rlog=S.rlog||{};
-    if(i>-1) delete S.rlog[id];
-    else { S.rlog[id]=new Date().toISOString();
+    if(i>-1) unlogDone(id);
+    else { logDone(id);
            if(S.defer) delete S.defer[id]; }   /* doing it settles any deferral */
     commit({rebuild:true,schedule:true}); return;
   }
@@ -3577,8 +3868,8 @@ function toggle(row){
   const sstep=schedSteps().find(x=>x.id===n);
   if(sstep){
     S.rlog=S.rlog||{};
-    if(i>-1) delete S.rlog[n];
-    else { S.rlog[n]=new Date().toISOString(); if(S.defer) delete S.defer[n]; }
+    if(i>-1) unlogDone(n);
+    else { logDone(n); if(S.defer) delete S.defer[n]; }
   }
   /* A scheduled step is still a protocol step, so the streak check has to run
      for it too — a non-optional one can easily be the last box on the board. */
@@ -3914,6 +4205,11 @@ function wireRows(){
       if(row.classList.contains('running')){ stop(); face.textContent=fmt(total); return; }
       row.classList.remove('rang'); row.classList.add('running');
       end=Date.now()+total*1000; RUNTIMERS[tid]=end; tick();
+      /* rAF stops the moment this tab is backgrounded, so a dwell that ends
+         while you are in another app rings late or not at all. The in-page
+         timer stays \u2014 it is the visible one \u2014 but the Clock gets the same
+         duration so something rings on the lock screen either way. */
+      if(handCfg().on) try{ handTimer(total); }catch(err){}
     });
 
     /* Resume anything that was mid-run when the rows were rebuilt. The end time
@@ -3943,6 +4239,67 @@ function wireRows(){
    ever takes over the screen, we fall back to the direct navigation after a
    beat — a dialog is better than a dead button.
    ========================================================= */
+/* Alerts are set from one picker rather than a control on every row. A bell
+   per row would have put 200-odd controls back onto a board whose whole
+   problem was density \u2014 and it would not have reached rows like "Nothing but
+   water after this", which has no description to expand into and so has no
+   expander at all. */
+document.addEventListener('change',e=>{
+  const t=e.target; if(!t||!t.dataset) return;
+  if(t.dataset.aset!==undefined){
+    setAlert(t.dataset.aset,t.value);
+    save(S); syncSchedule&&syncSchedule();
+    paintAlerts();
+    toast(t.value?('Reminder set for '+prettyTime(t.value)):'Reminder cleared');
+    return;
+  }
+  if(t.id==='handon'){ S.hand=S.hand||{}; S.hand.on=!!t.checked; save(S); paintAlerts(); return; }
+  if(t.id==='handmode'){ S.hand=S.hand||{}; S.hand.mode=t.value; save(S); return; }
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t&&t.id==='handname'){ S.hand=S.hand||{}; S.hand.name=t.value; save(S); }
+});
+document.addEventListener('click',e=>{
+  const d=e.target.closest('[data-adrop]');
+  if(d){
+    e.stopPropagation();
+    setAlert(d.dataset.adrop,null);
+    save(S); syncSchedule&&syncSchedule();
+    paintAlerts(); paint();
+    toast('Reminder cleared'); return;
+  }
+  const rh=e.target.closest('#rechead');
+  if(rh){
+    const box=rh.closest('.arecipe');
+    const open=!box.classList.contains('open');
+    box.classList.toggle('open',open);
+    rh.setAttribute('aria-expanded',open);
+    const car=rh.querySelector('.caret'); if(car) car.textContent=open?'Close':'Open';
+    return;
+  }
+  const ap=e.target.closest('#apickgo');
+  if(ap){
+    const id=(document.getElementById('apickid')||{}).value;
+    const at=(document.getElementById('apicktime')||{}).value;
+    if(!id){ toast('Pick a row first'); return; }
+    if(!at){ toast('Pick a time first'); return; }
+    setAlert(id,at);
+    save(S); syncSchedule&&syncSchedule();
+    paintAlerts();
+    toast(alertLabel(id)+' \u00b7 '+prettyTime(at));
+    return;
+  }
+  const go=e.target.closest('#handgo');
+  if(go){
+    const mins=+(document.getElementById('handmins')||{}).value;
+    if(!mins||mins<1){ toast('Enter minutes first'); return; }
+    handTimer(mins*60);
+    toast(mins+' minute timer sent to your phone');
+    return;
+  }
+});
+
 function appHandoff(url,mode){
   /* Brave on iOS validates URLs against its own scheme allowlist before the
      webview ever loads them, so a page-side trick cannot always suppress its
@@ -4122,7 +4479,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    characters each and differed only in which element and which paint call \u2014
    plus each wrote fresh text into a caret element that the drawer keeps
    permanently hidden, which was work nobody could see. */
-const PANEL_PAINT={ hist:()=>paintHist(), money:()=>paintMoney(),
+const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>paintHist(), money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
                     review:()=>paintReview(), shelf:()=>{}, sync:()=>{} };
 function setPanel(id,force){
@@ -4135,6 +4492,7 @@ function setPanel(id,force){
 }
 const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
+  {id:'alerts', label:'Alerts',   open:f=>setPanel('alerts',f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
   {id:'plan',   label:'Schedule', open:f=>toggleP(f)},
   {id:'money',  label:'Cost',     open:f=>toggleMoney(f)},
@@ -4716,6 +5074,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-f', note:"New Alerts tab. Put a time on any row and it is published to the widget feed, where a Shortcut turns it into a Reminder each morning \u2014 for the things with a real clock time rather than a place in the order: weighing in, the water and food cutoffs, lights out. Also: dwells can now hand off to the Clock, because a browser timer stops dead when you switch apps and rings late or never. Plus a one-off timer for anything not on the board. Both Shortcut recipes are written out inside the tab."},
+  {v:'2026.08.15-e', note:"Items that have never been logged no longer pretend to be due. Thirty-five of them were reporting \u201Cdue today\u201D permanently, because a clock that has never started reads as infinitely overdue. They now sit in a Set up list under Full schedule, off the board, with a line at the top of the board saying how many are waiting. Each row gained a Last done date so you can start a clock honestly instead of ticking something you did not do today, and once an item has a few completions it tells you the interval you actually keep versus the one it is set to."},
   {v:'2026.08.15-d', note:"Sleep block reworded. Screens down no longer implies you owe yourself a wind-down window \u2014 if you put the phone down and fall asleep, that is the whole step. The wind-down advice moved to Lights out, where it belongs: what to do on a night you are still awake twenty minutes in. Journal no longer says \u201Cin bed\u201D."},
   {v:'2026.08.15-c', note:"Full schedule rebuilt. Every item is a single line you tap to open, grouped under collapsible headers, with filter chips (due / late / changed) and a search box. Notes sit behind a button instead of printing all 62 at once. The week grid is now the next seven days starting today and shows interval and lead items on the day they actually land, with an overdue count \u2014 it used to only place fixed weekday items, which was 23 of 62."},
   {v:'2026.08.15-b', note:"Descriptions now collapse \u2014 a small arrow on each row opens the note only when you want it, and each row remembers. Plus internal cleanup: one row builder instead of three, one panel toggle instead of seven, and a content self-check at boot."},
