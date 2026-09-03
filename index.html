@@ -312,6 +312,7 @@ input.pq::placeholder{color:var(--dimmer);}
   border-radius:5px;padding:7px 9px;font-size:12.5px;font-family:inherit;resize:vertical;}
 .limport .lhint{flex:1 1 100%;font-size:11px;line-height:1.45;color:var(--dimmer);margin:2px 0 0;}
 .ltools button.on{border-color:var(--done);color:var(--done);}
+.limport .lbm{flex:0 0 auto;}
 .tstrip{display:inline-flex;align-items:center;gap:2px;vertical-align:middle;}
 .tstrip .td{width:5px;height:10px;border-radius:1.5px;background:var(--line);
   display:inline-block;flex:0 0 auto;}
@@ -4019,6 +4020,9 @@ function toggle(row){
    allRows() never sees it because these rows are .litem,
    not .step.
    ========================================================= */
+/* The Learning Suite grabber, shipped with the app rather than living in a
+   note somewhere it can be lost. */
+const BOOKMARKLET="javascript:(function(){ var MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12}; var now=new Date(),YR=now.getFullYear(); function iso(mo,d,y){return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');} function findDate(s){ var m=/\\b([A-Za-z]{3,4})\\.?\\s+(\\d{1,2})\\b/g,x; while((x=m.exec(s))!==null){ var mo=MON[x[1].toLowerCase()],d=+x[2]; if(!mo||d<1||d>31)continue; var a=iso(mo,d,YR),t=now.toISOString().slice(0,10); if(a<t){var p=new Date(t);p.setDate(p.getDate()-60); if(a<p.toISOString().slice(0,10))a=iso(mo,d,YR+1);} return a; } x=/(\\d{4})-(\\d\\d)-(\\d\\d)/.exec(s); if(x)return x[0]; x=/\\b(\\d{1,2})\\/(\\d{1,2})\\b/.exec(s); if(x)return iso(+x[1],+x[2],YR); return null; } var out=[],seen={}; document.querySelectorAll('tr').forEach(function(r){ var c=r.querySelectorAll('td,th'); if(c.length<2)return; var title=(c[0].innerText||c[0].textContent||'').trim(); if(!title||/^title$/i.test(title))return; if(/\\(dropped\\)/i.test(title))return; var d=null; for(var i=1;i<c.length&&!d;i++)d=findDate((c[i].innerText||c[i].textContent||'').trim()); var line=title+(d?'\\t'+d:''); if(!seen[line]){seen[line]=1;out.push(line);} }); var box=document.createElement('textarea'); box.value=out.join('\\n'); box.style.cssText='position:fixed;z-index:2147483647;left:5%;top:5%;width:90%;height:70%;font:13px monospace;padding:10px;background:#111;color:#eee;border:2px solid #4a9;'; document.body.appendChild(box);box.focus();box.select(); try{document.execCommand('copy');}catch(e){} try{navigator.clipboard&&navigator.clipboard.writeText(box.value);}catch(e){} var b=document.createElement('button'); b.textContent='Close ('+out.length+' rows copied)'; b.style.cssText='position:fixed;z-index:2147483647;left:5%;top:76%;padding:10px 16px;font:14px sans-serif;'; b.onclick=function(){box.remove();b.remove();}; document.body.appendChild(b); })();";
 const LISTSEED=['Albums to listen to','Things I want to buy','Someday / maybe'];
 function newId(pfx){ return pfx+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
@@ -4114,22 +4118,120 @@ function stripDue(line,due){
             .replace(/\s{2,}/g,' ')
             .trim();
 }
-function importAssignments(lid,text){
-  const l=listById(lid); if(!l) return 0;
-  l.items=l.items||[];
-  let n=0;
-  String(text||'').split(/\r?\n/).forEach(raw=>{
-    const line=raw.trim(); if(!line) return;
-    const due=parseDue(line);
-    const label=stripDue(line,due) || line;
-    /* Re-pasting the same dashboard should not double the list. */
-    if(l.items.some(i=>!i.done && i.text===label && (i.due||null)===(due||null))) return;
-    l.items.push({id:newId('i'),text:label,done:false,due:due||undefined,
-                  added:new Date().toISOString()});
-    n++;
-  });
-  return n;
+/* Canvas and Learning Suite paste in three different shapes and none of them
+   is one-assignment-per-line:
+
+   CANVAS blocks a type, a title, availability, then the due date:
+     Quiz
+     Participation Statement 1
+     Available until Sep 4 at 11:59pm
+     Due Sep 4 at 11:59pm
+     -/14 ptsNo submission for this assignment.
+   The availability line comes FIRST and carries its own date, so anything
+   reading line by line files the assignment under the wrong day. Only a line
+   that starts with "Due" is allowed to set the date.
+
+   LEARNING SUITE pastes as a table, tab separated, title in the first cell.
+
+   PLAIN is one per line, which is what the bookmarklet emits and what a
+   person types by hand.
+   ========================================================= */
+const ROWTYPE=/^(quiz|assignment|discussion|page|announcement|attendance|survey|exam|lab|homework)$/i;
+const METALINE=/^(not\s+)?available|^closed|^due\b|^-?\s*\/\s*\d|^\d+\s*(points|pts)|^no submission|^submitted|^score|^show course|^title$|^%|^\d+(\.\d+)?%$/i;
+
+function assignmentFormat(lines){
+  if(lines.some(l=>l.indexOf('\t')>-1)) return 'table';
+  if(lines.some(l=>ROWTYPE.test(l)))    return 'block';
+  return 'plain';
 }
+function parseAssignments(text){
+  const lines=String(text||'').split(/\r?\n/)
+    .map(l=>l.replace(/\u00a0/g,' ').replace(/\s+$/,'').replace(/^\s+/,''));
+  const live=lines.filter(Boolean);
+  const mode=assignmentFormat(live);
+  const out=[];
+  /* Only strip a date out of the title when the title is where the date came
+     from. In a table or a Canvas block the due date lives in its own cell or
+     line, and "Week of Sep 30 quiz" is just what the assignment is called. */
+  const push=(raw,due,ownDate)=>{
+    const t=cleanTitle(raw,ownDate===true);
+    if(t) out.push({text:t, due:due||null, dropped:isDropped(raw)});
+  };
+
+  /* BLOCK mode is strict on purpose. Anything not sitting under a type marker
+     is page furniture \u2014 "Upcoming Assignments" is a heading, not homework \u2014
+     and a loose parser turns every heading into an undated task. */
+  if(mode==='block'){
+    let i=0;
+    while(i<live.length){
+      if(!ROWTYPE.test(live[i])){ i++; continue; }
+      i++;
+      while(i<live.length && (METALINE.test(live[i])||ROWTYPE.test(live[i]))) i++;
+      if(i>=live.length) break;
+      const title=live[i]; i++;
+      let due=null;
+      while(i<live.length && !ROWTYPE.test(live[i])){
+        /* only a line that begins with Due may set the date; the availability
+           line above it carries a different, earlier one */
+        if(due===null && /^due\b/i.test(live[i])) due=parseDue(live[i]);
+        i++;
+      }
+      push(title,due);
+    }
+    return out;
+  }
+
+  if(mode==='table'){
+    live.forEach(ln=>{
+      if(ln.indexOf('\t')===-1) return;
+      const cells=ln.split('\t').map(c=>c.trim()).filter(Boolean);
+      if(cells.length<2) return;
+      let d=null;
+      for(let c=1;c<cells.length && !d;c++) d=parseDue(cells[c]);
+      push(cells[0],d);
+    });
+    return out;
+  }
+
+  live.forEach(ln=>{ if(!METALINE.test(ln)) push(ln,parseDue(ln),true); });
+  return out;
+}
+/* Learning Suite marks dropped scores inline; they are not work to do. */
+function cleanTitle(t,stripDate){
+  let x=String(t||'').replace(/\(dropped\)/ig,'')
+                     .replace(/\s*\*+\s*$/,'')
+                     .replace(/\s{2,}/g,' ')
+                     .trim();
+  if(stripDate){
+    const d=dueMatch(x);
+    if(d) x=stripDue(x,d.iso);
+  }
+  return x.replace(/^[\s\u2013\u2014,|:-]+|[\s\u2013\u2014,|:-]+$/g,'').trim();
+}
+function isDropped(line){ return /\(dropped\)/i.test(line||''); }
+
+function importAssignments(lid,text,opts){
+  const l=listById(lid); if(!l) return {added:0,skipped:0,past:0,undated:0};
+  l.items=l.items||[];
+  const o=opts||{}, t=today();
+  const parsed=parseAssignments(text);
+  let added=0, skipped=0, past=0, undated=0;
+  /* A whole semester pasted at once would otherwise arrive with two months of
+     assignments already overdue, and the board would open on a wall of red
+     for work that was never yours to do. */
+  const dropPast = o.keepPast!==true;
+  parsed.forEach(a=>{
+    if(a.dropped) { skipped++; return; }
+    if(!a.due) undated++;
+    if(a.due && a.due<t && dropPast){ past++; return; }
+    if(l.items.some(i=>!i.done && i.text===a.text && (i.due||null)===(a.due||null))){ skipped++; return; }
+    l.items.push({id:newId('i'),text:a.text,done:false,due:a.due||undefined,
+                  added:new Date().toISOString()});
+    added++;
+  });
+  return {added:added,skipped:skipped,past:past,undated:undated};
+}
+
 function openCount(l){ return (l.items||[]).filter(i=>!i.done).length; }
 function listsOpenTotal(){ return (S.lists||[]).reduce((a,l)=>a+openCount(l),0); }
 
@@ -4180,7 +4282,8 @@ function paintLists(){
         (listOnBoard(l)?`<div class="limport">`+
           `<textarea data-limp="${esc(l.id)}" rows="2" placeholder="Paste assignments from Canvas or Learning Suite, one per line"></textarea>`+
           `<button data-limpgo="${esc(l.id)}">Import</button>`+
-          `<p class="lhint">Copy the assignment list off your Canvas dashboard or Learning Suite and paste it here. Dates are read out of each line in most formats \u2014 2026-09-05, Sep 5, or 9/5. A line with no date it can read still gets added, just undated.</p>`+
+          `<p class="lhint">Paste from Canvas or Learning Suite. Canvas\u2019 block format is read as-is \u2014 the <b>Due</b> line wins over the <b>Available</b> line above it. Anything already past its date is left out, and re-pasting the same page adds nothing new.<br>Learning Suite blocks copying on its grades table, so use the grabber below instead.</p>`+
+          `<button class="lbm" data-lbm="1">Copy the Learning Suite grabber</button>`+
         `</div>`:'')+
         `<div class="ltools">`+
           `<button data-lboard="${esc(l.id)}" class="${listOnBoard(l)?'on':''}">${listOnBoard(l)?'On the board':'Show due items on board'}</button>`+
@@ -4278,15 +4381,42 @@ listsRoot.addEventListener('click',e=>{
                   : 'Removed from the board');
     return;
   }
+  const bm=e.target.closest('[data-lbm]');
+  if(bm){
+    /* Learning Suite suppresses copy on its grades table, so there is nothing
+       to paste in the first place. This reads the table directly instead: save
+       it as a bookmark, open the Grades page, tap the bookmark, and it writes
+       title-and-date lines the box above already understands. */
+    let ok=false;
+    try{ if(navigator.clipboard){ navigator.clipboard.writeText(BOOKMARKLET); ok=true; } }catch(err){}
+    if(!ok){
+      const ta=document.createElement('textarea');
+      ta.value=BOOKMARKLET;
+      ta.style.cssText='position:fixed;left:5%;top:20%;width:90%;height:40%;z-index:99;';
+      document.body.appendChild(ta); ta.select();
+      try{ ok=document.execCommand('copy'); }catch(err){}
+      setTimeout(()=>ta.remove(), ok?0:20000);
+    }
+    toast(ok?'Copied \u00b7 save it as a bookmark, any name'
+            :'Select the box and copy it by hand');
+    return;
+  }
   const imp=e.target.closest('[data-limpgo]');
   if(imp){
     const lid=imp.dataset.limpgo;
     const box=listsRoot.querySelector('[data-limp="'+lid+'"]');
     if(!box || !box.value.trim()){ toast('Paste something first'); return; }
-    const n=importAssignments(lid,box.value);
+    const r=importAssignments(lid,box.value);
     box.value='';
     save(S); paintLists(); rebuild();
-    toast(n ? n+(n===1?' assignment added':' assignments added') : 'Nothing new to add');
+    /* Say what was left out as well as what came in \u2014 a silent import that
+       drops half a semester looks like a parser that does not work. */
+    const bits=[];
+    if(r.past) bits.push(r.past+' already past');
+    if(r.skipped) bits.push(r.skipped+' already there');
+    toast(r.added
+      ? r.added+(r.added===1?' assignment added':' assignments added')+(bits.length?' \u00b7 '+bits.join(', '):'')
+      : (bits.length?'Nothing new \u00b7 '+bits.join(', '):'Nothing recognised in that'));
     return;
   }
   const ren=e.target.closest('[data-lren]');
@@ -5348,6 +5478,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-j', note:"The importer now reads Canvas\u2019 real paste format \u2014 the type/title/availability/due block \u2014 and takes the Due line rather than the Available line above it, which is off by days. Learning Suite tables paste tab-separated and work too, and dropped rows and anything already past its date are left out. Since Learning Suite blocks copying entirely, there is a grabber button that copies a bookmarklet: save it, open the Grades page, tap it, and it reads the table straight off the page."},
   {v:'2026.08.15-i', note:"Coursework. List items can now carry a due date, and any list can be switched to show its dated items on the board. Each assignment is its own checkable row under Coursework, appearing the day before it is due and staying until it is done — checking it on the board marks it done in the list, because it is the same item, not a copy. Board-flagged lists also get a paste box: copy your assignments out of Canvas or Learning Suite and it reads the dates out of each line. Lists without dates behave exactly as they did."},
   {v:'2026.08.15-h', note:"Work-tied rows cleaned up. \"Change out of work clothes\" is retired. \"Air out the work shoes\" is now \"Air out your shoes\" on a weekly interval instead of every three days. Laundry, hand cream, foot powder, lunch and dinner all keep their rows but lose the food-service reasoning \u2014 hand cream now argues from Provo's dry air and hard water instead, and the powders are symptom-triggered rather than assumed. Step numbers after 39 shift down by one."},
   {v:'2026.08.15-g', note:"Every row now carries a fourteen-day strip: a mark per day, green for done, amber for not today, blank for neither, with the done count beside it. Rows with no history yet stay clean. Stored one entry per day rather than per task, so adding, renaming or retiring a task never needs a migration."},
