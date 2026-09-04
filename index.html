@@ -176,6 +176,34 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
   font-variant-numeric:tabular-nums;flex:0 0 auto;}
 .lbar .lcaret{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--dimmer);flex:0 0 auto;}
+.lviewbar{display:flex;gap:5px;margin:0 0 14px;}
+.lvbtn{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
+  text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
+  color:var(--dimmer);padding:7px 11px;border-radius:5px;cursor:pointer;min-height:32px;}
+.lvbtn[aria-pressed="true"]{border-color:var(--opt);color:var(--opt);}
+.dsec{margin:0 0 6px;}
+.dhead{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dimmer);padding:12px 0 6px;
+  border-bottom:1px solid var(--line);}
+.dhead.late{color:var(--live);}
+.dhead.now{color:var(--opt);}
+.dhead.fold{cursor:pointer;display:flex;align-items:center;gap:7px;min-height:38px;}
+.dhead .dcar{font-size:8px;display:inline-block;transition:transform .12s ease;}
+.dsec.open .dhead .dcar{transform:rotate(90deg);}
+.drow{display:flex;align-items:center;gap:9px;padding:9px 0;min-height:44px;
+  border-bottom:1px solid var(--line);cursor:pointer;}
+.drow:last-child{border-bottom:none;}
+.dtext{flex:1 1 auto;min-width:0;font-size:13.5px;line-height:1.35;}
+.drow.done .dtext{color:var(--dimmer);text-decoration:line-through;}
+.dcode{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;
+  padding:3px 6px;border-radius:4px;white-space:nowrap;flex:0 0 auto;
+  border:1px solid currentColor;opacity:.85;}
+.dwhen{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dimmer);
+  white-space:nowrap;flex:0 0 auto;min-width:48px;text-align:right;}
+.dwhen.late{color:var(--live);}
+.t-blue{color:#7fb0e8;} .t-green{color:#8fc46a;} .t-violet{color:#a79ae8;}
+.t-magenta{color:#dd8bb4;} .t-orange{color:#e0a45f;} .t-aqua{color:#6fc3b8;}
+.t-red{color:#e08a8a;} .t-yellow{color:#d6bd63;}
 .lbody{padding:4px 0 10px;}
 .llist.shut .lbody{display:none;}
 .litem{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;cursor:pointer;
@@ -4373,6 +4401,157 @@ function importAssignments(lid,text,opts){
 function openCount(l){ return (l.items||[]).filter(i=>!i.done).length; }
 function listsOpenTotal(){ return (S.lists||[]).reduce((a,l)=>a+openCount(l),0); }
 
+/* =========================================================
+   The Lists tab does two unrelated jobs. Managing a list
+   \u2014 importing, clearing, renaming \u2014 is per-list work.
+   Reading what is due is not: with five courses, "what is due
+   Thursday" means merging five lists in your head, which is
+   the thing the tab should be doing for you.
+
+   So: two views over the same data. BY DATE is flat and
+   chronological with the course as a chip; BY LIST is the
+   original, for management.
+
+   The choice lives in localStorage rather than S. It is a
+   per-device display preference, and putting it in S would
+   mark the device dirty and fire a sync on every toggle.
+   ========================================================= */
+const LVIEWKEY='protocol_lview';
+function lview(){
+  try{ return localStorage.getItem(LVIEWKEY)==='list' ? 'list' : 'date'; }
+  catch(e){ return 'date'; }
+}
+function setLview(v){
+  try{ localStorage.setItem(LVIEWKEY, v==='list'?'list':'date'); }catch(e){}
+}
+const LOPEN=new Set();          /* which collapsed sections are showing */
+
+/* A short tag per list, so a row can say where it came from without
+   spending half its width on it. A course code wins if the name has one
+   ("CHEM 106" -> CHEM); otherwise initials of the significant words
+   ("General Physics Lab 1" -> GPL, "Preview of Medicine" -> PM). */
+function listCode(name){
+  const n=String(name||'').trim();
+  /* Up to eight letters, or "Classics 110" fails the course-code test and
+     falls through to initials, giving "C1". */
+  const code=/^([A-Za-z]{2,8})\s*\d/.exec(n);
+  if(code) return code[1].toUpperCase().slice(0,5);
+  /* Bare numbers are section numbers, not words: "General Physics Lab 1"
+     should read GPL, not GPL1. */
+  const words=n.split(/[\s\-_]+/).filter(w=>w && !/^\d+$/.test(w)
+    && !/^(of|the|and|a|an|to|for|in|my)$/i.test(w));
+  if(words.length>1) return words.slice(0,4).map(w=>w[0]).join('').toUpperCase().slice(0,5);
+  return n.replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,5) || '?';
+}
+/* Stable per-list colour so the eye can group rows without reading. */
+const LTINTS=['blue','green','violet','magenta','orange','aqua','red','yellow'];
+function listTint(id){
+  let h=0; const t=String(id||'');
+  for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0;
+  return LTINTS[h%LTINTS.length];
+}
+
+/* Everything open, from every list, flattened and bucketed by when it is
+   due. Undated items are not dropped \u2014 they get their own section at the
+   bottom, because an album queue quietly vanishing is worse than a row
+   you scroll past. */
+function listBuckets(){
+  const t=today(), tm=addDaysISO(t,1), wk=addDaysISO(t,7), fn=addDaysISO(t,14);
+  const B={late:[],today:[],tomorrow:[],week:[],fortnight:[],later:[],none:[],done:[]};
+  (S.lists||[]).forEach(l=>{
+    (l.items||[]).forEach(i=>{
+      const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
+                 tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
+                 opens:itemOpens(i), done:!!i.done};
+      if(i.done){ B.done.push(row); return; }
+      const d=row.due;
+      if(!d) B.none.push(row);
+      else if(d<t) B.late.push(row);
+      else if(d===t) B.today.push(row);
+      else if(d===tm) B.tomorrow.push(row);
+      else if(d<=wk) B.week.push(row);
+      else if(d<=fn) B.fortnight.push(row);
+      else B.later.push(row);
+    });
+  });
+  const bydate=(a,b)=>{
+    if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
+    const x=a.at||'99:99', y=b.at||'99:99';
+    if(x!==y) return x<y?-1:1;
+    return a.text<b.text?-1:1;
+  };
+  Object.keys(B).forEach(k=>B[k].sort(bydate));
+  return B;
+}
+
+function lviewBar(){
+  const d=lview()==='date';
+  return `<div class="lviewbar">`+
+    `<button class="lvbtn" data-lview="date" aria-pressed="${d}">By date</button>`+
+    `<button class="lvbtn" data-lview="list" aria-pressed="${!d}">By list</button>`+
+  `</div>`;
+}
+
+function dateRow(r){
+  const late=r.due && r.due<today();
+  let when='';
+  if(!r.due) when='';
+  else if(r.due<today()){
+    const n=Math.round((dayOf(today())-dayOf(r.due))/dayMs);
+    when=n+'d late';
+  } else if(r.due===today()||r.due===addDaysISO(today(),1)){
+    when=r.at?prettyTime(r.at).replace(' ','').toLowerCase():'';
+  } else {
+    when=dayOf(r.due).toLocaleDateString('en-US',{weekday:'short'});
+  }
+  return `<div class="drow${r.done?' done':''}" data-lit="${esc(r.lid)}|${esc(r.iid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
+    `<div class="lbox">${CHECK}</div>`+
+    `<div class="dtext">${esc(r.text)}`+
+      (opensChip(r.opens)?`<span class="lopen">${esc(opensChip(r.opens))}</span>`:'')+
+    `</div>`+
+    `<span class="dcode t-${esc(r.tint)}" title="${esc(r.list)}">${esc(r.code)}</span>`+
+    (when?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'')+
+    `<button class="lx" data-lidel="${esc(r.lid)}|${esc(r.iid)}" aria-label="Delete item">del</button>`+
+  `</div>`;
+}
+
+function dateSection(key,label,rows,opts){
+  if(!rows.length) return '';
+  const o=opts||{};
+  if(o.fold){
+    const open=LOPEN.has(key);
+    return `<div class="dsec${open?' open':''}">`+
+      `<div class="dhead fold" data-dfold="${key}" role="button" tabindex="0" aria-expanded="${open}">`+
+        `<span class="dcar" aria-hidden="true">\u25B8</span>${esc(label)} \u00b7 ${rows.length}</div>`+
+      (open?rows.map(dateRow).join(''):'')+`</div>`;
+  }
+  return `<div class="dsec open">`+
+    `<div class="dhead${o.cls?' '+o.cls:''}">${esc(label)} \u00b7 ${rows.length}</div>`+
+    rows.map(dateRow).join('')+`</div>`;
+}
+
+function paintByDate(host){
+  const B=listBuckets();
+  const live=B.late.length+B.today.length+B.tomorrow.length+B.week.length+B.fortnight.length;
+  let h=lviewBar();
+  if(!live && !B.later.length && !B.none.length && !B.done.length){
+    host.innerHTML=h+`<p class="lnone">Nothing open anywhere. Add something in By list, or import a course.</p>`;
+    return;
+  }
+  h+=dateSection('late','Late',B.late,{cls:'late'})+
+     dateSection('today','Today',B.today,{cls:'now'})+
+     dateSection('tomorrow','Tomorrow',B.tomorrow)+
+     dateSection('week','This week',B.week)+
+     dateSection('fortnight','Next week',B.fortnight);
+  if(!live) h+=`<p class="lnone">Nothing due in the next two weeks.</p>`;
+  /* Folded by default: a semester of work you cannot act on yet, plus the
+     undated lists and everything already finished. */
+  h+=dateSection('later','Later',B.later,{fold:true})+
+     dateSection('none','No date',B.none,{fold:true})+
+     dateSection('done','Done',B.done,{fold:true});
+  host.innerHTML=h;
+}
+
 function paintLists(){
   const host=document.getElementById('lists');
   if(!host) return;
@@ -4384,7 +4563,8 @@ function paintLists(){
     host.innerHTML='<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
     return;
   }
-  host.innerHTML=S.lists.map(l=>{
+  if(lview()==='date'){ paintByDate(host); return; }
+  host.innerHTML=lviewBar()+S.lists.map(l=>{
     const items=l.items||[];
     /* Dated first, soonest first; undated keep their original order below.
        A coursework list is useless if the thing due tomorrow is buried. */
@@ -4414,7 +4594,7 @@ function paintLists(){
         `<span class="lnum">${open.length}${done.length?' / '+items.length:''}</span>`+
         `<span class="lcaret">${l.shut?'Open':'Close'}</span>`+
       `</div>`+
-      `<div class="lbody">`+
+      (l.shut?'<div class="lbody"></div>':`<div class="lbody">`+
         (items.length?open.map(rowFor).join(''):'<p class="lempty">Nothing here yet.</p>')+
         (done.length?`<div class="ldone">Done \u00b7 ${done.length}</div>`+done.map(rowFor).join(''):'')+
         `<div class="ladd">`+
@@ -4435,7 +4615,7 @@ function paintLists(){
           (items.length?`<button data-lwipe="${esc(l.id)}">Clear all</button>`:'')+
           `<button data-ldel="${esc(l.id)}">Delete list</button>`+
         `</div>`+
-      `</div>`+
+      `</div>`)+
     `</div>`;
   }).join('');
 }
@@ -4515,6 +4695,14 @@ listsRoot.addEventListener('click',e=>{
     const again=listsRoot.querySelector('[data-ladd="'+lid+'"]');
     if(again) again.focus();
     return;
+  }
+  const lv=e.target.closest('[data-lview]');
+  if(lv){ setLview(lv.dataset.lview); paintLists(); return; }
+  const fold=e.target.closest('[data-dfold]');
+  if(fold){
+    const k=fold.dataset.dfold;
+    if(LOPEN.has(k)) LOPEN.delete(k); else LOPEN.add(k);
+    paintLists(); return;
   }
   const bd=e.target.closest('[data-lboard]');
   if(bd){
@@ -5640,6 +5828,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-t', note:"Lists rebuilt around two views. BY DATE is the new default: every list flattened into one chronological run \u2014 late, today, tomorrow, this week, next week \u2014 with a short course tag on each row, so five courses read as one queue instead of five. Anything beyond a fortnight, anything undated, and everything done are folded away behind their own headers. BY LIST is the old view, kept for importing, clearing and renaming, and a collapsed list no longer builds its contents at all. Whichever view you used last is remembered per device."},
   {v:'2026.08.15-s', note:"Clear all, next to Clear done on every list that has anything in it. It empties the list but keeps the list itself, its name and its board setting, so you can wipe last semester\u2019s assignments and paste the new ones straight in. It asks first and names the list and the count, since there is no undo."},
   {v:'2026.08.15-r', note:"Fixed the Canvas grades import swallowing the first assignment. Everything above the table \u2014 the What-If help paragraph, the course name, the column headings \u2014 was landing in the buffer ahead of the opening record, and the wrong end of that buffer was being read, so the help text became assignment one and the real first assignment was lost. A record is now the last two lines before its due line, title then group, and anything sentence-shaped is skipped outright."},
   {v:'2026.08.15-q', note:"Fixed Learning Suite rows importing as \u201C(0 of 27 days marked)\u201D instead of their names. That counter sits nearer the due date than the title does, so the grabber stopped one container short and took it. A wholly parenthetical string is now never treated as a name, and neither are button words like View or Submit. The counter is also stripped from pasted text, so a re-import after the number changes no longer looks like a new assignment."},
