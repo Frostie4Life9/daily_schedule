@@ -4149,12 +4149,21 @@ function parseTime(line){
     const h=+bare[1], mi=+bare[2];
     return (h<=23 && mi<=59) ? String(h).padStart(2,'0')+':'+bare[2] : null;
   }
-  const m=/(?:^|[^\d:])(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?/i.exec(raw);
-  if(!m) return null;
-  const hh=+m[1], mm=+m[2];
+  let m=/(?:^|[^\d:])(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?/i.exec(raw);
+  let mm=0;
+  if(m){ mm=+m[2]; }
+  else {
+    /* Canvas' grades page writes a bare hour: "Sep 3 by 10pm". Only accepted
+       with a meridiem attached, so a lone number in a title stays a number. */
+    m=/(?:^|[^\d:])(\d{1,2})\s*([ap])\.?\s*m\.?\b/i.exec(raw);
+    if(!m) return null;
+    m=[m[0],m[1],'00',m[2]];
+  }
+  const hh=+m[1];
   if(hh<1||hh>12||mm>59) return null;
-  let h=hh%12; if(/p/i.test(m[3])) h+=12;
-  return String(h).padStart(2,'0')+':'+m[2];
+  let h=hh; if(h===12) h=0;
+  if(/p/i.test(m[3])) h+=12;
+  return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');
 }
 function itemTime(i){ return /^\d\d:\d\d$/.test((i&&i.at)||'') ? i.at : null; }
 function stripDue(line,due){
@@ -4197,7 +4206,15 @@ function dateOnly(s){
     .replace(/[\d:\s.,\-]/g,'');
   return rest.length===0;
 }
+/* Canvas' GRADES page, which is what you get for a course with no assignments
+   tab. Four lines per entry: title, assignment group, a due line, a score
+   line. The due line carries a tab before the submitted timestamp, so this has
+   to be recognised BEFORE the tab check or every row is named after its own
+   deadline. */
+const GRADEDUE=/\bby\s+\d{1,2}(:\d{2})?\s*[ap]\.?\s*m\.?\b/i;
+const GRADEJUNK=/^click to test|^-?\s*\/\s*\d+$|^\s*$/i;
 function assignmentFormat(lines){
+  if(lines.some(l=>GRADEDUE.test(l))) return 'grades';
   if(lines.some(l=>l.indexOf('\t')>-1)) return 'table';
   if(lines.some(l=>ROWTYPE.test(l)))    return 'block';
   return 'plain';
@@ -4239,6 +4256,26 @@ function parseAssignments(text){
       }
       push(title,due,false,opens,at);
     }
+    return out;
+  }
+
+  if(mode==='grades'){
+    /* Lines accumulate until a due line closes the record. The title is the
+       FIRST of them; the second is the assignment group ("Lessons", "Exams"),
+       which is not what the row is called. */
+    let buf=[];
+    live.forEach(ln=>{
+      if(GRADEJUNK.test(ln)) return;
+      if(GRADEDUE.test(ln)){
+        /* Everything after the tab is the SUBMITTED time, a different fact on
+           a possibly different day. Read the due half only. */
+        const head=ln.split('\t')[0];
+        if(buf.length) push(buf[0],parseDue(head),false,null,parseTime(head));
+        buf=[];
+        return;
+      }
+      buf.push(ln);
+    });
     return out;
   }
 
@@ -5570,6 +5607,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-p', note:"Canvas grades pages now import too, for courses with no assignments tab. Four lines per entry \u2014 title, assignment group, due line, score line \u2014 and the group name is not mistaken for the title. The due line carries a tab before the submitted timestamp, which is a different fact on a possibly different day, so only the half before the tab is read. Bare hours like \u201Cby 10pm\u201D are understood as well as \u201C10:30pm\u201D."},
   {v:'2026.08.15-o', note:"Fixed the grabber doing nothing at all. A bookmark is a URL, and the browser percent-decodes it before running it \u2014 so the \u201Cper cent 12\u201D inside an hour calculation was read as an escape code and quietly replaced by a control character, which broke the whole script. The arithmetic no longer uses that operator, and there is now a check that the bookmarklet contains no sequence a browser would decode."},
   {v:'2026.08.15-n', note:"Due times. The grabber now reads the hour as well as the date, and the chip says \u201Cdue today 11:59pm\u201D or \u201Cdue today 2:00pm\u201D rather than just the day. Same-day assignments sort by the clock, earliest first, with unknown hours last. Canvas blocks take the time from the Due line, never the availability line above it. Once something is late the clock drops off, since the hour stopped mattering."},
   {v:'2026.08.15-m', note:"The Learning Suite grabber was naming every row after its own timestamp. Learning Suite splits the due cell into separate pieces for the date, the time and the zone, and the grabber stopped climbing at the first container that held any text \u2014 which was the cell holding \u201C11:59 pm\u201D. It now keeps climbing to the row, ignores time and timezone fragments outright, and prefers the linked text, since an assignment name is nearly always a link."},
