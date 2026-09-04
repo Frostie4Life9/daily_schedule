@@ -4432,6 +4432,7 @@ function paintLists(){
           `<button data-lboard="${esc(l.id)}" class="${listOnBoard(l)?'on':''}">${listOnBoard(l)?'On the board':'Show due items on board'}</button>`+
           `<button data-lren="${esc(l.id)}">Rename</button>`+
           (done.length?`<button data-lclr="${esc(l.id)}">Clear done</button>`:'')+
+          (items.length?`<button data-lwipe="${esc(l.id)}">Clear all</button>`:'')+
           `<button data-ldel="${esc(l.id)}">Delete list</button>`+
         `</div>`+
       `</div>`+
@@ -4575,6 +4576,24 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(clr.dataset.lclr); if(!l) return;
     l.items=(l.items||[]).filter(i=>!i.done);
     save(S); paintLists(); return;
+  }
+  const wipe=e.target.closest('[data-lwipe]');
+  if(wipe){
+    const l=listById(wipe.dataset.lwipe); if(!l) return;
+    const n=(l.items||[]).length;
+    if(!n){ toast('Already empty'); return; }
+    /* Confirmed, because this is the one control here that destroys work with
+       no undo. The count is in the prompt so a mis-tap on the wrong list is
+       obvious before it happens rather than after. */
+    if(!confirm('Clear all '+n+' item'+(n>1?'s':'')+' from "'+l.name+'"?')) return;
+    l.items=[];
+    /* A board row for a deleted item would otherwise leave its key sitting in
+       today's checked list, where it counts toward the day's total forever. */
+    const pre='l:'+l.id+'|';
+    S.checked=(S.checked||[]).filter(k=>String(k).indexOf(pre)!==0);
+    save(S); paintLists(); rebuild();
+    toast('Cleared '+n+' item'+(n>1?'s':''));
+    return;
   }
   const dl=e.target.closest('[data-ldel]');
   if(dl){
@@ -5621,6 +5640,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-s', note:"Clear all, next to Clear done on every list that has anything in it. It empties the list but keeps the list itself, its name and its board setting, so you can wipe last semester\u2019s assignments and paste the new ones straight in. It asks first and names the list and the count, since there is no undo."},
   {v:'2026.08.15-r', note:"Fixed the Canvas grades import swallowing the first assignment. Everything above the table \u2014 the What-If help paragraph, the course name, the column headings \u2014 was landing in the buffer ahead of the opening record, and the wrong end of that buffer was being read, so the help text became assignment one and the real first assignment was lost. A record is now the last two lines before its due line, title then group, and anything sentence-shaped is skipped outright."},
   {v:'2026.08.15-q', note:"Fixed Learning Suite rows importing as \u201C(0 of 27 days marked)\u201D instead of their names. That counter sits nearer the due date than the title does, so the grabber stopped one container short and took it. A wholly parenthetical string is now never treated as a name, and neither are button words like View or Submit. The counter is also stripped from pasted text, so a re-import after the number changes no longer looks like a new assignment."},
   {v:'2026.08.15-p', note:"Canvas grades pages now import too, for courses with no assignments tab. Four lines per entry \u2014 title, assignment group, due line, score line \u2014 and the group name is not mistaken for the title. The due line carries a tab before the submitted timestamp, which is a different fact on a possibly different day, so only the half before the tab is read. Bare hours like \u201Cby 10pm\u201D are understood as well as \u201C10:30pm\u201D."},
