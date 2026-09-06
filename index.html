@@ -345,6 +345,11 @@ input.pq::placeholder{color:var(--dimmer);}
 .limport .lhint{flex:1 1 100%;font-size:11px;line-height:1.45;color:var(--dimmer);margin:2px 0 0;}
 .ltools button.on{border-color:var(--done);color:var(--done);}
 .limport .lbm{flex:0 0 auto;}
+.litem .lpin,.drow .lpin{flex:0 0 auto;border:1px solid var(--line);background:none;
+  color:var(--dim);border-radius:5px;font-size:10.5px;letter-spacing:.06em;
+  text-transform:uppercase;padding:3px 7px;cursor:pointer;margin-right:4px;}
+.litem .lpin.on,.drow .lpin.on{color:var(--done);border-color:var(--done);}
+.litem .lpin:hover,.drow .lpin:hover{color:var(--fg);border-color:var(--fg);}
 .limport .lpast{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
   font-size:11.5px;color:var(--dim);cursor:pointer;user-select:none;
   border:1px solid var(--line);border-radius:5px;padding:0 8px;min-height:34px;}
@@ -3661,18 +3666,26 @@ function buildRows(){
   (function(){
     const as=dueAssignments(); if(!as.length) return;
     const sec=document.createElement('section'); sec.className='phase';
-    const lateN=as.filter(a=>a.late).length;
+    /* Count what is still owed. Finished rows stay visible but must not be
+       reported as outstanding, or the header contradicts the checkmarks. */
+    const openN=as.filter(a=>!a.done).length;
+    const lateN=as.filter(a=>a.late&&!a.done).length;
     sec.innerHTML=`<div class="phead"><h2>Coursework</h2>`+
-      `<em>${as.length} due${lateN?' · '+lateN+' late':''}</em></div>`;
+      `<em>${openN} due${lateN?' · '+lateN+' late':''}</em></div>`;
     as.forEach((a,ai)=>{
       sec.appendChild(makeRow({
         key:a.key, cls:['routine','extra','custom'],
         num:String(ai+1).padStart(2,'0'),
         label:esc(a.text),
         meta:[`<span class="sched">${esc(a.list)}</span>`,
-              `<span class="rstat${a.late?'':' ok'}">${esc(dueChip(a.due,a.at))}</span>`,
+              /* Pinned undated work has no deadline to report, so say what it
+                 IS doing here instead of leaving the row unexplained. */
+              a.due?`<span class="rstat${a.late?'':' ok'}">${esc(dueChip(a.due,a.at))}</span>`
+                   :`<span class="rstat ok">added to today</span>`,
+              a.pin&&a.due?`<span class="rstat shut">pinned</span>`:'',
               a.opensChip?`<span class="rstat shut">${esc(a.opensChip)}</span>`:''],
-        buttons:`<button class="skip" data-ldrop="${esc(a.key)}" title="Delete this assignment" aria-label="Delete this assignment">delete</button>`
+        buttons:(a.pin?`<button class="skip" data-lunpin="${esc(a.key)}" title="Take this off today" aria-label="Take this off today">unpin</button>`:'')+
+                `<button class="skip" data-ldrop="${esc(a.key)}" title="Delete this assignment" aria-label="Delete this assignment">delete</button>`
       }));
     });
     list.appendChild(sec);
@@ -3732,6 +3745,12 @@ list.addEventListener('click',e=>{
     }
     save(S); rebuild();
     toast(v===today()?'Moved to today':'Moved to '+prettyDay(v));
+    return;
+  }
+  const up=e.target.closest('[data-lunpin]');
+  if(up){
+    const f=findListItem(up.dataset.lunpin);
+    if(f){ f.item.pin=null; save(S); rebuild(); paintLists(); toast('Taken off today'); }
     return;
   }
   const ld=e.target.closest('[data-ldrop]');
@@ -4017,9 +4036,14 @@ function toggle(row){
      done there, or the two views disagree and neither can be trusted. */
   if(n.indexOf('l:')===0){
     const f=findListItem(n);
-    if(f){ f.item.done = i>-1 ? false : true; }
+    /* toggle() already moved the key; hand setItemDone the intent and let it
+       own both stores rather than half-writing one here. */
+    if(f) setItemDone(f.item,n,i===-1);
+    else { const j=S.checked.indexOf(n); if(j>-1) S.checked.splice(j,1); }
     save(S);
-    if(i>-1) paint(); else rebuild();   /* done rows leave the due window */
+    /* A ticked assignment now STAYS on the board until its due day passes, so
+       this is a repaint, not a rebuild -- the row is not going anywhere. */
+    paint(); paintLists();
     return;
   }
   if(n.indexOf('r:')===0){
@@ -4087,6 +4111,10 @@ const DUE_LEAD=1;                       /* today and tomorrow */
 function listOnBoard(l){ return !!(l&&l.board); }
 function itemDue(i){ return /^\d{4}-\d\d-\d\d$/.test((i&&i.due)||'') ? i.due : null; }
 function itemOpens(i){ return /^\d{4}-\d\d-\d\d$/.test((i&&i.opens)||'') ? i.opens : null; }
+function itemPin(i){ return /^\d{4}-\d\d-\d\d$/.test((i&&i.pin)||'') ? i.pin : null; }
+/* Pinned means "I am doing this today", so it does not expire on its own --
+   an unfinished pin behaves like an overdue item and keeps showing up. */
+function isPinned(i){ const p=itemPin(i); return !!p && p<=today(); }
 /* Only worth saying while it is still ahead of you. Once an assignment is
    open, when it opened is history. */
 function opensChip(o){
@@ -4102,23 +4130,70 @@ function opensChip(o){
 function dueAssignments(){
   const t=today(), lim=addDaysISO(t,DUE_LEAD), out=[];
   (S.lists||[]).forEach(l=>{
-    if(!listOnBoard(l)) return;
+    const pinnedOK=true;   /* a pin is a deliberate act; it beats the board flag */
     (l.items||[]).forEach(i=>{
-      const d=itemDue(i);
-      if(!d || i.done) return;
-      if(d<=lim) out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d,
-                           at:itemTime(i), late:d<t,
-                           opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
-                           key:'l:'+l.id+'|'+i.id});
+      const d=itemDue(i), pin=isPinned(i);
+      if(!listOnBoard(l) && !pin) return;
+      if(!d && !pin) return;
+      /* A finished assignment stays where it is until the day it was owed has
+         gone by -- checking something off should show you the checkmark, not
+         make the row evaporate. Finish something ALREADY late and it lingers
+         for the rest of the day you did it, so the work still registers. */
+      if(i.done && !(pin || (d && d>=t) || i.doneOn===t)) return;
+      /* Pinned work ignores the two-day window entirely: you asked for it. */
+      if(!pin && d>lim) return;
+      out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d||null,
+                at:itemTime(i), late:!!(d&&d<t), done:!!i.done,
+                pin:pin, opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
+                key:'l:'+l.id+'|'+i.id});
     });
   });
   /* Same day, earlier deadline first. Undated-time items sort after those
      with a time, since an unknown hour is not a claim on your morning. */
+  /* Done rows keep their place in the run rather than being swept to the
+     bottom: the order is the order of the day, not a leaderboard. Undated
+     pinned work sorts after everything with a deadline. */
   return out.sort((a,b)=>{
-    if(a.due!==b.due) return a.due<b.due?-1:1;
+    const ad=a.due||'9999-99-99', bd=b.due||'9999-99-99';
+    if(ad!==bd) return ad<bd?-1:1;
     const at=a.at||'99:99', bt=b.at||'99:99';
     if(at!==bt) return at<bt?-1:1;
     return a.text<b.text?-1:1;
+  });
+}
+/* A coursework row and its list item are ONE thing wearing two faces: the
+   board renders and counts from S.checked, the Lists tab from item.done. Every
+   write to either goes through here, so the two can never part company. The
+   old bug was exactly this -- the list handler set item.done alone, and the
+   stale S.checked key came back the moment you unticked. */
+function setItemDone(item,key,done){
+  if(!item) return;
+  item.done=!!done;
+  if(done){
+    /* The app's logical day, not the calendar's: today() rolls at 4am, so a
+       midnight tick belongs to the day you were still awake for. */
+    item.doneOn=today();
+    item.doneAt=new Date().toISOString();
+    if(S.checked.indexOf(key)===-1) S.checked.push(key);
+  } else {
+    item.doneOn=null; item.doneAt=null;
+    const i=S.checked.indexOf(key); if(i>-1) S.checked.splice(i,1);
+  }
+}
+/* Self-healing, because one setter is not enough once state syncs between
+   devices: a merge can land with the two stores disagreeing, and data written
+   before setItemDone existed already does. item.done wins -- it is the one the
+   Lists tab shows and the one the person actually last touched. */
+function reconcileChecked(){
+  S.checked=S.checked||[];
+  const live={};
+  (S.lists||[]).forEach(l=>(l.items||[]).forEach(i=>{ live['l:'+l.id+'|'+i.id]=!!i.done; }));
+  S.checked=S.checked.filter(k=>{
+    if(String(k).indexOf('l:')!==0) return true;   /* not ours to judge */
+    return live[k]===true;                         /* drops stale AND orphaned */
+  });
+  Object.keys(live).forEach(k=>{
+    if(live[k] && S.checked.indexOf(k)===-1) S.checked.push(k);
   });
 }
 function findListItem(key){
@@ -4492,7 +4567,7 @@ function listBuckets(){
     (l.items||[]).forEach(i=>{
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
-                 opens:itemOpens(i), done:!!i.done};
+                 opens:itemOpens(i), done:!!i.done, pin:isPinned(i)};
       if(i.done){ B.done.push(row); return; }
       const d=row.due;
       if(!d) B.none.push(row);
@@ -4541,6 +4616,9 @@ function dateRow(r){
     `</div>`+
     `<span class="dcode t-${esc(r.tint)}" title="${esc(r.list)}">${esc(r.code)}</span>`+
     (when?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'')+
+    `<button class="lpin${r.pin?' on':''}" data-lpin="${esc(r.lid)}|${esc(r.iid)}" `+
+      `title="${r.pin?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
+      `aria-pressed="${!!r.pin}" aria-label="Put this on today\u2019s board">day</button>`+
     `<button class="lx" data-lidel="${esc(r.lid)}|${esc(r.iid)}" aria-label="Delete item">del</button>`+
   `</div>`;
 }
@@ -4616,6 +4694,9 @@ function paintLists(){
         (itemDue(i)?`<span class="ldue${itemDue(i)<today()?' late':''}">${esc(dueChip(itemDue(i),itemTime(i)))}</span>`:'')+
         (opensChip(itemOpens(i))?`<span class="lopen">${esc(opensChip(itemOpens(i)))}</span>`:'')+
       `</div>`+
+      `<button class="lpin${isPinned(i)?' on':''}" data-lpin="${esc(l.id)}|${esc(i.id)}" `+
+        `title="${isPinned(i)?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
+        `aria-pressed="${isPinned(i)}" aria-label="Put this on today\u2019s board">day</button>`+
       `<button class="lx" data-lidel="${esc(l.id)}|${esc(i.id)}" aria-label="Delete item">del</button>`+
       `</div>`;
     return `<div class="llist${l.shut?' shut':''}">`+
@@ -4832,14 +4913,26 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(bar.dataset.lshut); if(!l) return;
     l.shut=!l.shut; save(S); paintLists(); return;
   }
+  const pinb=e.target.closest('[data-lpin]');
+  if(pinb){
+    const [lid,iid]=pinb.dataset.lpin.split('|');
+    const l=listById(lid); if(!l) return;
+    const item=(l.items||[]).find(x=>x.id===iid); if(!item) return;
+    const was=isPinned(item);
+    item.pin = was ? null : today();
+    save(S); paintLists(); rebuild();
+    toast(was?'Taken off today':'Added to today');
+    return;
+  }
   const it=e.target.closest('[data-lit]');
   if(it){
     const [lid,iid]=it.dataset.lit.split('|');
     const l=listById(lid); if(!l) return;
     const item=(l.items||[]).find(x=>x.id===iid); if(!item) return;
-    item.done=!item.done;
-    item.doneAt=item.done?new Date().toISOString():null;
-    save(S); paintLists(); return;
+    setItemDone(item,'l:'+l.id+'|'+item.id,!item.done);
+    save(S); paintLists();
+    /* The daily has to agree the moment this changes, not at the next rebuild. */
+    rebuild(); return;
   }
 });
 
@@ -5392,7 +5485,7 @@ function restoreDrawer(){
   const want=S.drawer;
   applyDrawer(DRAWTABS.some(t=>t.id===want) ? want : null);
 }
-function rebuild(){ computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }
+function rebuild(){ reconcileChecked(); computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }
 
 const optbtn=document.getElementById('optbtn');
 function paintOpt(){
@@ -5864,6 +5957,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-x', note:"The daily and the Lists tab now agree about what is done, in both directions. Ticking an assignment on the board already marked it off the list, but ticking it on the LIST only wrote half the state \u2014 the board kept its own record, so unticking brought the row back to the daily already ticked. One function now owns both stores, and a reconcile on every rebuild repairs any disagreement already sitting in your data or arriving from another device, with the list\u2019s answer winning. A ticked assignment also STAYS on the daily now instead of vanishing, in its place in the day\u2019s order rather than swept to the bottom, until the day it was due has gone by \u2014 finish something already late and it stays for the rest of the day you did it, so the work still shows. The Coursework header counts what is still owed, not what is on screen. New: a DAY button on every row in both Lists views puts that item on today\u2019s board even if it is undated or weeks off, and it ticks off in lockstep with the list like everything else. A pin does not expire on its own; tap DAY again, or UNPIN on the board row, to take it off."},
   {v:'2026.08.15-w', note:"The grabber no longer copies the page when it cannot find any coursework on it. Run on anything that is not a grades page, it used to hand over the ENTIRE document text and invite you to paste it in anyway \u2014 so a stray tap on the wrong tab put a page-sized blob on the clipboard, and one mispaste later the browser was trying to resolve it as a web address. It now copies nothing at all in that case and says plainly that it is not a grades page. Rows must also mostly carry dates before anything is copied, since any site with a table will produce rows and a grades page is the one where they have due dates. The banner closes properly either way."},
   {v:'2026.08.15-v', note:"Learning Suite\u2019s Opens column no longer arrives as a second copy of the assignment. Every row on that page carries two dates \u2014 when the work unlocks and when it is owed \u2014 and the grabber was treating each date it found as an assignment in its own right, so Pre-Lab 3 landed twice: once on its real due date and once, weeks early, on the day it opened. Both dates in a row are now read as one assignment, the deadline is taken from the due cell and the unlock date is kept separately as the opens tag \u2014 the same thing Canvas already did with its \u201Cnot available until\u201D line. The hour is read off the due cell too, so a row can no longer end up on the right day at the wrong clock, and a Submitted or Graded column cannot pose as a deadline. An unlock date with no deadline beside it stays undated rather than being promoted into one, which is the mistake that started all this."},
   {v:'2026.08.15-u', note:"Clearing a list and re-importing no longer loses the work you had already done. The importer drops anything past its due date, which is right for a fresh semester paste and exactly wrong when you have wiped a list mid-semester and are rebuilding it \u2014 every assignment you had ticked off is, by definition, one whose date has passed, so the whole first half of the course silently vanished and the toast blamed it on being \u201Calready past\u201D. There is now an INCLUDE PAST-DUE tick beside the Import button. Off, nothing changes. On, past work is kept and arrives already ticked off, so it lands in the record without putting a semester of dead deadlines on the board as overdue. The toast now names the tick when it drops something, instead of reporting a count that reads like the parser failed. Separately: an assignment ticked off EARLY \u2014 due Friday, done Tuesday \u2014 was not recognised as a duplicate, so re-pasting the page added a second undone copy of work already finished. Done items now count as twins."},
