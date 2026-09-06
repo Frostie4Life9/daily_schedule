@@ -345,6 +345,24 @@ input.pq::placeholder{color:var(--dimmer);}
 .limport .lhint{flex:1 1 100%;font-size:11px;line-height:1.45;color:var(--dimmer);margin:2px 0 0;}
 .ltools button.on{border-color:var(--done);color:var(--done);}
 .limport .lbm{flex:0 0 auto;}
+.litem .ltop,.drow .ltop{flex:0 0 auto;border:1px solid var(--line);background:none;
+  color:var(--dim);border-radius:5px;padding:3px 5px;cursor:pointer;margin-right:4px;
+  line-height:0;}
+.litem .ltop svg,.drow .ltop svg{width:12px;height:12px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.litem .ltop.on,.drow .ltop.on{color:var(--done);border-color:var(--done);}
+.litem .ltop.on svg,.drow .ltop.on svg{fill:currentColor;}
+.lgrip{flex:0 0 auto;display:inline-flex;align-items:center;color:var(--dim);
+  cursor:grab;padding:2px 6px 2px 0;margin-right:2px;touch-action:none;line-height:0;}
+.lgrip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;}
+.lgrip:active{cursor:grabbing;}
+.llist.dragging{opacity:.85;outline:2px solid var(--done);border-radius:8px;}
+body.dragging-list{user-select:none;}
+.kitchen{flex:0 0 auto;border:1px solid var(--line);background:none;color:var(--dim);
+  border-radius:5px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 7px;cursor:pointer;}
+.kitchen:hover{color:var(--fg);border-color:var(--fg);}
 .litem .lpin,.drow .lpin{flex:0 0 auto;border:1px solid var(--line);background:none;
   color:var(--dim);border-radius:5px;font-size:10.5px;letter-spacing:.06em;
   text-transform:uppercase;padding:3px 7px;cursor:pointer;margin-right:4px;}
@@ -1866,6 +1884,17 @@ function flags(){
 }
 const fmt=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
 const CHECK='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+const KITCHEN_URL='https://frostie4life9.github.io/kitchen/';
+const MEALS={breakfast:1,lunch:1,dinner:1};
+/* A page can only re-focus a tab IT opened, and only by name -- there is no
+   API for finding a tab you opened yourself, in any browser. So this reuses
+   the named tab when it can and opens a fresh one when it cannot. */
+function kitchenBtn(id){
+  return MEALS[id] ? `<button class="kitchen" data-kitchen="1" title="Open the kitchen app" `+
+                     `aria-label="Open the kitchen app">kitchen</button>` : '';
+}
+const PIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"/><line x1="12" y1="13" x2="12" y2="21"/></svg>';
+const GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/></svg>';
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 /* ---------------- shelf ---------------- */
@@ -3636,7 +3665,7 @@ function buildRows(){
           extra: d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
                  (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:''),
           resched: st.sched?reschedPanel(st.id,ss.from):'',
-          buttons: linkBtn(st.id)+
+          buttons: kitchenBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
                    asideBtns(st.id)
         }));
@@ -3992,6 +4021,18 @@ function paintNudge(){
     `until the app knows when you last did ${n===1?'it':'them'}. Tap to set them up.`;
 }
 document.addEventListener('click',e=>{
+  const kb=e.target.closest && e.target.closest('[data-kitchen]');
+  if(kb){
+    e.preventDefault(); e.stopPropagation();
+    /* Named target: tap it twice and the same tab is reused and raised rather
+       than stacking duplicates. focus() is best-effort -- most browsers ignore
+       it unless the tab was opened by this page in this gesture. */
+    let w=null;
+    try{ w=window.open(KITCHEN_URL,'kitchenapp'); }catch(err){}
+    if(w){ try{ w.focus(); }catch(err){} }
+    else toast('Allow pop-ups for this site to open the kitchen');
+    return;
+  }
   if(!e.target.closest('#setupnudge')) return;
   setPanel('plan',true);
   planFilter='new'; paintSchedule();
@@ -4115,6 +4156,24 @@ function itemPin(i){ return /^\d{4}-\d\d-\d\d$/.test((i&&i.pin)||'') ? i.pin : n
 /* Pinned means "I am doing this today", so it does not expire on its own --
    an unfinished pin behaves like an overdue item and keeps showing up. */
 function isPinned(i){ const p=itemPin(i); return !!p && p<=today(); }
+function itemTop(i){ return !!(i&&i.top); }
+/* Has this finished item's day gone by? Until it has, it keeps its place
+   wherever it is shown \u2014 the same rule the board uses, so the two tabs cannot
+   tell you different things about the same assignment. Finish something
+   already late and it holds for the rest of the day you did it. */
+function doneSettled(i){
+  if(!i||!i.done) return false;
+  const t=today(), d=itemDue(i);
+  return !(isPinned(i) || (d && d>=t) || i.doneOn===t);
+}
+/* Top-pinned first, then the caller's own order. Undated work pinned to the
+   top rises within its own section rather than jumping the date headings. */
+function topFirst(next){
+  return (a,b)=>{
+    if(a.top!==b.top) return a.top?-1:1;
+    return next(a,b);
+  };
+}
 /* Only worth saying while it is still ahead of you. Once an assignment is
    open, when it opened is history. */
 function opensChip(o){
@@ -4567,8 +4626,11 @@ function listBuckets(){
     (l.items||[]).forEach(i=>{
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
-                 opens:itemOpens(i), done:!!i.done, pin:isPinned(i)};
-      if(i.done){ B.done.push(row); return; }
+                 opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i)};
+      /* Only work whose day has actually gone by drops into the Done fold.
+         Ticking something off should not make it leave the section you are
+         looking at while it is still today's problem. */
+      if(doneSettled(i)){ B.done.push(row); return; }
       const d=row.due;
       if(!d) B.none.push(row);
       else if(d<t) B.late.push(row);
@@ -4579,12 +4641,12 @@ function listBuckets(){
       else B.later.push(row);
     });
   });
-  const bydate=(a,b)=>{
+  const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
     const x=a.at||'99:99', y=b.at||'99:99';
     if(x!==y) return x<y?-1:1;
     return a.text<b.text?-1:1;
-  };
+  });
   Object.keys(B).forEach(k=>B[k].sort(bydate));
   return B;
 }
@@ -4616,6 +4678,9 @@ function dateRow(r){
     `</div>`+
     `<span class="dcode t-${esc(r.tint)}" title="${esc(r.list)}">${esc(r.code)}</span>`+
     (when?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'')+
+    `<button class="ltop${r.top?' on':''}" data-ltop="${esc(r.lid)}|${esc(r.iid)}" `+
+      `title="${r.top?'Pinned to the top \u2014 tap to release':'Keep this at the top of this section'}" `+
+      `aria-pressed="${!!r.top}" aria-label="Keep this at the top of this section">${PIN}</button>`+
     `<button class="lpin${r.pin?' on':''}" data-lpin="${esc(r.lid)}|${esc(r.iid)}" `+
       `title="${r.pin?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
       `aria-pressed="${!!r.pin}" aria-label="Put this on today\u2019s board">day</button>`+
@@ -4676,7 +4741,7 @@ function paintLists(){
     const items=l.items||[];
     /* Dated first, soonest first; undated keep their original order below.
        A coursework list is useless if the thing due tomorrow is buried. */
-    const open=items.filter(i=>!i.done).slice().sort((a,b)=>{
+    const open=items.filter(i=>!doneSettled(i)).slice().sort(topFirst((a,b)=>{
       const da=itemDue(a), db=itemDue(b);
       if(da&&db){
         if(da!==db) return da<db?-1:1;
@@ -4686,21 +4751,26 @@ function paintLists(){
       if(da) return -1;
       if(db) return 1;
       return 0;
-    });
-    const done=items.filter(i=>i.done);
+    }));
+    const done=items.filter(doneSettled);
     const rowFor=i=>`<div class="litem${i.done?' done':''}" data-lit="${esc(l.id)}|${esc(i.id)}" role="checkbox" aria-checked="${!!i.done}" tabindex="0">`+
       `<div class="lbox">${CHECK}</div>`+
       `<div class="ltext">${esc(i.text)}`+
         (itemDue(i)?`<span class="ldue${itemDue(i)<today()?' late':''}">${esc(dueChip(itemDue(i),itemTime(i)))}</span>`:'')+
         (opensChip(itemOpens(i))?`<span class="lopen">${esc(opensChip(itemOpens(i)))}</span>`:'')+
       `</div>`+
+      `<button class="ltop${itemTop(i)?' on':''}" data-ltop="${esc(l.id)}|${esc(i.id)}" `+
+        `title="${itemTop(i)?'Pinned to the top \u2014 tap to release':'Keep this at the top of the list'}" `+
+        `aria-pressed="${itemTop(i)}" aria-label="Keep this at the top of the list">${PIN}</button>`+
       `<button class="lpin${isPinned(i)?' on':''}" data-lpin="${esc(l.id)}|${esc(i.id)}" `+
         `title="${isPinned(i)?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
         `aria-pressed="${isPinned(i)}" aria-label="Put this on today\u2019s board">day</button>`+
       `<button class="lx" data-lidel="${esc(l.id)}|${esc(i.id)}" aria-label="Delete item">del</button>`+
       `</div>`;
-    return `<div class="llist${l.shut?' shut':''}">`+
+    return `<div class="llist${l.shut?' shut':''}" data-lid="${esc(l.id)}">`+
       `<div class="lbar" data-lshut="${esc(l.id)}" role="button" tabindex="0" aria-expanded="${!l.shut}">`+
+        `<span class="lgrip" data-lgrip="${esc(l.id)}" role="button" tabindex="-1" `+
+          `aria-label="Drag to reorder this list" title="Drag to reorder">${GRIP}</span>`+
         `<h3>${esc(l.name)}</h3>`+
         `<span class="lnum">${open.length}${done.length?' / '+items.length:''}</span>`+
         `<span class="lcaret">${l.shut?'Open':'Close'}</span>`+
@@ -4731,6 +4801,63 @@ function paintLists(){
     `</div>`;
   }).join('');
 }
+
+/* =========================================================
+   REORDERING LISTS BY DRAG
+   Pointer events, not HTML5 drag-and-drop: dragstart never fires from a touch
+   on iOS, so the native API would have made this a desktop-only feature on a
+   phone-first app. The handle is its own element so the drag cannot be
+   confused with the tap that collapses a list.
+   ========================================================= */
+let dragState=null;
+function listEls(){ return [...document.querySelectorAll('#lists .llist')]; }
+function commitListOrder(){
+  const order=listEls().map(el=>el.dataset.lid);
+  const by={}; (S.lists||[]).forEach(l=>{ by[l.id]=l; });
+  const next=order.map(id=>by[id]).filter(Boolean);
+  /* Anything the DOM did not account for keeps its place at the end rather
+     than being dropped -- losing a list to a stray repaint is unforgivable. */
+  (S.lists||[]).forEach(l=>{ if(next.indexOf(l)===-1) next.push(l); });
+  S.lists=next; save(S);
+}
+function endDrag(commit){
+  if(!dragState) return;
+  const d=dragState; dragState=null;
+  if(d.el){ d.el.classList.remove('dragging'); d.el.style.transform=''; }
+  document.body.classList.remove('dragging-list');
+  try{ if(d.grip&&d.pid!==undefined) d.grip.releasePointerCapture(d.pid); }catch(e){}
+  if(commit && d.moved){ commitListOrder(); paintLists(); toast('Order saved'); }
+  else if(d.moved){ paintLists(); }
+}
+document.addEventListener('pointerdown',e=>{
+  const grip=e.target.closest && e.target.closest('[data-lgrip]');
+  if(!grip) return;
+  const el=grip.closest('.llist'); if(!el) return;
+  e.preventDefault(); e.stopPropagation();
+  dragState={grip:grip, el:el, pid:e.pointerId, y0:e.clientY, moved:false};
+  try{ grip.setPointerCapture(e.pointerId); }catch(err){}
+});
+document.addEventListener('pointermove',e=>{
+  const d=dragState; if(!d) return;
+  const dy=e.clientY-d.y0;
+  /* A few pixels of slop, so a clumsy tap on the handle is still a tap. */
+  if(!d.moved && Math.abs(dy)<6) return;
+  if(!d.moved){ d.moved=true; d.el.classList.add('dragging');
+                document.body.classList.add('dragging-list'); }
+  e.preventDefault();
+  /* Reorder against the MIDPOINT of each sibling: swapping on overlap alone
+     makes rows of different heights flicker back and forth under the cursor. */
+  const els=listEls();
+  for(const other of els){
+    if(other===d.el) continue;
+    const r=other.getBoundingClientRect(), mid=r.top+r.height/2;
+    const own=d.el.getBoundingClientRect();
+    if(e.clientY<mid && own.top>r.top){ other.parentNode.insertBefore(d.el,other); break; }
+    if(e.clientY>mid && own.top<r.top){ other.parentNode.insertBefore(d.el,other.nextSibling); break; }
+  }
+});
+document.addEventListener('pointerup',()=>endDrag(true));
+document.addEventListener('pointercancel',()=>endDrag(false));
 
 function addListItem(lid,text,due){
   const l=listById(lid); if(!l) return false;
@@ -4913,6 +5040,16 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(bar.dataset.lshut); if(!l) return;
     l.shut=!l.shut; save(S); paintLists(); return;
   }
+  const topb=e.target.closest('[data-ltop]');
+  if(topb){
+    const [lid,iid]=topb.dataset.ltop.split('|');
+    const l=listById(lid); if(!l) return;
+    const item=(l.items||[]).find(x=>x.id===iid); if(!item) return;
+    item.top = item.top ? null : true;
+    save(S); paintLists();
+    toast(item.top?'Pinned to the top':'Released');
+    return;
+  }
   const pinb=e.target.closest('[data-lpin]');
   if(pinb){
     const [lid,iid]=pinb.dataset.lpin.split('|');
@@ -4989,6 +5126,11 @@ function wireRows(){
       if(e.target.closest('.timer'))return;
       /* let the delegated handler below deal with these; do NOT stop the event */
       if(e.target.closest('[data-late]')||e.target.closest('.resched')||e.target.closest('[data-drop]'))return;
+      /* The kitchen button lives INSIDE the row, and the row listener runs
+         before anything delegated to document -- without this, opening the
+         kitchen also ticked the meal off. Fall through without stopping the
+         event so the delegated handler still gets to open the tab. */
+      if(e.target.closest('[data-kitchen]'))return;
       if(e.target.closest('.golink')){e.stopPropagation();return;}
       const nb=e.target.closest('[data-note]');
       if(nb){
@@ -5957,6 +6099,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.15-y', note:"The Lists tab now follows the same rule the board does: ticking something off no longer drops it straight into the Done fold. It keeps its place in its date section and in its list until the day it was owed has gone by, so today\u2019s finished work still reads as today\u2019s work. Finish something already late and it holds for the rest of the day you did it. New PIN button on every row in both Lists views, separate from DAY: it keeps that item at the top of its date section, or of its list, and unlike a due date it does not let go once the date is past. Undated work rises to the top of No date the same way \u2014 a pin lifts an item within its own section rather than jumping it over the date headings, so the headings still mean what they say. Lists can be dragged into any order you like, by the handle at the left of each list\u2019s title bar; it is built on pointer events rather than the native drag API, which never fires from a touch, so it works on the phone. And BREAKFAST, LUNCH and DINNER now carry a KITCHEN button that opens the kitchen app in its own tab, reusing that tab rather than stacking up new ones."},
   {v:'2026.08.15-x', note:"The daily and the Lists tab now agree about what is done, in both directions. Ticking an assignment on the board already marked it off the list, but ticking it on the LIST only wrote half the state \u2014 the board kept its own record, so unticking brought the row back to the daily already ticked. One function now owns both stores, and a reconcile on every rebuild repairs any disagreement already sitting in your data or arriving from another device, with the list\u2019s answer winning. A ticked assignment also STAYS on the daily now instead of vanishing, in its place in the day\u2019s order rather than swept to the bottom, until the day it was due has gone by \u2014 finish something already late and it stays for the rest of the day you did it, so the work still shows. The Coursework header counts what is still owed, not what is on screen. New: a DAY button on every row in both Lists views puts that item on today\u2019s board even if it is undated or weeks off, and it ticks off in lockstep with the list like everything else. A pin does not expire on its own; tap DAY again, or UNPIN on the board row, to take it off."},
   {v:'2026.08.15-w', note:"The grabber no longer copies the page when it cannot find any coursework on it. Run on anything that is not a grades page, it used to hand over the ENTIRE document text and invite you to paste it in anyway \u2014 so a stray tap on the wrong tab put a page-sized blob on the clipboard, and one mispaste later the browser was trying to resolve it as a web address. It now copies nothing at all in that case and says plainly that it is not a grades page. Rows must also mostly carry dates before anything is copied, since any site with a table will produce rows and a grades page is the one where they have due dates. The banner closes properly either way."},
   {v:'2026.08.15-v', note:"Learning Suite\u2019s Opens column no longer arrives as a second copy of the assignment. Every row on that page carries two dates \u2014 when the work unlocks and when it is owed \u2014 and the grabber was treating each date it found as an assignment in its own right, so Pre-Lab 3 landed twice: once on its real due date and once, weeks early, on the day it opened. Both dates in a row are now read as one assignment, the deadline is taken from the due cell and the unlock date is kept separately as the opens tag \u2014 the same thing Canvas already did with its \u201Cnot available until\u201D line. The hour is read off the due cell too, so a row can no longer end up on the right day at the wrong clock, and a Submitted or Graded column cannot pose as a deadline. An unlock date with no deadline beside it stays undated rather than being promoted into one, which is the mistake that started all this."},
