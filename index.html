@@ -1893,9 +1893,23 @@ const MEALS={breakfast:1,lunch:1,dinner:1};
    with a target is the browser's own mechanism: it is never pop-up blocked,
    and switching to the existing tab or opening a new one is the browser's
    call rather than something this page has to fake. */
+/* A named target lets a desktop browser raise the tab it already opened. A
+   PHONE will not: once a tab called kitchenapp exists, Safari and Chrome
+   quietly retarget it in the background and you see nothing happen, which is
+   the "works once" report. There is no API to focus another tab on mobile, so
+   the choice there is between reuse that looks broken and a fresh tab that
+   always works. Take the fresh tab. */
+function kitchenTarget(){
+  try{
+    if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return '_blank';
+    if(navigator.maxTouchPoints>0) return '_blank';
+  }catch(e){}
+  return 'kitchenapp';
+}
 function kitchenBtn(id){
   return MEALS[id] ? `<a class="kitchen" data-kitchen="1" href="${KITCHEN_URL}" `+
-                     `target="kitchenapp" title="Open the kitchen app" `+
+                     `target="${kitchenTarget()}" rel="noopener" `+
+                     `title="Open the kitchen app" `+
                      `aria-label="Open the kitchen app">kitchen</a>` : '';
 }
 const PIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"/><line x1="12" y1="13" x2="12" y2="21"/></svg>';
@@ -2863,7 +2877,12 @@ function routineState(r){
   if(unstarted(r)) return {due:false, late:false, from:null};
   /* A row waved off TODAY still shows today, greyed, with its undo button --
      the deferral it just wrote is about tomorrow, not about hiding it now. */
-  if(df && df>t && !isNotToday('r:'+r.id)) return {due:false, late:false, from:null};
+  /* Two key shapes reach this function: ROUTINES render as 'r:<id>' and carry
+     that key into S.notoday, while the handful of SCHEDULED STEPS use the bare
+     id. Checking only one shape silently skipped the other, which is how a
+     step waved off yesterday came back today anyway. */
+  if(df && df>t && !isNotToday('r:'+r.id) && !isNotToday(r.id))
+    return {due:false, late:false, from:null};
   let from=null;
   if(sc.mode==='dow' && !r.leadOf){
     from=lastDowOn(sc,t);
@@ -4188,12 +4207,14 @@ function doneSettled(i){
      and in a record finished-and-late belongs under Done. */
   return !(isPinned(i) || (d && d>=t));
 }
-/* Within a section, finished work sinks below what is still open. The top of
-   a list means "do this next", so only a pin should be able to claim it. */
-function openFirst(next){
+/* Ticking something off must not move it. It holds its place in the date order
+   until its due day passes, at which point doneSettled() drops it into Done in
+   one step -- which is why anything finished LATE leaves immediately: its day
+   is already behind us. Sinking done rows within a section was a wrong turn;
+   the order is the order of the work, and only a pin jumps it. */
+function topFirst(next){
   return (a,b)=>{
     if(!a.top!==!b.top) return a.top?-1:1;
-    if(!a.done!==!b.done) return a.done?1:-1;
     return next(a,b);
   };
 }
@@ -4667,7 +4688,7 @@ function listBuckets(){
       else B.later.push(row);
     });
   });
-  const bydate=openFirst((a,b)=>{
+  const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
     const x=a.at||'99:99', y=b.at||'99:99';
     if(x!==y) return x<y?-1:1;
@@ -4767,7 +4788,7 @@ function paintLists(){
     const items=l.items||[];
     /* Dated first, soonest first; undated keep their original order below.
        A coursework list is useless if the thing due tomorrow is buried. */
-    const open=items.filter(i=>!doneSettled(i)).slice().sort(openFirst((a,b)=>{
+    const open=items.filter(i=>!doneSettled(i)).slice().sort(topFirst((a,b)=>{
       const da=itemDue(a), db=itemDue(b);
       if(da&&db){
         if(da!==db) return da<db?-1:1;
@@ -5183,8 +5204,11 @@ function wireRows(){
         /* Aside state is keyed by the ROW key, which for a routine is
            'r:<id>'; schedules and deferrals are keyed by the bare id. Getting
            these two crossed writes a deferral nothing ever reads. */
-        const rid = id.indexOf('r:')===0 ? id.slice(2) : null;
-        const r = rid ? ROUTINES.find(x=>x.id===rid) : null;
+        /* S.defer and schedOf() are keyed by the BARE id whichever shape the
+           row used, so strip the prefix first and look in both places. */
+        const rid = id.indexOf('r:')===0 ? id.slice(2) : id;
+        const r = ROUTINES.find(x=>x.id===rid) ||
+                  PHASES.flatMap(ph=>ph.steps||[]).find(x=>x.id===rid && x.sched) || null;
         if(isNotToday(id)){
           delete S.notoday[id];
           /* Undo puts back the debt as well as the row. */
@@ -6138,6 +6162,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.16-a', note:"Ticking something off no longer moves it. The last build had finished rows sinking below open ones inside a section, which was a wrong reading: a ticked item holds its place in the date order until its due day passes, and only then does it drop into Done in one step. Anything finished LATE still leaves at once, because its day is already behind you, and a pin still overrides all of it. The KITCHEN button now opens a fresh tab on a phone rather than aiming at a named one. There is no way for a page to raise another tab on mobile, so a named target just retargets it invisibly in the background \u2014 that is the whole \u201Cworks once\u201D story. On a desktop, where raising a tab does work, it still reuses the same one. And NOT TODAY works on scheduled STEPS now, not only on routines: routine rows carry their aside state under \u201Cr:\u201D and steps under the bare id, and the version that shipped yesterday only understood the first shape, so a scheduled step waved off wrote no deferral at all and came back the next day regardless. Anything waved off before this build has no deferral recorded and will come back once more; wave it off again and it will stick."},
   {v:'2026.08.15-z', note:"Four fixes and a retirement. Finished work no longer outranks work you still owe: within a section, ticked rows now sink below open ones, and only a pin can claim the top. Something finished AFTER its due date now goes straight to Done rather than buying itself the rest of the day there \u2014 the board still keeps that grace, because the board is a view of today and a list is a record. In the date view a ticked row showed a struck-through title next to an empty checkbox; the checkbox now fills in, as it always did in the list view. The KITCHEN button is a real link instead of a scripted window: mobile browsers treat a scripted open to a named tab as already handled once that tab exists and then do nothing at all, which is why it worked exactly once. \u201CWash hands and face\u201D is retired \u2014 it existed to get shift grease off before the skincare block, and the two cleanse steps already cover washing your face. And NOT TODAY now settles the schedule instead of postponing it by a day: waving something off writes the next occurrence forward, so a workout skipped on Tuesday is simply gone on Wednesday rather than sitting there overdue. Undo puts the debt back."},
   {v:'2026.08.15-y', note:"The Lists tab now follows the same rule the board does: ticking something off no longer drops it straight into the Done fold. It keeps its place in its date section and in its list until the day it was owed has gone by, so today\u2019s finished work still reads as today\u2019s work. Finish something already late and it holds for the rest of the day you did it. New PIN button on every row in both Lists views, separate from DAY: it keeps that item at the top of its date section, or of its list, and unlike a due date it does not let go once the date is past. Undated work rises to the top of No date the same way \u2014 a pin lifts an item within its own section rather than jumping it over the date headings, so the headings still mean what they say. Lists can be dragged into any order you like, by the handle at the left of each list\u2019s title bar; it is built on pointer events rather than the native drag API, which never fires from a touch, so it works on the phone. And BREAKFAST, LUNCH and DINNER now carry a KITCHEN button that opens the kitchen app in its own tab, reusing that tab rather than stacking up new ones."},
   {v:'2026.08.15-x', note:"The daily and the Lists tab now agree about what is done, in both directions. Ticking an assignment on the board already marked it off the list, but ticking it on the LIST only wrote half the state \u2014 the board kept its own record, so unticking brought the row back to the daily already ticked. One function now owns both stores, and a reconcile on every rebuild repairs any disagreement already sitting in your data or arriving from another device, with the list\u2019s answer winning. A ticked assignment also STAYS on the daily now instead of vanishing, in its place in the day\u2019s order rather than swept to the bottom, until the day it was due has gone by \u2014 finish something already late and it stays for the rest of the day you did it, so the work still shows. The Coursework header counts what is still owed, not what is on screen. New: a DAY button on every row in both Lists views puts that item on today\u2019s board even if it is undated or weeks off, and it ticks off in lockstep with the list like everything else. A pin does not expire on its own; tap DAY again, or UNPIN on the board row, to take it off."},
