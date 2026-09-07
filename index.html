@@ -1565,6 +1565,16 @@ function migrateIds(s){
   }):a;
   if(s.renum!==1){ s.checked=fix(s.checked,RENUM); s.off=fix(s.off,RENUM); s.renum=1; changed=true; }
   if(s.idmap!==1){ s.checked=fix(s.checked,IDMAP); s.off=fix(s.off,IDMAP); s.idmap=1; changed=true; }
+  /* The two trash rows are useless without their times, and the times are the
+     building's rule rather than a preference, so seed them once. Only ever
+     writes a key that is absent -- clear or change either one and it stays
+     that way, because the flag is what is checked, not the value. */
+  if(s.trashalert!==1){
+    s.alert=s.alert||{};
+    if(!s.alert['r:hh_trash'])   s.alert['r:hh_trash']='18:00';
+    if(!s.alert['r:hh_trashin']) s.alert['r:hh_trashin']='21:00';
+    s.trashalert=1; changed=true;
+  }
   return changed;
 }
 
@@ -1908,7 +1918,13 @@ function kitchenTarget(){
 }
 function kitchenBtn(id){
   return MEALS[id] ? `<a class="kitchen" data-kitchen="1" href="${KITCHEN_URL}" `+
-                     `target="${kitchenTarget()}" rel="noopener" `+
+                     /* NO rel="noopener" here. It looks harmless and it is not:
+                        with noopener set, any target name other than _top,
+                        _self or _parent is treated as _blank, so the named tab
+                        is never reused and the desktop case silently became a
+                        fresh tab every time. Modern browsers already imply
+                        noopener for _blank, so nothing is lost by omitting it. */
+                     `target="${kitchenTarget()}" `+
                      `title="Open the kitchen app" `+
                      `aria-label="Open the kitchen app">kitchen</a>` : '';
 }
@@ -2140,7 +2156,7 @@ function paintSchedule(){
   let g='';
   for(let i=0;i<7;i++){
     const iso=addDaysISO(t0,i), dw=dayOf(iso).getDay();
-    const fixed=all.filter(r=>{const sc=schedOf(r);return !r.leadOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(dw)>-1;});
+    const fixed=all.filter(r=>{const sc=schedOf(r);return !r.leadOf&&!r.afterOf&&sc.mode==='dow'&&sc.dow&&sc.dow.indexOf(dw)>-1;});
     const land =all.filter(r=>nextLandISO(r)===iso);
     g+=`<div class="wcol${i===0?' now':''}"><h4>${i===0?'Today':esc(DOW[dw])}</h4><ul>`+
        fixed.map(r=>`<li>${esc(GL[r.id])}</li>`).join('')+
@@ -2551,8 +2567,29 @@ function lastDone(id){
    dow items are excluded: a weekday is a schedule on its own,
    and an anchored item has a start date by definition.
    ========================================================= */
+/* =========================================================
+   AFTER — the mirror of leadOf. A lead task lands N days
+   BEFORE its parent; an after task lands the SAME DAY, once
+   the parent has actually been done. It has no schedule of
+   its own and reads the parent's completion every time it is
+   asked, so it can never disagree with it.
+
+   The point is that it does not exist on a day the parent was
+   not done. A "bring the bin back in" reminder on a night you
+   never took the trash out is noise, and noise is what teaches
+   you to swipe past the row that mattered.
+   ========================================================= */
+function afterInfo(r){
+  if(!r.afterOf) return null;
+  const par=ROUTINES.find(x=>x.id===r.afterOf); if(!par) return null;
+  return {parent:par, parentDone:doneOn(par.id)===today()};
+}
+function afterDue(r){
+  const ai=afterInfo(r);
+  return !!(ai && ai.parentDone);
+}
 function unstarted(r){
-  if(r.leadOf) return false;
+  if(r.leadOf||r.afterOf) return false;
   const sc=schedOf(r);
   if(sc.mode==='dow'||sc.anchor) return false;
   return !lastDone(r.id);
@@ -2730,6 +2767,7 @@ function leadDue(r){
 }
 function dueToday(r){
   if(r.leadOf) return leadDue(r);
+  if(r.afterOf) return afterDue(r);
   const sc=schedOf(r);
   if(sc.mode==='dow') return sc.dow.indexOf(todayDowOf())>-1;
   if(sc.anchor){
@@ -2746,6 +2784,7 @@ function dueToday(r){
 }
 function schedLabel(r){
   if(r.leadOf){ const li=leadInfo(r); return li ? li.lead+' days before '+li.parent.l.split(' \u2014 ')[0] : null; }
+  if(r.afterOf){ const ai=afterInfo(r); return ai ? 'same evening as '+ai.parent.l.split(' \u2014 ')[0] : null; }
   const sc=schedOf(r);
   if(sc.mode==='dow'){
     if(sc.dow.length===7) return null;      /* daily needs no tag */
@@ -2768,6 +2807,9 @@ function schedLabel(r){
   return base;
 }
 function statusLabel(r){
+  /* Nothing useful to say: it is either on the board because the parent was
+     done tonight, or it is not on the board at all. */
+  if(r.afterOf) return null;
   if(r.leadOf){
     const li=leadInfo(r); if(!li||li.out===null) return null;
     if(leadHandled(r,li)) return 'booked \u00b7 done this cycle';
@@ -2819,6 +2861,9 @@ const prettyDay=iso=>dayOf(iso).toLocaleDateString('en-US',{month:'short',day:'n
    ========================================================= */
 const addDaysISO=(iso,n)=>{const d=dayOf(iso); d.setDate(d.getDate()+n); return isoOf(d);};
 function overdueDays(r){
+  /* Cannot be late: it only exists on an evening it is actually owed, and it
+     is gone the next morning whether or not you got to it. */
+  if(r.afterOf) return 0;
   if(r.leadOf){
     const li=leadInfo(r);
     return (li&&li.out!==null&&!leadHandled(r,li)&&li.out<0) ? -li.out : 0;
@@ -2884,7 +2929,7 @@ function routineState(r){
   if(df && df>t && !isNotToday('r:'+r.id) && !isNotToday(r.id))
     return {due:false, late:false, from:null};
   let from=null;
-  if(sc.mode==='dow' && !r.leadOf){
+  if(sc.mode==='dow' && !r.leadOf && !r.afterOf){
     from=lastDowOn(sc,t);
     if(!from) return {due:false, late:false, from:null};
     if(from!==t){
@@ -3086,8 +3131,10 @@ const ROUTINES=[
   note:"Sunday and Wednesday, alongside the prep \u2014 you're already at the sink. Lid off, straw out, and pop the spout gasket off with its pull tab; that gasket is the part that grows things, and rinsing the bottle without removing it accomplishes nothing. Straw brush through the straw, sponge or brush into the lid nooks. Everything air dries fully before it goes back together, and the bottle stores with the lid open. Lid and straw are top-rack dishwasher safe, gasket in the utensil basket. Stubborn buildup: soak the parts in white vinegar first."},
  {id:'hh_towel',   group:'Household', l:'Swap bath towel', sched:{everyDays:3},
   note:"Damp fabric in a warm room. Three days is the outside limit \u2014 and it's three USES, so a day you don't shower doesn't count against it.\n\nThis is on a three-day clock against a weekly laundry day, which only works if you own three or four towels and rotate them into the hamper. If you own one, the clock is fiction. Hang it spread out over a bar rather than folded on a hook \u2014 a folded towel stays damp in the fold for hours and that's where the smell comes from, not from the drying itself."},
- {id:'hh_trash',   group:'Household', l:'Trash out', sched:{everyDays:3},
-  note:"On the timer, not on how full it looks. Three days is about smell and fruit flies, and by the time volume tells you to go it's already late."},
+ {id:'hh_trash',   group:'Household', l:'Trash out \u2014 by 6pm', sched:{dow:[1,3,5]},
+  note:"THE BUILDING TAKES IT FOR YOU, on two conditions: it is outside the door by 6PM, and the bin is back inside by 9PM. Miss the first and it sits there all night; miss the second and you are the one leaving a bin in the walkway.\n\nMONDAY, WEDNESDAY, FRIDAY, because collection only runs Monday to Friday and those three days keep the longest gap at three \u2014 Friday evening to Monday evening. Every-three-days on a rolling clock would have drifted onto a Saturday sooner or later and left the bag sitting until Monday, which is the one outcome the three-day rule exists to prevent.\n\nStill on the clock rather than on how full it looks. Three days is about smell and fruit flies, and by the time volume tells you to go it is already late \u2014 the collection just means going more often costs you a walk to the door instead of a walk to the dumpster.\n\nSet the 6PM alert on this row and the 9PM one on the row that follows it; the digest hands both to the Shortcut."},
+ {id:'hh_trashin', group:'Household', l:'Bring the bin back in \u2014 by 9pm', afterOf:'hh_trash',
+  note:"Appears only on the evenings you actually put it out, and it is gone by morning either way. There is nothing to bring in on a night the bin never left, and a reminder that fires when it is not true is how you learn to ignore the one that is.\n\nNINE IS THE DEADLINE, not the target. Collection has happened well before then; the hour is about the bin not living in the walkway overnight. Bringing it in at half seven is fine and means you are not doing this in the dark.\n\nIf you check this off and the bin is still outside, you have broken the only part of the arrangement the building can see."},
  {id:'hh_bath',    group:'Household', l:'Clean bathroom', sched:{dow:[6]},
   note:"Fifteen minutes weekly beats an hour monthly, because soap scum and limescale stay soft for about a week and then bond. Weekly is wiping. Monthly is scrubbing.\n\nTHE KIT, AND WHAT EACH THING IS FOR:\n\u2022 BATHROOM SPRAY CLEANER (Scrubbing Bubbles, Lysol Bathroom, Method \u2014 any of them) \u2192 sink, counter, tub, shower walls, toilet OUTSIDE.\n\u2022 TOILET BOWL CLEANER, the bottle with the bent neck (Lysol or Clorox) \u2192 inside the bowl only. It's thick so it clings under the rim; it is not a surface cleaner.\n\u2022 TOILET BRUSH \u2192 inside the bowl only, nothing else, ever.\n\u2022 NON-SCRATCH SCRUB SPONGE (Scotch-Brite blue-and-white; the green one scratches) \u2192 tub, shower floor, sink basin.\n\u2022 FOUR MICROFIBER CLOTHS, and keep them straight: #1 GLASS for the mirror, #2 DRY for buffing the mirror after, #3 SURFACES for counter and fixtures, #4 TOILET for the outside of the toilet \u2014 different colour, or just use paper towel and bin it.\n\u2022 GLASS CLEANER (Windex) \u2192 mirror only.\n\u2022 WHITE VINEGAR \u2192 the white crust on the faucet and shower head. Nothing else.\n\u2022 GLOVES, and a BROOM or hand vac plus a MOP or a spare damp cloth for the floor.\nAbout $25 once, then it lasts months.\n\nSAFETY: never mix bleach with anything containing ammonia, and most glass cleaners contain ammonia. That combination makes chloramine gas in a small room with the door shut. One product at a time, rinse between, door open.\n\nORDER \u2014 TOP DOWN, TOILET LAST, because anything you knock loose falls, and nothing from the toilet should travel onto anything else.\n\n1. CLEAR IT OUT. By hand: products off the counter, bottles out of the shower, mat off the floor. Cleaning around objects is where the time actually goes.\n\n2. SPRAY, THEN WALK AWAY. BATHROOM SPRAY CLEANER onto the shower walls, tub, sink, counter and the toilet exterior. Leave it five minutes. This is the whole trick and almost nobody does it \u2014 cleaners work by dissolving, and dissolving takes time. Spraying and immediately wiping is doing by force what the chemistry would have done for free.\n\n3. MIRROR, while that dwells. GLASS CLEANER sprayed onto CLOTH #1, not onto the mirror \u2014 spraying the glass sends overspray onto the counter you're about to wipe and pools at the edges. Wipe with #1, then go over it with DRY CLOTH #2. That dry buff is what removes streaks; wet wiping alone never will.\n\n4. SINK AND COUNTER. NON-SCRATCH SPONGE around the basin and drain, then CLOTH #3 to wipe everything dry. The parts a visitor actually notices: the base of the faucet where it meets the counter, the overflow hole, and the lip of the drain \u2014 all three want the sponge corner or a corner of #3 worked into them. For the white hard-water crust on the faucet: wrap a paper towel soaked in WHITE VINEGAR around it, leave ten minutes, then wipe. Not on natural stone \u2014 vinegar etches it.\n\n5. SHOWER AND TUB. NON-SCRATCH SPONGE on the walls and floor, working top to bottom, then rinse the whole thing down with the SHOWER HEAD itself \u2014 that's your rinsing tool, no bucket needed. Shower head crusted up: rubber band a sandwich bag of WHITE VINEGAR around it and leave it while you do the toilet. Then take CLOTH #3 down the bottom eight inches of the curtain liner, inside face \u2014 that is where mildew starts every single time, and it's the part nobody looks at.\n\n6. TOILET. BOWL CLEANER squirted UNDER the rim so it runs down the sides, then leave it while you do the outside. Outside is CLOTH #4 (or paper towel) with BATHROOM SPRAY: tank, lid top AND underside, seat top AND underside, the hinges, and the base where it meets the floor. The base and the floor right around it is where the smell comes from \u2014 that's the part that matters and the part that gets skipped. Then TOILET BRUSH the bowl: up under the rim, around the waterline, down into the trap. Rest the brush under the closed seat to drip before it goes back in its holder.\n\n7. FLOOR. BROOM or hand vac first, then MOP or a damp cloth. Behind the toilet and along the baseboards.\n\nAFTERWARDS: cloths #1\u2013#3 go in the wash, #4 goes in the wash separately or in the bin. Microfiber cleans by grabbing, so a loaded cloth is just redistributing grime."},
  {id:'hh_vac',     group:'Household', l:'Vacuum / floors', sched:{dow:[6]},
@@ -3530,7 +3577,10 @@ function assertContent(){
     .filter(r=>rIds.indexOf(r.leadOf)===-1)
     .forEach(r=>problems.push('lead item points at a missing routine: '+r.id+' -> '+r.leadOf));
 
-  ROUTINES.filter(r=>!r.leadOf && !r.sched)
+  ROUTINES.filter(r=>r.afterOf)
+    .filter(r=>rIds.indexOf(r.afterOf)===-1)
+    .forEach(r=>problems.push('after item points at a missing routine: '+r.id+' -> '+r.afterOf));
+  ROUTINES.filter(r=>!r.leadOf && !r.afterOf && !r.sched)
     .forEach(r=>problems.push('routine has no schedule and is not a lead item: '+r.id));
 
   const known=new Set(stepIds);
@@ -3876,7 +3926,7 @@ function asideBtns(id){
    back overdue on Wednesday and stayed red until it was done. */
 function nextOccurrence(r){
   const t=today();
-  if(!r || r.leadOf) return null;        /* lead rows hang off their parent */
+  if(!r || r.leadOf || r.afterOf) return null;   /* these hang off a parent */
   const sc=schedOf(r);
   if(sc.mode==='dow'){
     const days=(sc.dow&&sc.dow.length)?sc.dow:[];
@@ -5623,7 +5673,7 @@ document.addEventListener('click',e=>{
 /* How far past due something is, in days. Routines only: steps belong to a
    single day and cannot be "overdue" in a way that survives it. */
 function overdueBy(r){
-  if(r.leadOf) return null;                 /* a lead item is early by design */
+  if(r.leadOf || r.afterOf) return null;    /* early, or tied to a parent */
   const sc=schedOf(r);
   if(sc.mode==='dow'){
     const last=lastDowOn(sc,today()); if(!last) return null;
@@ -6162,6 +6212,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.16-c', note:"Trash is now two rows and a rule. TRASH OUT \u2014 BY 6PM runs Monday, Wednesday and Friday, with a 6pm alert; BRING THE BIN BACK IN \u2014 BY 9PM appears only on the evenings you actually put it out, with a 9pm alert, and is gone by morning either way. There is nothing to bring in on a night the bin never left, and a reminder that fires when it is not true is how you learn to ignore the one that is. Monday, Wednesday, Friday rather than the old rolling every-three-days, because collection only runs Monday to Friday: those three days keep the longest gap at three \u2014 Friday evening to Monday evening \u2014 while a rolling clock would eventually have landed on a Saturday and left the bag sitting until Monday. Both alert times are filled in for you the first time this build loads, and never touched again, so change or clear either and it stays that way. Underneath, this is a new AFTER relation, the mirror of the existing lead-time one: a row with no schedule of its own that reads its parent\u2019s completion. It cannot be late, cannot be deferred, and does not appear in the week grid, since it is not a standing commitment \u2014 it is the second half of one."},
+  {v:'2026.08.16-b', note:"The KITCHEN link had a rel=\u201Cnoopener\u201D on it, which is not the harmless bit of hygiene it looks like: with noopener set, any target name other than _top, _self or _parent is treated as _blank, so the named tab was never reused and the desktop case had quietly become a fresh tab every time too. Removed \u2014 browsers already imply noopener for _blank, so nothing is given up. Phones still get a fresh tab deliberately, because no page can raise another tab on a phone; a desktop now genuinely reuses the one it opened."},
   {v:'2026.08.16-a', note:"Ticking something off no longer moves it. The last build had finished rows sinking below open ones inside a section, which was a wrong reading: a ticked item holds its place in the date order until its due day passes, and only then does it drop into Done in one step. Anything finished LATE still leaves at once, because its day is already behind you, and a pin still overrides all of it. The KITCHEN button now opens a fresh tab on a phone rather than aiming at a named one. There is no way for a page to raise another tab on mobile, so a named target just retargets it invisibly in the background \u2014 that is the whole \u201Cworks once\u201D story. On a desktop, where raising a tab does work, it still reuses the same one. And NOT TODAY works on scheduled STEPS now, not only on routines: routine rows carry their aside state under \u201Cr:\u201D and steps under the bare id, and the version that shipped yesterday only understood the first shape, so a scheduled step waved off wrote no deferral at all and came back the next day regardless. Anything waved off before this build has no deferral recorded and will come back once more; wave it off again and it will stick."},
   {v:'2026.08.15-z', note:"Four fixes and a retirement. Finished work no longer outranks work you still owe: within a section, ticked rows now sink below open ones, and only a pin can claim the top. Something finished AFTER its due date now goes straight to Done rather than buying itself the rest of the day there \u2014 the board still keeps that grace, because the board is a view of today and a list is a record. In the date view a ticked row showed a struck-through title next to an empty checkbox; the checkbox now fills in, as it always did in the list view. The KITCHEN button is a real link instead of a scripted window: mobile browsers treat a scripted open to a named tab as already handled once that tab exists and then do nothing at all, which is why it worked exactly once. \u201CWash hands and face\u201D is retired \u2014 it existed to get shift grease off before the skincare block, and the two cleanse steps already cover washing your face. And NOT TODAY now settles the schedule instead of postponing it by a day: waving something off writes the next occurrence forward, so a workout skipped on Tuesday is simply gone on Wednesday rather than sitting there overdue. Undo puts the debt back."},
   {v:'2026.08.15-y', note:"The Lists tab now follows the same rule the board does: ticking something off no longer drops it straight into the Done fold. It keeps its place in its date section and in its list until the day it was owed has gone by, so today\u2019s finished work still reads as today\u2019s work. Finish something already late and it holds for the rest of the day you did it. New PIN button on every row in both Lists views, separate from DAY: it keeps that item at the top of its date section, or of its list, and unlike a due date it does not let go once the date is past. Undated work rises to the top of No date the same way \u2014 a pin lifts an item within its own section rather than jumping it over the date headings, so the headings still mean what they say. Lists can be dragged into any order you like, by the handle at the left of each list\u2019s title bar; it is built on pointer events rather than the native drag API, which never fires from a touch, so it works on the phone. And BREAKFAST, LUNCH and DINNER now carry a KITCHEN button that opens the kitchen app in its own tab, reusing that tab rather than stacking up new ones."},
