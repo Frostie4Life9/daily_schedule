@@ -553,6 +553,15 @@ input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(-
   border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:6px;}
 .addnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--dimmer);margin:2px 0 0;}
 #star{color:var(--warn);font-size:19px;line-height:0;margin-right:5px;position:relative;top:1px;}
+#bulb{color:var(--live);font-size:19px;line-height:0;margin-right:5px;position:relative;top:1px;}
+.keepmind{margin:10px 0 2px;padding:9px 12px 10px;border:1px dashed var(--line);
+  border-radius:8px;background:transparent;}
+.keepmind h3{margin:0 0 6px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;}
+.kmrow{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:13px;color:var(--dim);}
+.kmtext{flex:1 1 auto;min-width:0;}
+.kmlist{flex:0 0 auto;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;}
+.kmdue{flex:0 0 auto;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.75;}
 .phase{margin:30px 0 0;}
 .phead{display:flex;align-items:baseline;gap:10px;padding:0 0 10px;
   border-bottom:1px solid var(--line);margin-bottom:2px;}
@@ -839,7 +848,7 @@ body.hideopt .step.optional{display:none;}
     <div class="hstats">
       <div class="stat count"><b id="cnum">0/0</b><i>Done</i></div>
       <div class="stat extra"><b id="xnum">0/0</b><i>Extras</i></div>
-      <div class="stat streak"><b><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
+      <div class="stat streak"><b><span id="bulb" style="display:none" title="Every assignment owed today is done">☀</span><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
     </div>
   </div>
   <div class="jbar" id="jbar">
@@ -1594,7 +1603,7 @@ const load=()=>{try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):nul
 /* Bump when the digest's shape or meaning changes. A stored digest written by
    an older build is republished automatically on next load, so the widget is
    never left rendering numbers computed by code that no longer exists. */
-const DIGEST=8;
+const DIGEST=9;
 
 /* A row's visible text minus the "optional" chip, keeping the product name
    so the widget can say "Brush — Crest Pro-Health" rather than just "Brush". */
@@ -1621,6 +1630,8 @@ function summarize(){
   const done=ids.filter(x=>S.checked.indexOf(x)>-1).length;
   const xids=extraRows().map(r=>r.dataset.n);
   const xdone=xids.filter(x=>S.checked.indexOf(x)>-1).length;
+  const cids=courseRows().map(r=>r.dataset.n);
+  const cdone=cids.filter(x=>S.checked.indexOf(x)>-1).length;
   /* What to do next, in the order the day actually runs. This is the thing
      the widget is for — the first few unchecked rows, wherever they fall. */
   /* KIND, and why n is no longer numOf(). numOf falls back to returning the
@@ -1666,9 +1677,9 @@ function summarize(){
     .concat(customToday().filter(c=>!isAside('c:'+c.id))
                          .map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
                                    opt:false, late:customState(c).late, custom:true})))
-    /* Coursework rows are .extra on the board, so leaving them out here made
-       the widget's extras count smaller than the board's — the exact
-       disagreement the note above was written about. */
+    /* Coursework still rides in the `routines` list so the widget can show the
+       assignments themselves — it is only the COUNTS that moved out of extras,
+       into `school` below. */
     .concat(dueAssignments().filter(a=>!isAside(a.key))
                             .map(a=>({l:a.text, done:S.checked.indexOf(a.key)>-1,
                                       opt:false, late:a.late, coursework:true})));
@@ -1680,7 +1691,9 @@ function summarize(){
   return {v:DIGEST, done:done, total:ids.length, streak:S.streak||0, best:S.best||0, date:S.date,
           dayStart:DAYSTART(),
           extras:{done:xdone, total:xids.length},
+          school:{done:cdone, total:cids.length},
           star: !!(ids.length && done===ids.length && xdone===xids.length),
+          bulb: !!(cids.length && cdone===cids.length),
           modes:Object.assign({},S.modes||{}), next:next, routines:due, alerts:alerts};
 }
 /* =========================================================
@@ -3769,17 +3782,18 @@ function buildRows(){
 
   /* coursework — a view of list items, not a copy of them */
   (function(){
-    const as=dueAssignments(); if(!as.length) return;
+    const as=dueAssignments(), soon=soonAssignments();
+    if(!as.length && !soon.length) return;
     const sec=document.createElement('section'); sec.className='phase';
     /* Count what is still owed. Finished rows stay visible but must not be
        reported as outstanding, or the header contradicts the checkmarks. */
     const openN=as.filter(a=>!a.done).length;
     const lateN=as.filter(a=>a.late&&!a.done).length;
     sec.innerHTML=`<div class="phead"><h2>Coursework</h2>`+
-      `<em>${openN} due${lateN?' · '+lateN+' late':''}</em></div>`;
+      `<em>${as.length?openN+' due'+(lateN?' · '+lateN+' late':''):'nothing due today'}</em></div>`;
     as.forEach((a,ai)=>{
       sec.appendChild(makeRow({
-        key:a.key, cls:['routine','extra','custom'],
+        key:a.key, cls:['routine','course','custom'],
         num:String(ai+1).padStart(2,'0'),
         label:esc(a.text),
         meta:[`<span class="sched">${esc(a.list)}</span>`,
@@ -3793,6 +3807,22 @@ function buildRows(){
                 `<button class="skip" data-ldrop="${esc(a.key)}" title="Delete this assignment" aria-label="Delete this assignment">delete</button>`
       }));
     });
+    /* Coming up, deliberately inert. No row key, no checkbox, no .course
+       class -- it must not reach courseRows(), or tomorrow's work would hold
+       the lightbulb off all day, which is the whole complaint in miniature.
+       Visible so tomorrow never arrives as a surprise; untickable so it
+       cannot be mistaken for something you are behind on. */
+    if(soon.length){
+      const keep=document.createElement('div');
+      keep.className='keepmind';
+      keep.innerHTML=`<h3>Keep in mind</h3>`+
+        soon.map(k=>`<div class="kmrow">`+
+          `<span class="kmtext">${esc(k.text)}</span>`+
+          `<span class="kmlist">${esc(k.list)}</span>`+
+          `<span class="kmdue">${esc(dueChip(k.due,k.at))}</span>`+
+        `</div>`).join('');
+      sec.appendChild(keep);
+    }
     list.appendChild(sec);
   })();
 
@@ -3884,6 +3914,7 @@ list.addEventListener('click',e=>{
 
 const prog=document.getElementById('prog'), cnum=document.getElementById('cnum'), snum=document.getElementById('snum');
 const xnum=document.getElementById('xnum'), star=document.getElementById('star');
+const bulb=document.getElementById('bulb');
 const slabel=document.getElementById('slabel'), gracedot=document.getElementById('gracedot');
 const jumpbtn=document.getElementById('jump'), jumpxbtn=document.getElementById('jumpx');
 document.getElementById('daylabel').textContent='/ '+dayOf(today()).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
@@ -4068,8 +4099,14 @@ function coreIds(){
   PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isAside(s.id)) out.push(s.id); }));
   return out;
 }
-const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra'));
+/* THREE buckets now, not two. dailyRows() was defined as "everything that is
+   not an extra", so moving coursework off .extra without touching this would
+   have quietly poured it into the protocol count and the progress bar --
+   worse than the problem being fixed. */
+const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra') &&
+                                            !r.classList.contains('course'));
 const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra'));
+const courseRows=()=>visibleRows().filter(r=>r.classList.contains('course'));
 /* Hidden rows are easy to forget, which is the one cost of keeping unstarted
    items off the board. This is the receipt: a single line that says how many
    are waiting and opens the setup list. It disappears the moment the count
@@ -4133,9 +4170,10 @@ function paint(){
     r.classList.toggle('done',on);
     r.setAttribute('aria-checked',on);
   });
-  const day=dailyRows(), ex=extraRows();
+  const day=dailyRows(), ex=extraRows(), co=courseRows();
   const dd=day.filter(r=>r.classList.contains('done')).length;
   const xd=ex.filter(r=>r.classList.contains('done')).length;
+  const cd=co.filter(r=>r.classList.contains('done')).length;
   cnum.textContent=`${dd}/${day.length}`;
   xnum.textContent=`${xd}/${ex.length}`;
   prog.style.width=(day.length?dd/day.length*100:0)+'%';
@@ -4146,6 +4184,11 @@ function paint(){
   /* the star is for clearing the board — protocol and everything else */
   const clean = day.length && dd===day.length && xd===ex.length;
   star.style.display = clean ? 'inline' : 'none';
+  /* The lightbulb is a separate claim about a separate kind of work: every
+     assignment OWED today, which includes anything already late and anything
+     pinned to today, but never tomorrow's. No coursework at all means no
+     claim to make, the same guard the star uses on an empty protocol. */
+  bulb.style.display = (co.length && cd===co.length) ? 'inline' : 'none';
   /* Dimmed rather than disabled: there is nothing to jump to, but the tap
      still earns the toast that says WHY, which a dead button would not. */
   jumpbtn.classList.toggle('spent', dd>=day.length);
@@ -4283,6 +4326,30 @@ function opensChip(o){
 /* Everything dated, due within the window and not yet done, oldest first.
    Overdue is included and stays included \u2014 a missed assignment does not
    stop existing on the day after it was due. */
+/* Due soon but NOT yet actionable. Rendered as a read-only "Keep in mind"
+   list under the coursework: visible, so tomorrow never arrives as a surprise,
+   but carrying no row key, so it cannot be ticked and cannot count toward
+   anything. Pinned work is excluded because a pin makes it today's. */
+function soonAssignments(){
+  const t=today(), lim=addDaysISO(t,DUE_LEAD), out=[];
+  (S.lists||[]).forEach(l=>{
+    if(!listOnBoard(l)) return;
+    (l.items||[]).forEach(i=>{
+      const d=itemDue(i);
+      if(!d || i.done || isPinned(i)) return;
+      if(d<=t || d>lim) return;
+      out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d,
+                at:itemTime(i), opens:itemOpens(i),
+                opensChip:opensChip(itemOpens(i)), key:'l:'+l.id+'|'+i.id});
+    });
+  });
+  return out.sort((a,b)=>{
+    if(a.due!==b.due) return a.due<b.due?-1:1;
+    const x=a.at||'99:99', y=b.at||'99:99';
+    if(x!==y) return x<y?-1:1;
+    return a.text<b.text?-1:1;
+  });
+}
 function dueAssignments(){
   const t=today(), lim=addDaysISO(t,DUE_LEAD), out=[];
   (S.lists||[]).forEach(l=>{
@@ -4296,8 +4363,11 @@ function dueAssignments(){
          make the row evaporate. Finish something ALREADY late and it lingers
          for the rest of the day you did it, so the work still registers. */
       if(i.done && !(pin || (d && d>=t) || i.doneOn===t)) return;
-      /* Pinned work ignores the two-day window entirely: you asked for it. */
-      if(!pin && d>lim) return;
+      /* Pinned work ignores the window entirely: you asked for it. Everything
+         else must be owed TODAY to be actionable -- tomorrow's assignments are
+         real, but they are not today's job, and making them tickable is what
+         turned the extras count into something that could never reach zero. */
+      if(!pin && (!d || d>t)) return;
       out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d||null,
                 at:itemTime(i), late:!!(d&&d<t), done:!!i.done,
                 pin:pin, opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
@@ -6212,6 +6282,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.16-d', note:"Coursework is no longer an extra. It was lumped in with the one-offs and the optional routines, which meant the extras count could effectively never reach zero and the star stopped being reachable \u2014 a number that is never right is a number you stop reading. Assignments now have their own bucket and their own mark: clear everything owed today and a light appears beside the star and the run. The two claims are separate on purpose. The star is the protocol and the extras; the light is schoolwork; you can have either without the other. WHAT COUNTS: everything owed TODAY, which includes anything already late and anything you pinned to today with DAY, and nothing owed tomorrow. No coursework at all means no light, the same way an empty protocol earns no star \u2014 a mark that appears on a day you were asked for nothing is a mark that means nothing. TOMORROW'S WORK no longer arrives as a row you can tick. It sits under the coursework as a short KEEP IN MIND list: visible, so tomorrow is never a surprise, but carrying no checkbox, so it cannot be ticked and cannot hold the light off. The widget digest gained a school count alongside extras and was version-bumped, so an older stored digest is republished rather than left showing numbers that now mean something else."},
   {v:'2026.08.16-c', note:"Trash is now two rows and a rule. TRASH OUT \u2014 BY 6PM runs Monday, Wednesday and Friday, with a 6pm alert; BRING THE BIN BACK IN \u2014 BY 9PM appears only on the evenings you actually put it out, with a 9pm alert, and is gone by morning either way. There is nothing to bring in on a night the bin never left, and a reminder that fires when it is not true is how you learn to ignore the one that is. Monday, Wednesday, Friday rather than the old rolling every-three-days, because collection only runs Monday to Friday: those three days keep the longest gap at three \u2014 Friday evening to Monday evening \u2014 while a rolling clock would eventually have landed on a Saturday and left the bag sitting until Monday. Both alert times are filled in for you the first time this build loads, and never touched again, so change or clear either and it stays that way. Underneath, this is a new AFTER relation, the mirror of the existing lead-time one: a row with no schedule of its own that reads its parent\u2019s completion. It cannot be late, cannot be deferred, and does not appear in the week grid, since it is not a standing commitment \u2014 it is the second half of one."},
   {v:'2026.08.16-b', note:"The KITCHEN link had a rel=\u201Cnoopener\u201D on it, which is not the harmless bit of hygiene it looks like: with noopener set, any target name other than _top, _self or _parent is treated as _blank, so the named tab was never reused and the desktop case had quietly become a fresh tab every time too. Removed \u2014 browsers already imply noopener for _blank, so nothing is given up. Phones still get a fresh tab deliberately, because no page can raise another tab on a phone; a desktop now genuinely reuses the one it opened."},
   {v:'2026.08.16-a', note:"Ticking something off no longer moves it. The last build had finished rows sinking below open ones inside a section, which was a wrong reading: a ticked item holds its place in the date order until its due day passes, and only then does it drop into Done in one step. Anything finished LATE still leaves at once, because its day is already behind you, and a pin still overrides all of it. The KITCHEN button now opens a fresh tab on a phone rather than aiming at a named one. There is no way for a page to raise another tab on mobile, so a named target just retargets it invisibly in the background \u2014 that is the whole \u201Cworks once\u201D story. On a desktop, where raising a tab does work, it still reuses the same one. And NOT TODAY works on scheduled STEPS now, not only on routines: routine rows carry their aside state under \u201Cr:\u201D and steps under the bare id, and the version that shipped yesterday only understood the first shape, so a scheduled step waved off wrote no deferral at all and came back the next day regardless. Anything waved off before this build has no deferral recorded and will come back once more; wave it off again and it will stick."},
