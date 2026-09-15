@@ -556,11 +556,15 @@ input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(-
 #adddate{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--panel);
   border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:6px;}
 .addnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--dimmer);margin:2px 0 0;}
-#star{color:var(--warn);font-size:19px;line-height:0;margin-right:5px;position:relative;top:1px;}
+#star{color:var(--warn);font-size:17px;line-height:0;margin-right:6px;position:relative;top:1px;
+  text-shadow:0 0 7px color-mix(in srgb, var(--warn) 45%, transparent);}
 /* The star is the orange all-clear; this is its counterpart for schoolwork and
    has to be legible as a DIFFERENT claim at a glance, so it differs in both
    shape and colour rather than being a second orange mark. */
-#bulb{color:var(--school);font-size:17px;line-height:0;margin-right:6px;position:relative;top:1px;
+/* The asterism sits high in its em box and reads as three small marks rather
+   than one solid one, so it wants a size up and a nudge down to share a
+   baseline with the ornament beside it. */
+#bulb{color:var(--school);font-size:19px;line-height:0;margin-right:6px;position:relative;top:2px;
   text-shadow:0 0 7px color-mix(in srgb, var(--school) 55%, transparent);}
 .keepmind{margin:10px 0 2px;padding:9px 12px 10px;border:1px dashed var(--line);
   border-radius:8px;background:transparent;}
@@ -856,7 +860,7 @@ body.hideopt .step.optional{display:none;}
     <div class="hstats">
       <div class="stat count"><b id="cnum">0/0</b><i>Done</i></div>
       <div class="stat extra"><b id="xnum">0/0</b><i>Extras</i></div>
-      <div class="stat streak"><b><span id="bulb" style="display:none" title="Schoolwork — everything owed today is done">❖︎</span><span id="star" style="display:none" title="Protocol and extras, all clear">★</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
+      <div class="stat streak"><b><span id="bulb" style="display:none" title="Schoolwork — everything owed today is done">⁂︎</span><span id="star" style="display:none" title="Protocol and extras, all clear">❦︎</span><span id="snum">0</span><span id="gracedot" style="display:none" title="One day missed — the run survives it, a second in a row does not">●</span></b><i id="slabel">Day run</i></div>
     </div>
   </div>
   <div class="jbar" id="jbar">
@@ -6290,6 +6294,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.08.16-f', note:"Both marks are printer's ornaments now. Schoolwork is an ASTERISM \u2014 three asterisks in a triangle, the mark a typesetter uses for a section break \u2014 and the all-clear is a FLORAL HEART, a Victorian leaf ornament, in place of the star. Neither is anywhere near the emoji blocks, so iOS cannot substitute a colour glyph and throw away the tint the way it could with the sun this started as. The floral heart in particular is two codepoints away from the emoji heart and is not one; that gap is the whole reason it works. Sizes and baselines were retuned for both, since a wide three-part mark and a lobed ornament do not sit where a five-point star sat. The widget script matches \u2014 paste the new version over the old one."},
   {v:'2026.08.16-e', note:"The schoolwork mark is a diamond now, not a sun. U+2600 sits in the Miscellaneous Symbols block, where iOS is free to substitute a colour emoji and ignore the tint entirely \u2014 which is why it looked like weather rather than an achievement. The new one is from Dingbats, which has no emoji form to fall into, and it is followed by a text-presentation selector so the substitution cannot happen at all. It also has its own colour rather than borrowing the teal: teal means \u201Cfinished\u201D on every other row, so an outstanding assignment wearing it would have read as the opposite of what it was. The widget script has been updated to match \u2014 paste the new version over the old one in Scriptable."},
   {v:'2026.08.16-d', note:"Coursework is no longer an extra. It was lumped in with the one-offs and the optional routines, which meant the extras count could effectively never reach zero and the star stopped being reachable \u2014 a number that is never right is a number you stop reading. Assignments now have their own bucket and their own mark: clear everything owed today and a light appears beside the star and the run. The two claims are separate on purpose. The star is the protocol and the extras; the light is schoolwork; you can have either without the other. WHAT COUNTS: everything owed TODAY, which includes anything already late and anything you pinned to today with DAY, and nothing owed tomorrow. No coursework at all means no light, the same way an empty protocol earns no star \u2014 a mark that appears on a day you were asked for nothing is a mark that means nothing. TOMORROW'S WORK no longer arrives as a row you can tick. It sits under the coursework as a short KEEP IN MIND list: visible, so tomorrow is never a surprise, but carrying no checkbox, so it cannot be ticked and cannot hold the light off. The widget digest gained a school count alongside extras and was version-bumped, so an older stored digest is republished rather than left showing numbers that now mean something else."},
   {v:'2026.08.16-c', note:"Trash is now two rows and a rule. TRASH OUT \u2014 BY 6PM runs Monday, Wednesday and Friday, with a 6pm alert; BRING THE BIN BACK IN \u2014 BY 9PM appears only on the evenings you actually put it out, with a 9pm alert, and is gone by morning either way. There is nothing to bring in on a night the bin never left, and a reminder that fires when it is not true is how you learn to ignore the one that is. Monday, Wednesday, Friday rather than the old rolling every-three-days, because collection only runs Monday to Friday: those three days keep the longest gap at three \u2014 Friday evening to Monday evening \u2014 while a rolling clock would eventually have landed on a Saturday and left the bag sitting until Monday. Both alert times are filled in for you the first time this build loads, and never touched again, so change or clear either and it stays that way. Underneath, this is a new AFTER relation, the mirror of the existing lead-time one: a row with no schedule of its own that reads its parent\u2019s completion. It cannot be late, cannot be deferred, and does not appear in the week grid, since it is not a standing commitment \u2014 it is the second half of one."},
