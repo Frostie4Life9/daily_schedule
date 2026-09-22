@@ -367,9 +367,26 @@ body.dragging-list{user-select:none;}
   border-radius:5px;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
   padding:3px 7px;cursor:pointer;}
 .kitchen:hover{color:var(--fg);border-color:var(--fg);}
-.litem .lpin,.drow .lpin{flex:0 0 auto;border:1px solid var(--line);background:none;
-  color:var(--dim);border-radius:5px;font-size:10.5px;letter-spacing:.06em;
-  text-transform:uppercase;padding:3px 7px;cursor:pointer;margin-right:4px;}
+/* DAY is an icon now, sized to match PIN and the classroom toggle, so a row
+   carrying four controls still leaves the title room on a phone. */
+.litem .lpin,.drow .lpin,.litem .lclass,.drow .lclass{flex:0 0 auto;border:1px solid var(--line);
+  background:none;color:var(--dim);border-radius:5px;padding:3px 5px;cursor:pointer;
+  margin-right:4px;line-height:0;}
+.litem .lpin svg,.drow .lpin svg,.litem .lclass svg,.drow .lclass svg{width:12px;height:12px;
+  fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.litem .lclass.on,.drow .lclass.on{color:var(--school);border-color:var(--school);}
+.litem .lclass:hover,.drow .lclass:hover{color:var(--fg);border-color:var(--fg);}
+.lclasschip{display:inline-block;margin-left:6px;padding:1px 5px;border:1px solid var(--school);
+  border-radius:4px;color:var(--school);font-size:9.5px;letter-spacing:.06em;
+  text-transform:uppercase;vertical-align:1px;opacity:.85;}
+/* In the room: present, counted, and visibly not the thing you have to carve
+   out an evening for. Dimmed rather than hidden, because it still needs a tick. */
+.csub{margin:10px 0 4px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;}
+.step.inclass:not(.done) .label{color:var(--dim);}
+.step.inclass .rstat.ok{opacity:.75;}
+.kmclass{flex:0 0 auto;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--school);opacity:.85;}
 .litem .lpin.on,.drow .lpin.on{color:var(--done);border-color:var(--done);}
 .litem .lpin:hover,.drow .lpin:hover{color:var(--fg);border-color:var(--fg);}
 .limport .lpast{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
@@ -1693,8 +1710,11 @@ function summarize(){
        assignments themselves — it is only the COUNTS that moved out of extras,
        into `school` below. */
     .concat(dueAssignments().filter(a=>!isAside(a.key))
+                            /* own-work first, matching the board's two runs */
+                            .sort((a,b)=>(a.inclass?1:0)-(b.inclass?1:0))
                             .map(a=>({l:a.text, done:S.checked.indexOf(a.key)>-1,
-                                      opt:false, late:a.late, coursework:true})));
+                                      opt:false, late:a.late, coursework:true,
+                                      inclass:!!a.inclass})));
   /* PUBLISH THE DAY BOUNDARY. The widget has to answer "is this today's data?"
      and it was answering with calendar midnight while this file had moved to a
      4am rollover. Between midnight and 4am they disagreed, and the widget
@@ -1954,6 +1974,13 @@ function kitchenBtn(id){
                      `aria-label="Open the kitchen app">kitchen</a>` : '';
 }
 const PIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"/><line x1="12" y1="13" x2="12" y2="21"/></svg>';
+/* A board on an easel: "this happens in the room". Deliberately plain -- it
+   sits beside the pin at 12px and has to read as a different thing at a
+   glance, not as a second ornament. */
+const CLASSROOM='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="11" rx="1.5"/><line x1="8" y1="20" x2="10" y2="15"/><line x1="16" y1="20" x2="14" y2="15"/></svg>';
+/* DAY as an icon so a row can carry four controls on a phone without the
+   title being squeezed to nothing. A calendar page with today's dot. */
+const DAYICON='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="9" y1="3" x2="9" y2="7"/><line x1="15" y1="3" x2="15" y2="7"/><circle cx="12" cy="15" r="1.6"/></svg>';
 const GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/></svg>';
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -3803,9 +3830,19 @@ function buildRows(){
     const lateN=as.filter(a=>a.late&&!a.done).length;
     sec.innerHTML=`<div class="phead"><h2>Coursework</h2>`+
       `<em>${as.length?openN+' due'+(lateN?' · '+lateN+' late':''):'nothing due today'}</em></div>`;
-    as.forEach((a,ai)=>{
+    /* TWO RUNS: what you have to find time for, then what happens in the room.
+       Own-work leads because it is the part that does not happen on its own.
+       Both keep the .course class, so both still count toward the schoolwork
+       mark -- in-class work still has to be ticked, which is the point. The
+       numbering runs straight through so a number still names one row. */
+    const own=as.filter(a=>!a.inclass), inroom=as.filter(a=>a.inclass);
+    const sub=label=>{ const h=document.createElement('div');
+      h.className='csub'; h.textContent=label; sec.appendChild(h); };
+    let n=0;
+    const courseRow=a=>{
+      const ai=n++;
       sec.appendChild(makeRow({
-        key:a.key, cls:['routine','course','custom'],
+        key:a.key, cls:['routine','course','custom'].concat(a.inclass?['inclass']:[]),
         num:String(ai+1).padStart(2,'0'),
         label:esc(a.text),
         meta:[`<span class="sched">${esc(a.list)}</span>`,
@@ -3816,9 +3853,18 @@ function buildRows(){
               a.pin&&a.due?`<span class="rstat shut">pinned</span>`:'',
               a.opensChip?`<span class="rstat shut">${esc(a.opensChip)}</span>`:''],
         buttons:(a.pin?`<button class="skip" data-lunpin="${esc(a.key)}" title="Take this off today" aria-label="Take this off today">unpin</button>`:'')+
+                `<button class="skip${a.inclass?' on':''}" data-lclass="${esc(a.key)}" `+
+                  `title="${a.inclass?'Done in class \u2014 tap if it is on your own':'Mark as done in class'}" `+
+                  `aria-pressed="${!!a.inclass}" aria-label="Done in class">${a.inclass?'own':'class'}</button>`+
                 `<button class="skip" data-ldrop="${esc(a.key)}" title="Delete this assignment" aria-label="Delete this assignment">delete</button>`
       }));
-    });
+    };
+    /* A sub-heading only earns its line when there is something to tell apart:
+       with everything on your own the board looks exactly as it did before. */
+    if(own.length && inroom.length) sub('On your own');
+    own.forEach(courseRow);
+    if(inroom.length) sub('In class');
+    inroom.forEach(courseRow);
     /* Coming up, deliberately inert. No row key, no checkbox, no .course
        class -- it must not reach courseRows(), or tomorrow's work would hold
        the lightbulb off all day, which is the whole complaint in miniature.
@@ -3828,8 +3874,9 @@ function buildRows(){
       const keep=document.createElement('div');
       keep.className='keepmind';
       keep.innerHTML=`<h3>Keep in mind</h3>`+
-        soon.map(k=>`<div class="kmrow">`+
+        soon.map(k=>`<div class="kmrow${k.inclass?' inclass':''}">`+
           `<span class="kmtext">${esc(k.text)}</span>`+
+          (k.inclass?`<span class="kmclass">in class</span>`:'')+
           `<span class="kmlist">${esc(k.list)}</span>`+
           `<span class="kmdue">${esc(dueChip(k.due,k.at))}</span>`+
         `</div>`).join('');
@@ -3892,6 +3939,12 @@ list.addEventListener('click',e=>{
     }
     save(S); rebuild();
     toast(v===today()?'Moved to today':'Moved to '+prettyDay(v));
+    return;
+  }
+  const clk=e.target.closest('[data-lclass]');
+  if(clk){
+    const on=toggleInClass(clk.dataset.lclass);
+    if(on!==null){ save(S); rebuild(); paintLists(); toast(on?'Marked as in class':'Marked as on your own'); }
     return;
   }
   const up=e.target.closest('[data-lunpin]');
@@ -4355,7 +4408,7 @@ function soonAssignments(){
       if(!d || i.done || isPinned(i)) return;
       if(d<=t || d>lim) return;
       out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d,
-                at:itemTime(i), opens:itemOpens(i),
+                at:itemTime(i), opens:itemOpens(i), inclass:!!i.inclass,
                 opensChip:opensChip(itemOpens(i)), key:'l:'+l.id+'|'+i.id});
     });
   });
@@ -4386,7 +4439,8 @@ function dueAssignments(){
       if(!pin && (!d || d>t)) return;
       out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d||null,
                 at:itemTime(i), late:!!(d&&d<t), done:!!i.done,
-                pin:pin, opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
+                pin:pin, inclass:!!i.inclass,
+                opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
                 key:'l:'+l.id+'|'+i.id});
     });
   });
@@ -4437,6 +4491,15 @@ function reconcileChecked(){
   Object.keys(live).forEach(k=>{
     if(live[k] && S.checked.indexOf(k)===-1) S.checked.push(k);
   });
+}
+/* In class or on your own. A plain flag on the item, set by hand and only by
+   hand -- it is a fact about how YOUR course runs, which is exactly the thing
+   a title-matching rule would get wrong. Not a new kind of work: it still
+   counts toward the schoolwork mark, because it still has to get done. */
+function toggleInClass(key){
+  const f=findListItem(key); if(!f) return null;
+  f.item.inclass = f.item.inclass ? null : true;
+  return !!f.item.inclass;
 }
 function findListItem(key){
   const m=/^l:([^|]+)\|(.+)$/.exec(key||''); if(!m) return null;
@@ -4809,7 +4872,8 @@ function listBuckets(){
     (l.items||[]).forEach(i=>{
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
-                 opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i)};
+                 opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i),
+                 inclass:!!i.inclass};
       /* Only work whose day has actually gone by drops into the Done fold.
          Ticking something off should not make it leave the section you are
          looking at while it is still today's problem. */
@@ -4857,6 +4921,7 @@ function dateRow(r){
   return `<div class="drow${r.done?' done':''}" data-lit="${esc(r.lid)}|${esc(r.iid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
     `<div class="lbox">${CHECK}</div>`+
     `<div class="dtext">${esc(r.text)}`+
+      (r.inclass?`<span class="lclasschip">in class</span>`:'')+
       (opensChip(r.opens)?`<span class="lopen">${esc(opensChip(r.opens))}</span>`:'')+
     `</div>`+
     `<span class="dcode t-${esc(r.tint)}" title="${esc(r.list)}">${esc(r.code)}</span>`+
@@ -4866,7 +4931,10 @@ function dateRow(r){
       `aria-pressed="${!!r.top}" aria-label="Keep this at the top of this section">${PIN}</button>`+
     `<button class="lpin${r.pin?' on':''}" data-lpin="${esc(r.lid)}|${esc(r.iid)}" `+
       `title="${r.pin?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
-      `aria-pressed="${!!r.pin}" aria-label="Put this on today\u2019s board">day</button>`+
+      `aria-pressed="${!!r.pin}" aria-label="Put this on today\u2019s board">${DAYICON}</button>`+
+    `<button class="lclass${r.inclass?' on':''}" data-lclass="l:${esc(r.lid)}|${esc(r.iid)}" `+
+      `title="${r.inclass?'Done in class \u2014 tap if it is on your own':'Mark as done in class'}" `+
+      `aria-pressed="${!!r.inclass}" aria-label="Done in class">${CLASSROOM}</button>`+
     `<button class="lx" data-lidel="${esc(r.lid)}|${esc(r.iid)}" aria-label="Delete item">del</button>`+
   `</div>`;
 }
@@ -4939,6 +5007,7 @@ function paintLists(){
     const rowFor=i=>`<div class="litem${i.done?' done':''}" data-lit="${esc(l.id)}|${esc(i.id)}" role="checkbox" aria-checked="${!!i.done}" tabindex="0">`+
       `<div class="lbox">${CHECK}</div>`+
       `<div class="ltext">${esc(i.text)}`+
+        (i.inclass?`<span class="lclasschip">in class</span>`:'')+
         (itemDue(i)?`<span class="ldue${itemDue(i)<today()?' late':''}">${esc(dueChip(itemDue(i),itemTime(i)))}</span>`:'')+
         (opensChip(itemOpens(i))?`<span class="lopen">${esc(opensChip(itemOpens(i)))}</span>`:'')+
       `</div>`+
@@ -4947,7 +5016,10 @@ function paintLists(){
         `aria-pressed="${itemTop(i)}" aria-label="Keep this at the top of the list">${PIN}</button>`+
       `<button class="lpin${isPinned(i)?' on':''}" data-lpin="${esc(l.id)}|${esc(i.id)}" `+
         `title="${isPinned(i)?'On today\u2019s board \u2014 tap to take it off':'Put this on today\u2019s board'}" `+
-        `aria-pressed="${isPinned(i)}" aria-label="Put this on today\u2019s board">day</button>`+
+        `aria-pressed="${isPinned(i)}" aria-label="Put this on today\u2019s board">${DAYICON}</button>`+
+      `<button class="lclass${i.inclass?' on':''}" data-lclass="l:${esc(l.id)}|${esc(i.id)}" `+
+        `title="${i.inclass?'Done in class \u2014 tap if it is on your own':'Mark as done in class'}" `+
+        `aria-pressed="${!!i.inclass}" aria-label="Done in class">${CLASSROOM}</button>`+
       `<button class="lx" data-lidel="${esc(l.id)}|${esc(i.id)}" aria-label="Delete item">del</button>`+
       `</div>`;
     return `<div class="llist${l.shut?' shut':''}" data-lid="${esc(l.id)}">`+
@@ -5223,6 +5295,14 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(bar.dataset.lshut); if(!l) return;
     l.shut=!l.shut; save(S); paintLists(); return;
   }
+  const clb=e.target.closest('[data-lclass]');
+  if(clb){
+    const on=toggleInClass(clb.dataset.lclass);
+    if(on===null) return;
+    save(S); paintLists(); rebuild();
+    toast(on?'Marked as in class':'Marked as on your own');
+    return;
+  }
   const topb=e.target.closest('[data-ltop]');
   if(topb){
     const [lid,iid]=topb.dataset.ltop.split('|');
@@ -5391,10 +5471,22 @@ function wireRows(){
         setTimeout(()=>{ if(el){ el.scrollIntoView({block:'center'}); el.focus(); } },400);
         return;
       }
+      /* THE ROW IS THE CHECKBOX, AND NOTHING INSIDE IT IS. Every control that
+         acts from inside a row is handled above and returns; anything that
+         reaches this line is a button or link the handler was never told
+         about. It used to fall through to toggle(r), which is how tapping
+         UNPIN on a coursework row also marked the assignment done -- the
+         delegated handler did its job, and this one quietly did a second job
+         nobody asked for. Every new row button would have had to remember to
+         add itself to the list above; now none of them do. No stopPropagation,
+         so the delegated handler still gets the click. */
+      if(e.target.closest('button, a'))return;
       toggle(r);
     });
     r.addEventListener('keydown',e=>{
-      if(e.target.closest('.golink'))return;
+      /* Same hole via the keyboard: Enter on a focused inner button fires the
+         button's own click AND bubbled up here to tick the row. */
+      if(e.target.closest('.golink') || e.target.closest('button, a'))return;
       if(e.key===' '||e.key==='Enter'){e.preventDefault();toggle(r);}});
   });
 
@@ -6298,6 +6390,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    which is exactly how the old hand-maintained version string sat unchanged
    through a dozen releases without anyone noticing. */
 const CHANGELOG=[
+  {v:'2026.09.21-a', note:"Assignments can be marked as done IN CLASS, by hand and only by hand \u2014 a new classroom button on every row in both Lists views, and a CLASS button on the daily. On the board, coursework now runs in two groups: ON YOUR OWN first, since that is the part you have to find time for, then IN CLASS beneath it, dimmed. The headings only appear when both kinds are present, so a day of ordinary homework looks exactly as it did. In-class work still counts toward the schoolwork mark, because it still has to get done; the Lists tab and Keep in mind carry a small chip, and the widget dims those rows too. Nothing is ever marked automatically, whatever the title says. DAY is an icon now, so a row can carry four controls on a phone without squeezing its title. FIXED: tapping UNPIN on a coursework row also marked the assignment done. A row\u2019s own click handler ran before the button\u2019s and only ignored the controls it had been told about \u2014 anything else fell through to the tick. It now ignores every button and link inside a row that it does not handle itself, so new controls are covered without having to remember to register; Enter on a focused button had the same hole and is closed too."},
   {v:'2026.08.16-g', note:"ONE BUCKET, ONE MARK. The floral heart now means the extras are clear and nothing else. It used to require the daily protocol as well \u2014 which was defensible while it was the only mark on the card, and stopped being so the moment schoolwork got an ornament beside it meaning simply \u201Cthis bucket is done\u201D. Two marks sitting together under different rules is how you stop trusting either. The protocol is not losing its voice: it has the count, the progress bar and the run, all of which report on it and nothing else. A whole clear day is now just both ornaments lit at once. Neither mark appears on an empty bucket \u2014 nothing asked of you is not the same as everything done. The widget follows the same rule, since it reads the flag from the digest rather than working it out again from the numbers beside it; paste the new script over the old one."},
   {v:'2026.08.16-f', note:"Both marks are printer's ornaments now. Schoolwork is an ASTERISM \u2014 three asterisks in a triangle, the mark a typesetter uses for a section break \u2014 and the all-clear is a FLORAL HEART, a Victorian leaf ornament, in place of the star. Neither is anywhere near the emoji blocks, so iOS cannot substitute a colour glyph and throw away the tint the way it could with the sun this started as. The floral heart in particular is two codepoints away from the emoji heart and is not one; that gap is the whole reason it works. Sizes and baselines were retuned for both, since a wide three-part mark and a lobed ornament do not sit where a five-point star sat. The widget script matches \u2014 paste the new version over the old one."},
   {v:'2026.08.16-e', note:"The schoolwork mark is a diamond now, not a sun. U+2600 sits in the Miscellaneous Symbols block, where iOS is free to substitute a colour emoji and ignore the tint entirely \u2014 which is why it looked like weather rather than an achievement. The new one is from Dingbats, which has no emoji form to fall into, and it is followed by a text-presentation selector so the substitution cannot happen at all. It also has its own colour rather than borrowing the teal: teal means \u201Cfinished\u201D on every other row, so an outstanding assignment wearing it would have read as the opposite of what it was. The widget script has been updated to match \u2014 paste the new version over the old one in Scriptable."},
