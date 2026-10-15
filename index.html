@@ -183,6 +183,13 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .lviewbar{display:flex;gap:5px;margin:0 0 14px;}
 .dtaskadd{padding:0 0 12px;border-top:0;}
 .dtaskcode{color:var(--opt);border-color:var(--opt);}
+.drow .dgrip{margin-right:2px;padding:2px 4px 2px 0;}
+.drow.dragging{opacity:.9;outline:2px solid var(--opt);border-radius:8px;background:var(--panel);}
+/* The chip IS the picker: an invisible native date input laid over the label,
+   so tapping the date opens the system calendar on a phone. */
+.dpick{position:relative;cursor:pointer;}
+.dpick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;
+  border:0;padding:0;margin:0;font-size:16px;}
 .lvbtn{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
   text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
   color:var(--dimmer);padding:7px 11px;border-radius:5px;cursor:pointer;min-height:32px;}
@@ -3025,11 +3032,13 @@ function customToday(){
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
 }
 function customState(c){ return {due:true, late:c.date<today(), from:c.date}; }
-function addCustom(label,date){
+function addCustom(label,date,extra){
   S.custom=S.custom||[];
-  S.custom.push({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-                 l:label, date:date||today(), done:null});
+  const c=Object.assign({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+                 l:label, date:date||today(), done:null}, extra||{});
+  S.custom.push(c);
   save(S);
+  return c;
 }
 
 function lateChip(key,from){
@@ -3906,7 +3915,10 @@ function buildRows(){
         /* default the picker to the day it currently sits on, not today \u2014
            moving something that is not late is the whole point here */
         resched:reschedPanel(key,state.from,c.date),
-        buttons:`<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`
+        buttons:`<button class="skip${c.inlist?' on':''}" data-cplan="${esc(c.id)}" `+
+                  `title="${c.inlist?'On the date list \u2014 tap to take it off':'Put this on the date list in Lists'}" `+
+                  `aria-pressed="${!!c.inlist}" aria-label="Put this on the date list">${c.inlist?'planned':'plan'}</button>`+
+                `<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button>`
       }));
     });
     list.appendChild(sec);
@@ -3941,6 +3953,13 @@ list.addEventListener('click',e=>{
     }
     save(S); rebuild();
     toast(v===today()?'Moved to today':'Moved to '+prettyDay(v));
+    return;
+  }
+  const cpl=e.target.closest('[data-cplan]');
+  if(cpl){
+    const c=(S.custom||[]).find(x=>x.id===cpl.dataset.cplan);
+    if(c){ c.inlist = c.inlist ? null : true; save(S); rebuild(); paintLists();
+           toast(c.inlist?'On the date list':'Off the date list'); }
     return;
   }
   const clk=e.target.closest('[data-lclass]');
@@ -4896,7 +4915,11 @@ function listBuckets(){
      here simply appears on Thursday's board, and ticking it in either place
      ticks it in both. Same settling rule as assignments -- it holds its place
      until its day has gone by. */
-  (S.custom||[]).forEach(c=>{
+  /* OPT-IN. A one-off reaches this view only when you put it here: added from
+     the box at the top, or sent over with the PLAN button on its board row.
+     The board stays the place for quick throwaway tasks; this is the place for
+     the ones worth scheduling. */
+  (S.custom||[]).filter(c=>c.inlist).forEach(c=>{
     const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:null,
                done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
     if(c.done && c.date && c.date<t){ B.done.push(row); return; }
@@ -4948,18 +4971,27 @@ function dateRow(r){
   if(r.task){
     /* DAY and IN CLASS mean nothing here -- a task already lives on its own
        day, and was never coursework -- so it carries only pin and delete. */
-    return `<div class="drow dtask${r.done?' done':''}" data-cit="${esc(r.cid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
+    /* The grip drags it to another day. The date chip is a native date picker
+       laid over the label, for the days that have nothing on them to drop
+       onto -- dragging can only aim at a day that is already in the list. */
+    return `<div class="drow dtask${r.done?' done':''}" data-cit="${esc(r.cid)}" data-due="${esc(r.due||'')}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
+      `<span class="lgrip dgrip" data-cgrip="${esc(r.cid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`+
       `<div class="lbox">${CHECK}</div>`+
       `<div class="dtext">${esc(r.text)}</div>`+
       `<span class="dcode dtaskcode" title="One-off task">TASK</span>`+
-      (when?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'')+
+      `<label class="dwhen dpick${late?' late':''}" title="Change the day">${esc(
+          r.due===today()?'today':r.due===addDaysISO(today(),1)?'tomorrow':(when||'no day'))}`+
+        `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due||'')}" min="${today()}" aria-label="Change the day"></label>`+
       `<button class="ltop${r.top?' on':''}" data-ctop="${esc(r.cid)}" `+
         `title="${r.top?'Pinned to the top \u2014 tap to release':'Keep this at the top of this section'}" `+
         `aria-pressed="${!!r.top}" aria-label="Keep this at the top of this section">${PIN}</button>`+
+      `<button class="lx" data-cunlist="${esc(r.cid)}" title="Take it off this list \u2014 it stays on the board" aria-label="Take off this list">hide</button>`+
       `<button class="lx" data-cdel="${esc(r.cid)}" aria-label="Delete task">del</button>`+
     `</div>`;
   }
-  return `<div class="drow${r.done?' done':''}" data-lit="${esc(r.lid)}|${esc(r.iid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
+  /* every other row carries its date too, so a dragged task can take it */
+  const dueAttr=` data-due="${esc(r.due||'')}"`;
+  return `<div class="drow${r.done?' done':''}" data-lit="${esc(r.lid)}|${esc(r.iid)}"${dueAttr} role="checkbox" aria-checked="${r.done}" tabindex="0">`+
     `<div class="lbox">${CHECK}</div>`+
     `<div class="dtext">${esc(r.text)}`+
       (r.inclass?`<span class="lclasschip">in class</span>`:'')+
@@ -4990,8 +5022,9 @@ function dateSection(key,label,rows,opts){
         `<span class="dcar" aria-hidden="true">\u25B8</span>${esc(label)} \u00b7 ${rows.length}</div>`+
       (open?rows.map(dateRow).join(''):'')+`</div>`;
   }
+  const dday = key==='today' ? today() : key==='tomorrow' ? addDaysISO(today(),1) : '';
   return `<div class="dsec open">`+
-    `<div class="dhead${o.cls?' '+o.cls:''}">${esc(label)} \u00b7 ${rows.length}</div>`+
+    `<div class="dhead${o.cls?' '+o.cls:''}"${dday?` data-dday="${dday}"`:''}>${esc(label)} \u00b7 ${rows.length}</div>`+
     rows.map(dateRow).join('')+`</div>`;
 }
 
@@ -5360,6 +5393,11 @@ listsRoot.addEventListener('click',e=>{
     c.top = c.top ? null : true;
     save(S); paintLists(); toast(c.top?'Pinned to the top':'Released'); return;
   }
+  const cun=e.target.closest('[data-cunlist]');
+  if(cun){
+    const c=(S.custom||[]).find(x=>x.id===cun.dataset.cunlist); if(!c) return;
+    c.inlist=null; save(S); paintLists(); toast('Off the list \u2014 still on its day'); return;
+  }
   const cdel=e.target.closest('[data-cdel]');
   if(cdel){
     const id=cdel.dataset.cdel;
@@ -5368,7 +5406,7 @@ listsRoot.addEventListener('click',e=>{
     save(S); paintLists(); rebuild(); toast('Deleted'); return;
   }
   const cit=e.target.closest('[data-cit]');
-  if(cit && !e.target.closest('button, a, input')){
+  if(cit && !e.target.closest('button, a, input, label, .dgrip')){
     const c=(S.custom||[]).find(x=>x.id===cit.dataset.cit); if(!c) return;
     /* Same two stores the board's toggle writes: the task itself, and today's
        board key -- the key only when the task is actually on today's board,
@@ -5411,12 +5449,85 @@ listsRoot.addEventListener('click',e=>{
   }
 });
 
+/* Moving a one-off is just a new date: it reappears on the board that day. */
+function moveTask(id,day){
+  const c=(S.custom||[]).find(x=>x.id===id); if(!c) return false;
+  if(!/^\d{4}-\d\d-\d\d$/.test(day||'') || day<today() || day===c.date) return false;
+  /* It leaves today's board, so today's record of it goes too. */
+  if(c.date===today()){ const k=S.checked.indexOf('c:'+id); if(k>-1) S.checked.splice(k,1); }
+  c.date=day;
+  save(S); paintLists(); rebuild();
+  toast(day===today()?'Moved to today':day===addDaysISO(today(),1)?'Moved to tomorrow':'Moved to '+prettyDay(day));
+  return true;
+}
+listsRoot.addEventListener('change',e=>{
+  const di=e.target.closest && e.target.closest('[data-cdate]');
+  if(di && di.value) moveTask(di.dataset.cdate, di.value);
+});
+
+/* DRAGGING A TASK TO ANOTHER DAY. Pointer events for the same reason as the
+   list reorder: the native drag API never fires from a touch on iOS. The row
+   follows your finger through the list, and wherever it is let go it takes the
+   date of the row it landed among -- or of the Today / Tomorrow heading. Late
+   rows and undated rows are not targets: you cannot schedule into the past, and
+   No date is not a day. */
+let taskDrag=null;
+function taskDropDay(el){
+  if(!el) return null;
+  if(el.dataset.dday) return el.dataset.dday;
+  const d=el.dataset.due;
+  return (d && d>=today()) ? d : null;
+}
+document.addEventListener('pointerdown',e=>{
+  const grip=e.target.closest && e.target.closest('[data-cgrip]');
+  if(!grip) return;
+  const el=grip.closest('.drow'); if(!el) return;
+  e.preventDefault(); e.stopPropagation();
+  taskDrag={id:grip.dataset.cgrip, el:el, grip:grip, pid:e.pointerId, y0:e.clientY,
+            moved:false, day:null, from:el.dataset.due||''};
+  try{ grip.setPointerCapture(e.pointerId); }catch(err){}
+});
+document.addEventListener('pointermove',e=>{
+  const d=taskDrag; if(!d) return;
+  if(!d.moved && Math.abs(e.clientY-d.y0)<6) return;
+  if(!d.moved){ d.moved=true; d.el.classList.add('dragging'); document.body.classList.add('dragging-list'); }
+  e.preventDefault();
+  const targets=[...document.querySelectorAll('#lists .drow, #lists .dhead[data-dday]')]
+                  .filter(x=>x!==d.el);
+  for(const t of targets){
+    const r=t.getBoundingClientRect();
+    if(e.clientY<r.top || e.clientY>=r.top+r.height) continue;
+    const day=taskDropDay(t);
+    if(!day) break;
+    d.day=day;
+    /* Follow the finger, so where it will land is visible before letting go. */
+    if(t.classList.contains('dhead')) t.parentNode.insertBefore(d.el,t.nextSibling);
+    else if(e.clientY<r.top+r.height/2) t.parentNode.insertBefore(d.el,t);
+    else t.parentNode.insertBefore(d.el,t.nextSibling);
+    const lbl=d.el.querySelector('.dpick');
+    if(lbl && lbl.firstChild) lbl.firstChild.textContent =
+      day===today()?'today':day===addDaysISO(today(),1)?'tomorrow':
+      dayOf(day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    break;
+  }
+});
+function endTaskDrag(commit){
+  const d=taskDrag; if(!d) return;
+  taskDrag=null;
+  d.el.classList.remove('dragging'); document.body.classList.remove('dragging-list');
+  try{ d.grip.releasePointerCapture(d.pid); }catch(err){}
+  if(!d.moved) return;
+  if(!(commit && d.day && moveTask(d.id,d.day))) paintLists();
+}
+document.addEventListener('pointerup',()=>endTaskDrag(true));
+document.addEventListener('pointercancel',()=>endTaskDrag(false));
+
 function addDayTask(){
   const t=document.getElementById('dtaskt'), d=document.getElementById('dtaskd');
   const v=t?t.value.trim():'';
   if(!v){ toast('Give it a name first'); return; }
   const day=(d&&/^\d{4}-\d\d-\d\d$/.test(d.value))?d.value:today();
-  addCustom(v,day);
+  addCustom(v,day,{inlist:true});
   t.value='';
   paintLists(); rebuild();
   const nt=document.getElementById('dtaskt'); if(nt) nt.focus();
@@ -6487,6 +6598,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.14-b', note:"The date list only shows the one-off tasks you choose now. Anything added from the box at the top of By date goes there; a task added on the board stays on the board unless you tap PLAN on it, which sends it over (tap again, or HIDE in the list, to take it back off \u2014 the task itself is not touched). Tasks on the list can be moved to another day two ways: drag the handle on the left of the row and let go among the day you want, or tap the date on the row for a calendar, which also reaches days that have nothing else on them. A moved task reappears on the board on its new day. Tasks you added before this update are not on the list; PLAN puts any of them back."},
   {v:'2026.10.14-a', note:"One-off tasks now live in the By-date view alongside your coursework, so the week can be planned in one place. There is an add box at the top: name it, pick the day, Add. A task added for Thursday sits under Thursday here and appears on Thursday\u2019s board under One-offs \u2014 it is the same task, so ticking it in either place ticks it in both, and anything you already added from the board shows up here too. Tasks carry a TASK tag where an assignment carries its course, and only the controls that mean something for them: pin to the top, and delete. Like assignments, a finished task holds its place until its day has passed."},
   {v:'2026.10.06-a', note:"In the By-date view, anything due a week or more out now shows its full date \u2014 \u201CTue, Oct 20\u201D rather than just \u201CTue\u201D, which named several Tuesdays at once. Inside the coming week the weekday alone still stands, since there is only one Tuesday it can mean."},
   {v:'2026.09.22-a', note:"No change to how anything works. The build history had thirteen entries dated to the middle of August for work that was actually done in September: the date was carried forward from an older build and the letter bumped, when the date should have been read off the calendar each time. They have been relabelled from file timestamps. Six land on September 5 and one on September 15. The six in between show as 2026.09.xx \u2014 made sometime from September 6 to 15, on days the record does not show. That is deliberate: a question mark says what is known, where a made-up date would not. From here on, every build takes the real date and the letter only counts builds made on the same day."},
