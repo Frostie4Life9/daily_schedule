@@ -181,6 +181,8 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .lbar .lcaret{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--dimmer);flex:0 0 auto;}
 .lviewbar{display:flex;gap:5px;margin:0 0 14px;}
+.dtaskadd{padding:0 0 12px;border-top:0;}
+.dtaskcode{color:var(--opt);border-color:var(--opt);}
 .lvbtn{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.06em;
   text-transform:uppercase;background:var(--ground);border:1px solid var(--line);
   color:var(--dimmer);padding:7px 11px;border-radius:5px;cursor:pointer;min-height:32px;}
@@ -4888,6 +4890,25 @@ function listBuckets(){
       else B.later.push(row);
     });
   });
+  /* ONE-OFF TASKS ride in the same run as the coursework, so the week can be
+     planned in one place. Nothing new is stored: these are the same S.custom
+     entries the board's One-offs section shows, so a task slotted into Thursday
+     here simply appears on Thursday's board, and ticking it in either place
+     ticks it in both. Same settling rule as assignments -- it holds its place
+     until its day has gone by. */
+  (S.custom||[]).forEach(c=>{
+    const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:null,
+               done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
+    if(c.done && c.date && c.date<t){ B.done.push(row); return; }
+    const d=row.due;
+    if(!d) B.none.push(row);
+    else if(d<t) B.late.push(row);
+    else if(d===t) B.today.push(row);
+    else if(d===tm) B.tomorrow.push(row);
+    else if(d<=wk) B.week.push(row);
+    else if(d<=fn) B.fortnight.push(row);
+    else B.later.push(row);
+  });
   const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
     const x=a.at||'99:99', y=b.at||'99:99';
@@ -4923,6 +4944,20 @@ function dateRow(r){
     /* A week or more out, "Tue" names several Tuesdays at once, so the date
        goes with it. */
     when=dayOf(r.due).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  }
+  if(r.task){
+    /* DAY and IN CLASS mean nothing here -- a task already lives on its own
+       day, and was never coursework -- so it carries only pin and delete. */
+    return `<div class="drow dtask${r.done?' done':''}" data-cit="${esc(r.cid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
+      `<div class="lbox">${CHECK}</div>`+
+      `<div class="dtext">${esc(r.text)}</div>`+
+      `<span class="dcode dtaskcode" title="One-off task">TASK</span>`+
+      (when?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'')+
+      `<button class="ltop${r.top?' on':''}" data-ctop="${esc(r.cid)}" `+
+        `title="${r.top?'Pinned to the top \u2014 tap to release':'Keep this at the top of this section'}" `+
+        `aria-pressed="${!!r.top}" aria-label="Keep this at the top of this section">${PIN}</button>`+
+      `<button class="lx" data-cdel="${esc(r.cid)}" aria-label="Delete task">del</button>`+
+    `</div>`;
   }
   return `<div class="drow${r.done?' done':''}" data-lit="${esc(r.lid)}|${esc(r.iid)}" role="checkbox" aria-checked="${r.done}" tabindex="0">`+
     `<div class="lbox">${CHECK}</div>`+
@@ -4963,9 +4998,18 @@ function dateSection(key,label,rows,opts){
 function paintByDate(host){
   const B=listBuckets();
   const live=B.late.length+B.today.length+B.tomorrow.length+B.week.length+B.fortnight.length;
-  let h=lviewBar();
+  /* Kept between repaints so a half-typed task survives the tick that
+     re-renders the view. */
+  const keepT=(document.getElementById('dtaskt')||{}).value||'';
+  const keepD=(document.getElementById('dtaskd')||{}).value||today();
+  let h=lviewBar()+
+    `<div class="ladd dtaskadd">`+
+      `<input type="text" id="dtaskt" placeholder="Add a task to a day" autocomplete="off" maxlength="200" value="${esc(keepT)}">`+
+      `<input type="date" class="ldate" id="dtaskd" value="${esc(keepD)}" title="Which day it belongs to">`+
+      `<button data-dtaskgo="1">Add</button>`+
+    `</div>`;
   if(!live && !B.later.length && !B.none.length && !B.done.length){
-    host.innerHTML=h+`<p class="lnone">Nothing open anywhere. Add something in By list, or import a course.</p>`;
+    host.innerHTML=h+`<p class="lnone">Nothing open anywhere. Add a task above, add something in By list, or import a course.</p>`;
     return;
   }
   h+=dateSection('late','Late',B.late,{cls:'late'})+
@@ -5309,6 +5353,31 @@ listsRoot.addEventListener('click',e=>{
     toast(on?'Marked as in class':'Marked as on your own');
     return;
   }
+  if(e.target.closest('[data-dtaskgo]')){ addDayTask(); return; }
+  const ctop=e.target.closest('[data-ctop]');
+  if(ctop){
+    const c=(S.custom||[]).find(x=>x.id===ctop.dataset.ctop); if(!c) return;
+    c.top = c.top ? null : true;
+    save(S); paintLists(); toast(c.top?'Pinned to the top':'Released'); return;
+  }
+  const cdel=e.target.closest('[data-cdel]');
+  if(cdel){
+    const id=cdel.dataset.cdel;
+    S.custom=(S.custom||[]).filter(x=>x.id!==id);
+    const k=S.checked.indexOf('c:'+id); if(k>-1) S.checked.splice(k,1);
+    save(S); paintLists(); rebuild(); toast('Deleted'); return;
+  }
+  const cit=e.target.closest('[data-cit]');
+  if(cit && !e.target.closest('button, a, input')){
+    const c=(S.custom||[]).find(x=>x.id===cit.dataset.cit); if(!c) return;
+    /* Same two stores the board's toggle writes: the task itself, and today's
+       board key -- the key only when the task is actually on today's board,
+       since S.checked is today's record and nothing else. */
+    const k='c:'+c.id, at=S.checked.indexOf(k);
+    if(c.done){ c.done=null; if(at>-1) S.checked.splice(at,1); }
+    else { c.done=today(); if(c.date<=today() && at===-1) S.checked.push(k); }
+    save(S); paintLists(); rebuild(); return;
+  }
   const topb=e.target.closest('[data-ltop]');
   if(topb){
     const [lid,iid]=topb.dataset.ltop.split('|');
@@ -5342,7 +5411,19 @@ listsRoot.addEventListener('click',e=>{
   }
 });
 
+function addDayTask(){
+  const t=document.getElementById('dtaskt'), d=document.getElementById('dtaskd');
+  const v=t?t.value.trim():'';
+  if(!v){ toast('Give it a name first'); return; }
+  const day=(d&&/^\d{4}-\d\d-\d\d$/.test(d.value))?d.value:today();
+  addCustom(v,day);
+  t.value='';
+  paintLists(); rebuild();
+  const nt=document.getElementById('dtaskt'); if(nt) nt.focus();
+  toast(day===today()?'Added to today':'Added to '+prettyDay(day));
+}
 listsRoot.addEventListener('keydown',e=>{
+  if(e.target.id==='dtaskt' && e.key==='Enter'){ e.preventDefault(); addDayTask(); return; }
   if(e.target.dataset && e.target.dataset.ldue && e.key==='Enter'){
     const lid=e.target.dataset.ldue;
     const inp=listsRoot.querySelector('[data-ladd="'+lid+'"]');
@@ -5355,7 +5436,7 @@ listsRoot.addEventListener('keydown',e=>{
     return;
   }
   if((e.key==='Enter'||e.key===' ')){
-    const it=e.target.closest && e.target.closest('[data-lit],[data-lshut]');
+    const it=e.target.closest && e.target.closest('[data-lit],[data-lshut],[data-cit]');
     if(it){ e.preventDefault(); it.click(); }
   }
 });
@@ -6406,6 +6487,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.14-a', note:"One-off tasks now live in the By-date view alongside your coursework, so the week can be planned in one place. There is an add box at the top: name it, pick the day, Add. A task added for Thursday sits under Thursday here and appears on Thursday\u2019s board under One-offs \u2014 it is the same task, so ticking it in either place ticks it in both, and anything you already added from the board shows up here too. Tasks carry a TASK tag where an assignment carries its course, and only the controls that mean something for them: pin to the top, and delete. Like assignments, a finished task holds its place until its day has passed."},
   {v:'2026.10.06-a', note:"In the By-date view, anything due a week or more out now shows its full date \u2014 \u201CTue, Oct 20\u201D rather than just \u201CTue\u201D, which named several Tuesdays at once. Inside the coming week the weekday alone still stands, since there is only one Tuesday it can mean."},
   {v:'2026.09.22-a', note:"No change to how anything works. The build history had thirteen entries dated to the middle of August for work that was actually done in September: the date was carried forward from an older build and the letter bumped, when the date should have been read off the calendar each time. They have been relabelled from file timestamps. Six land on September 5 and one on September 15. The six in between show as 2026.09.xx \u2014 made sometime from September 6 to 15, on days the record does not show. That is deliberate: a question mark says what is known, where a made-up date would not. From here on, every build takes the real date and the letter only counts builds made on the same day."},
   {v:'2026.09.21-a', note:"Assignments can be marked as done IN CLASS, by hand and only by hand \u2014 a new classroom button on every row in both Lists views, and a CLASS button on the daily. On the board, coursework now runs in two groups: ON YOUR OWN first, since that is the part you have to find time for, then IN CLASS beneath it, dimmed. The headings only appear when both kinds are present, so a day of ordinary homework looks exactly as it did. In-class work still counts toward the schoolwork mark, because it still has to get done; the Lists tab and Keep in mind carry a small chip, and the widget dims those rows too. Nothing is ever marked automatically, whatever the title says. DAY is an icon now, so a row can carry four controls on a phone without squeezing its title. FIXED: tapping UNPIN on a coursework row also marked the assignment done. A row\u2019s own click handler ran before the button\u2019s and only ignored the controls it had been told about \u2014 anything else fell through to the tick. It now ignores every button and link inside a row that it does not handle itself, so new controls are covered without having to remember to register; Enter on a focused button had the same hole and is closed too."},
