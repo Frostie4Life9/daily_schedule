@@ -1415,6 +1415,56 @@ input.pq,.rdate,input.atime-in,.lrow input.url,.lrow input.name,.nrow input,#bka
 .llist .ladd{border-top:1px solid var(--hair);padding:12px 16px 2px;}
 .llist .ltools{padding:12px 16px 0;}
 .llist .limport{padding:0 16px;}
+
+/* ---- motion pass ---- */
+.step .note{display:grid!important;grid-template-rows:0fr;opacity:0;margin-top:0;
+  transition:grid-template-rows .36s var(--ease),opacity .26s ease,margin-top .36s var(--ease);}
+.step .note>.nin{overflow:hidden;min-height:0;}
+.step .note.open{grid-template-rows:1fr;opacity:1;margin-top:8px;animation:none;}
+.step.off .note{display:none!important;}
+.resched:not([hidden]){animation:g-rise .28s var(--ease) both;}
+#addpanel{animation:g-rise .3s var(--ease) both;}
+.dsec.dfold .dhead.fold{transition:color .2s,background .2s;border-radius:12px;}
+
+/* ---- hover, on devices that actually hover ---- */
+@media (hover:hover) and (pointer:fine){
+  .rin,.dfg{cursor:pointer;}
+  .step:not(.off) .rin:hover{background:#171A20;}
+  .step.cur .rin:hover{background:#17221D;}
+  .step .label,.dtext{transition:color .3s ease,text-decoration-color .3s ease,transform .25s var(--ease);}
+  .step:not(.off) .rin:hover .label,.drow .dfg:hover .dtext{transform:translateX(2px);}
+  .step .box,.drow .lbox{transition:background-color .22s ease,border-color .22s ease,transform .2s var(--ease),box-shadow .25s ease;}
+  .step:not(.done) .rin:hover .box,.drow:not(.done) .dfg:hover .lbox{border-color:#7A818C;transform:scale(1.07);}
+  .step:not(.done) .rin .box:hover,.drow:not(.done) .dfg .lbox:hover{border-color:var(--done);box-shadow:0 0 0 4px rgba(94,230,176,.12);}
+  .step.done .rin:hover .box,.drow.done .dfg:hover .lbox{transform:scale(1.07);}
+  .drow .dfg{transition:transform .32s var(--ease),background-color .2s ease;}
+  .drow .dfg:hover{background:#121418;}
+  .llist .drow .dfg:hover{background:#171A20;}
+  .phase.complete.folded .phead:hover{background:#171A20;border-color:rgba(255,255,255,.1);}
+  .phase.complete:not(.folded) .phead:hover .pfchev{transform:rotate(90deg) translateX(2px);}
+  .ctl:hover,.lfchip:not(.on):hover,.lvbtn[aria-pressed="false"]:hover,.dtab:hover{background:#1B1E24;color:var(--ink);}
+  .lfchip,.ctl,.lvbtn,.dtab{transition:background-color .25s ease,border-color .25s ease,color .25s ease,transform .16s ease;}
+  .dchip:not(.on):hover{background:#1B1E24;border-color:rgba(255,255,255,.12);transform:translateY(-1px);}
+  .dhead.dopen:hover .dnum{transform:translateY(-1px);}
+  .dnum{transition:transform .2s var(--ease),color .3s;}
+  .dhead.fold:hover{color:var(--ink);background:rgba(255,255,255,.03);}
+  .gcard{transition:transform .25s var(--ease),border-color .25s ease,background-color .25s ease;}
+  .gcard:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.1);background:#191B21;}
+  .dockgo:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.55);}
+  .dock .tab:not([aria-selected="true"]):hover{color:var(--ink);}
+  .undone{transition:transform .16s ease,filter .2s ease,box-shadow .25s ease;}
+  .undone:hover{filter:brightness(1.07);box-shadow:0 6px 20px rgba(94,230,176,.18);}
+  .untimer:hover{border-color:rgba(255,255,255,.25);}
+  .gset:hover{background:rgba(255,255,255,.05);color:var(--ink);}
+  .gset:hover svg{transform:rotate(30deg);}
+  .gset svg{transition:transform .4s var(--ease);}
+  .ntoggle:hover{background:rgba(255,255,255,.05);}
+  .timer:hover{transform:scale(1.05);}
+  .timer{transition:color .2s,transform .2s var(--ease);}
+  .dact:hover,.step>.skiprow .skip:hover{filter:brightness(1.12);}
+  .lback:hover,.reset:hover,.histbtn:hover{background:#1B1E24;color:var(--ink);}
+  .lbar{transition:background-color .2s;} .lbar:hover{background:rgba(255,255,255,.02);}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -2207,6 +2257,17 @@ function rowPhase(r){
   return h?h.textContent.trim():'';
 }
 
+/* PLANNED: something you put on today yourself, as opposed to something the
+   schedule put there. A one-off is always that. A routine is when it sits on
+   the date list, or when you moved it onto today from another day. The
+   widget lists these first in its extras column. Additive to the digest, so
+   no version bump: an older widget just ignores the flag. */
+function plannedToday(r){
+  try{
+    if(S.rplan && S.rplan[r.id]) return true;
+    return plannable(r) && planDate(r)===today() && naturalDate(r)!==today();
+  }catch(e){ return false; }
+}
 function summarize(){
   /* Count exactly what the header counts — visible rows, honouring skips and
      the optional-steps toggle. An earlier version counted core steps only,
@@ -2254,7 +2315,8 @@ function summarize(){
     .filter(r=>!isAside('r:'+r.id))
     .filter(r=>!(S.hideopt&&r.opt))
     .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
-    .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late}))
+    .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late,
+              planned:plannedToday(r)}))
     /* One-off tasks need the same aside filter the routines above get. They
        are concatenated AFTER the point where dailyRows/extraRows have already
        excluded set-aside rows, so without this the counts and the list
@@ -2262,7 +2324,7 @@ function summarize(){
        still sitting underneath it. Skips leaked the same way. */
     .concat(customToday().filter(c=>!isAside('c:'+c.id))
                          .map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
-                                   opt:false, late:customState(c).late, custom:true})))
+                                   opt:false, late:customState(c).late, custom:true, planned:true})))
     /* Coursework still rides in the `routines` list so the widget can show the
        assignments themselves — it is only the COUNTS that moved out of extras,
        into `school` below. */
@@ -3651,6 +3713,7 @@ function moveRoutine(id,day){
   /* Today's occurrence is already done; there is nothing left to move. */
   if(doneOn(id)===today() && planDate(r)===today()){ toast('Already done today'); return false; }
   shiftRoutine(r,day);
+  after(()=>document.querySelectorAll('#lists [data-rit="'+cssEsc(id)+'"]').forEach(glow));
   save(S); paintLists(); rebuild();
   try{ paintSchedule(); }catch(e){}
   toast(day===today()?'Moved to today':day===addDaysISO(today(),1)?'Moved to tomorrow':'Moved to '+prettyDay(day));
@@ -4368,7 +4431,7 @@ function noteToggle(o){
 }
 function noteBlock(o){
   if(!o.note) return '';
-  return `<div class="note${noteOpen(o.key)?' open':''}">${o.note}${o.noteTag||''}</div>`;
+  return `<div class="note${noteOpen(o.key)?' open':''}"><div class="nin">${o.note}${o.noteTag||''}</div></div>`;
 }
 function rowHTML(o){
   const cls = ['step']
@@ -4654,7 +4717,9 @@ list.addEventListener('click',e=>{
     const ci=S.checked.indexOf(key), was=ci>-1; if(was) S.checked.splice(ci,1);
     save(S);
     toast('Deleted',item?()=>{ f.list.items.splice(Math.min(at,f.list.items.length),0,item);
-      if(was && S.checked.indexOf(key)===-1) S.checked.push(key); save(S); rebuild(); paintLists(); }:null);
+      if(was && S.checked.indexOf(key)===-1) S.checked.push(key); save(S);
+      after(()=>document.querySelectorAll('.step[data-n="'+cssEsc(key)+'"]').forEach(el=>{ expandEl(el); glow(el); }));
+      rebuild(); paintLists(); }:null);
     leaveThen(ld,()=>{ rebuild(); paintLists(); });
     return;
   }
@@ -4666,7 +4731,9 @@ list.addEventListener('click',e=>{
     const k='c:'+id, ci=S.checked.indexOf(k), was=ci>-1; if(was) S.checked.splice(ci,1);
     save(S);
     toast('Deleted',()=>{ S.custom.splice(Math.min(at,S.custom.length),0,c);
-      if(was && S.checked.indexOf(k)===-1) S.checked.push(k); save(S); rebuild(); paintLists(); });
+      if(was && S.checked.indexOf(k)===-1) S.checked.push(k); save(S);
+      after(()=>document.querySelectorAll('.step[data-n="'+cssEsc(k)+'"]').forEach(el=>{ expandEl(el); glow(el); }));
+      rebuild(); paintLists(); });
     leaveThen(dp,()=>{ rebuild(); paintLists(); });
     return;
   }
@@ -4675,6 +4742,9 @@ list.addEventListener('click',e=>{
   S.modes=S.modes||{};
   if(S.modes[b.dataset.modeKey]===b.dataset.modeVal) return;
   S.modes[b.dataset.modeKey]=b.dataset.modeVal;
+  const idx=[...list.children].indexOf(b.closest('section'));
+  after(()=>{ const sec=list.children[idx]; const c=sec&&sec.querySelector('.pin');
+    if(c) [...c.children].forEach((r,i)=>anim(r,[{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{delay:i*25})); });
   save(S); rebuild();
 });
 
@@ -4976,6 +5046,7 @@ function paint(){
   paintFolds();
   paintUpNext();
   flashTick();
+  runPending();
 }
 /* A count that changed gets a small lift, so the eye catches it without a
    number ever jumping. Text stays "3/9" for anything that reads it. */
@@ -5121,11 +5192,80 @@ document.getElementById('upnext').addEventListener('click',e=>{
   if(e.target.closest('[data-uptimer]')){ const tm=r.querySelector('.timer'); if(tm) tm.click(); syncUpTimer(); }
 });
 
+/* =========================================================
+   MOTION HELPERS. Most of the app repaints by rebuilding HTML, which on its
+   own makes every change a jump cut. after() queues a small animation for
+   whatever the next paint produces, so a change lands with a cue instead.
+   Web Animations rather than classes: nothing to clean up afterwards, and an
+   element that is replaced mid-animation simply takes the animation with it.
+   ========================================================= */
+const REDUCED=()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
+function anim(el,frames,opts){
+  if(!el || !el.animate || REDUCED()) return null;
+  try{ return el.animate(frames,Object.assign({duration:320,easing:'cubic-bezier(.2,.8,.2,1)'},opts||{})); }
+  catch(e){ return null; }
+}
+function frontOf(el){ return el&&(el.querySelector(':scope > .rin, :scope > .dfg')||el); }
+function arrive(el,dx,dy){ anim(el,[{opacity:0,transform:`translate(${dx||0}px,${dy==null?8:dy}px)`},{opacity:1,transform:'none'}]); }
+function glow(el){
+  const f=frontOf(el); if(!f) return;
+  const bg=getComputedStyle(f).backgroundColor;
+  anim(f,[{backgroundColor:'#1C2C25'},{backgroundColor:bg}],{duration:1100,easing:'ease-out'});
+}
+function slideAside(el){ anim(frontOf(el),[{opacity:0,transform:'translateX(-18px)'},{opacity:1,transform:'none'}],{duration:380}); }
+function collapseEl(el,done){
+  if(!el){ if(done) done(); return; }
+  const h=el.offsetHeight; el.style.overflow='hidden';
+  const a=anim(el,[{height:h+'px',opacity:1},{height:'0px',opacity:0}],{duration:260});
+  if(!a){ if(done) done(); return; }
+  a.onfinish=()=>{ if(done) done(); };
+}
+function expandEl(el){
+  if(!el) return;
+  const h=el.offsetHeight; if(!h) return;
+  el.style.overflow='hidden';
+  const a=anim(el,[{height:'0px',opacity:0},{height:h+'px',opacity:1}],{duration:340});
+  if(a) a.onfinish=()=>{ el.style.overflow=''; }; else el.style.overflow='';
+}
+let PENDING=null;
+function after(fn){ PENDING={fn:fn,t:Date.now()}; }
+function runPending(){
+  if(!PENDING) return;
+  const p=PENDING; PENDING=null;
+  if(Date.now()-p.t>1500) return;
+  try{ p.fn(); }catch(e){}
+}
+function rowSel(row){
+  if(!row) return null;
+  if(row.classList.contains('step')) return '.step[data-n="'+cssEsc(row.dataset.n)+'"]';
+  if(row.dataset.lit) return '#lists [data-lit="'+cssEsc(row.dataset.lit)+'"]';
+  if(row.dataset.cit) return '#lists [data-cit="'+cssEsc(row.dataset.cit)+'"]';
+  if(row.dataset.rit) return '#lists [data-rit="'+cssEsc(row.dataset.rit)+'"]';
+  return null;
+}
+/* Every action behind a row (except delete, which folds itself away) leaves a
+   cue on the row it acted on, wherever that row lands after the repaint. */
+document.addEventListener('click',e=>{
+  const b=e.target.closest && e.target.closest('.step > .skiprow .skip, .drow > .dtrayR .dact, .drow > .dtrayL .dact');
+  if(!b || b.matches('[data-ldrop],[data-drop],[data-lidel],[data-cdel]')) return;
+  const sel=rowSel(b.closest('.step, .drow')); if(!sel) return;
+  const aside=b.matches('[data-nt],[data-skip]');
+  after(()=>document.querySelectorAll(sel).forEach(el=>aside?slideAside(el):glow(el)));
+},true);
+/* Right-click opens the actions on a computer, where swiping with a mouse is
+   a chore. */
+document.addEventListener('contextmenu',e=>{
+  const row=e.target.closest && e.target.closest('#list .step, #lists .drow');
+  if(!row || !swipeable(row) || e.target.closest('input, textarea, a')) return;
+  e.preventDefault();
+  if(SW.open===row) swClose(row); else swOpen(row,'R');
+});
+
 /* The tick that was just made gets its little moment; nothing else does. */
 function flashTick(){
   if(!JUST.k || Date.now()-JUST.t>600) return;
   const k=JUST.k;
-  document.querySelectorAll('.justtick').forEach(x=>x.classList.remove('justtick'));
+  document.querySelectorAll('#list .justtick').forEach(x=>x.classList.remove('justtick'));
   const el=document.querySelector('.step[data-n="'+cssEsc(k)+'"]');
   if(!el) return;
   void el.offsetWidth; el.classList.add('justtick');
@@ -6086,7 +6226,7 @@ function paintLists(){
   /* The date view carries tasks and planned routines as well as lists, so it
      has something to show -- and an add box to use -- even with no lists. */
   document.body.classList.toggle('lv-list',lview()==='list');
-  if(lview()==='date'){ paintByDate(host); flashListTick(); return; }
+  if(lview()==='date'){ paintByDate(host); flashListTick(); runPending(); return; }
   if(!S.lists.length){
     host.innerHTML='<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
     return;
@@ -6145,6 +6285,7 @@ function paintLists(){
     `</div>`;
   }).join('');
   flashListTick();
+  runPending();
 }
 function flashListTick(){
   if(!JUST.k || Date.now()-JUST.t>600) return;
@@ -6229,7 +6370,9 @@ function addListItem(lid,text,due){
   const t=String(text||'').trim(); if(!t) return false;
   l.items=l.items||[];
   const d=/^\d{4}-\d\d-\d\d$/.test(due||'') ? due : undefined;
-  l.items.push({id:newId('i'),text:t,done:false,due:d,added:new Date().toISOString()});
+  const ni={id:newId('i'),text:t,done:false,due:d,added:new Date().toISOString()};
+  l.items.push(ni);
+  after(()=>document.querySelectorAll('#lists [data-lit="'+cssEsc(l.id+'|'+ni.id)+'"]').forEach(el=>{ arrive(el); glow(el); }));
   save(S); paintLists();
   if(listOnBoard(l)) rebuild();      /* it may be due today \u2014 show it now */
   return true;
@@ -6254,6 +6397,10 @@ function showView(which){
   try{ save(S); } finally{ syncQuiet=q; }
   if(lists){ paintLists(); setTimeout(()=>swHint('#lists .drow'),500); }
   window.scrollTo(0,0);
+  if(paint.ready){
+    arrive(lists?vl:vt, lists?26:-26, 0);
+    arrive(document.getElementById('gtitle'),0,6);
+  }
 }
 document.getElementById('tab-today').addEventListener('click',()=>{
   /* Tapping the tab you are already on takes you back to the top. */
@@ -6298,7 +6445,9 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(lid); if(!l) return;
     const at=(l.items||[]).findIndex(i=>i.id===iid); if(at<0) return;
     const item=l.items.splice(at,1)[0]; save(S);
-    toast('Deleted',()=>{ l.items.splice(Math.min(at,l.items.length),0,item); save(S); paintLists(); if(listOnBoard(l)) rebuild(); });
+    toast('Deleted',()=>{ l.items.splice(Math.min(at,l.items.length),0,item); save(S);
+      after(()=>document.querySelectorAll('#lists [data-lit="'+cssEsc(lid+'|'+iid)+'"]').forEach(el=>{ expandEl(el); glow(el); }));
+      paintLists(); if(listOnBoard(l)) rebuild(); });
     leaveThen(del,()=>{ paintLists(); if(listOnBoard(l)) rebuild(); });
     return;
   }
@@ -6313,7 +6462,11 @@ listsRoot.addEventListener('click',e=>{
     return;
   }
   const lv=e.target.closest('[data-lview]');
-  if(lv){ setLview(lv.dataset.lview); LDAY=null; paintLists(); return; }
+  if(lv){ if(lview()===lv.dataset.lview) return;
+          setLview(lv.dataset.lview); LDAY=null; paintLists();
+          const host=document.getElementById('lists');
+          [...host.children].slice(1).forEach(c=>arrive(c,lv.dataset.lview==='list'?22:-22,0));
+          return; }
   const op=e.target.closest('[data-dopen]');
   if(op){ openDay(op.dataset.dopen); return; }
   if(e.target.closest('[data-dback]')){ closeDay(); return; }
@@ -6323,8 +6476,16 @@ listsRoot.addEventListener('click',e=>{
   const fold=e.target.closest('[data-dfold]');
   if(fold){
     const k=fold.dataset.dfold;
-    if(LOPEN.has(k)) LOPEN.delete(k); else LOPEN.add(k);
-    paintLists(); return;
+    if(LOPEN.has(k)){
+      const body=fold.parentNode.querySelector('.dfbody');
+      fold.parentNode.classList.remove('open');
+      collapseEl(body,()=>{ LOPEN.delete(k); paintLists(); });
+    } else {
+      LOPEN.add(k);
+      after(()=>expandEl(document.querySelector('#lists .dsec[data-sec="'+cssEsc(k)+'"] .dfbody')));
+      paintLists();
+    }
+    return;
   }
   const bd=e.target.closest('[data-lboard]');
   if(bd){
@@ -6421,7 +6582,15 @@ listsRoot.addEventListener('click',e=>{
   const bar=e.target.closest('[data-lshut]');
   if(bar){
     const l=listById(bar.dataset.lshut); if(!l) return;
-    l.shut=!l.shut; save(S); paintLists(); return;
+    const el=bar.closest('.llist'), body=el&&el.querySelector('.lbody');
+    if(!l.shut && body){
+      collapseEl(body,()=>{ l.shut=true; save(S); paintLists(); });
+    } else {
+      l.shut=false; save(S);
+      after(()=>expandEl(document.querySelector('#lists .llist[data-lid="'+cssEsc(l.id)+'"] .lbody')));
+      paintLists();
+    }
+    return;
   }
   const clb=e.target.closest('[data-lclass]');
   if(clb){
@@ -6480,7 +6649,9 @@ listsRoot.addEventListener('click',e=>{
     save(S);
     toast('Deleted',()=>{ S.custom.splice(Math.min(at,S.custom.length),0,c);
       if(was && S.checked.indexOf('c:'+id)===-1) S.checked.push('c:'+id);
-      save(S); paintLists(); rebuild(); });
+      save(S);
+      after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(id)+'"]').forEach(el=>{ expandEl(el); glow(el); }));
+      paintLists(); rebuild(); });
     leaveThen(cdel,()=>{ paintLists(); rebuild(); });
     return;
   }
@@ -6537,6 +6708,7 @@ function moveTask(id,day){
   /* It leaves today's board, so today's record of it goes too. */
   if(c.date===today()){ const k=S.checked.indexOf('c:'+id); if(k>-1) S.checked.splice(k,1); }
   c.date=day;
+  after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(id)+'"]').forEach(glow));
   save(S); paintLists(); rebuild();
   toast(day===today()?'Moved to today':day===addDaysISO(today(),1)?'Moved to tomorrow':'Moved to '+prettyDay(day));
   return true;
@@ -6618,8 +6790,9 @@ function addDayTask(){
   const v=t?t.value.trim():'';
   if(!v){ toast('Give it a name first'); return; }
   const day=(d&&/^\d{4}-\d\d-\d\d$/.test(d.value))?d.value:today();
-  addCustom(v,day,{inlist:true});
+  const nc=addCustom(v,day,{inlist:true});
   t.value='';
+  after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(nc.id)+'"]').forEach(el=>{ arrive(el); glow(el); }));
   paintLists(); rebuild();
   const nt=document.getElementById('dtaskt'); if(nt) nt.focus();
   toast(day===today()?'Added to today':'Added to '+prettyDay(day));
@@ -7361,7 +7534,20 @@ function paintOpt(){
   optbtn.textContent='Optional steps: '+(S.hideopt?'hidden':'shown');
   paint();
 }
-optbtn.addEventListener('click',()=>{S.hideopt=!S.hideopt;save(S);paintOpt();});
+optbtn.addEventListener('click',()=>{
+  const rows=[...document.querySelectorAll('#list .step.optional')].filter(r=>r.offsetParent!==null||!S.hideopt);
+  if(!S.hideopt && rows.length && !REDUCED()){
+    /* Hiding: fold them shut first, then let the class take over. */
+    let left=rows.length;
+    rows.forEach(r=>collapseEl(r,()=>{ if(--left) return;
+      rows.forEach(x=>{ x.style.overflow=''; });
+      S.hideopt=true; save(S); paintOpt(); }));
+    optbtn.setAttribute('aria-pressed','true');
+    return;
+  }
+  S.hideopt=!S.hideopt; save(S); paintOpt();
+  if(!S.hideopt) document.querySelectorAll('#list .step.optional').forEach(expandEl);
+});
 /* =========================================================
    JUMP — why this doesn't use scrollIntoView any more.
    Two things broke it on mobile. First, focus() performs its OWN scroll unless
@@ -7852,6 +8038,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.15-c', note:'The home-screen widget can now tell what you planned for today from what the schedule put there: one-off tasks, routines on the date list, and routines you moved onto today are flagged, and the widget lists them first in its Extras column.'},
+  {v:'2026.10.15-b', note:'Smoother, and it answers a mouse. Descriptions, optional steps, the Later / No date / Done folds and each list in By list now open and close by sliding instead of popping. Switching Today and Lists, By date and By list, and Shower / Bath all ease in. Anything you do from behind a row — pin, today, in class, plan, not today — leaves a soft glow on that row where it lands, and a new, moved or undeleted task does the same. A ticked box on the date list now pops like the board’s. On a computer, rows lift and their circles brighten under the pointer, and right-clicking a row opens its actions instead of having to drag it.'},
   {v:'2026.10.15-a', note:'A new look, same app. Darker and calmer, one typeface, and things move instead of snapping. TODAY: the date, run and three counts (Protocol, Extras, School) sit at the top, with an Up Next card that always shows the next step — Done ticks it, and its timer button runs that row’s timer. Each section is one card; when its required steps are all ticked it folds into a single line (tap to open it again). Ticking a box pops it and draws the check. Not today, skip, plan, class and delete now sit behind each row: swipe it left. The bottom bar switches views, and its round button jumps to the next step, then the next extra. LISTS: By date is a week agenda, one day per row of dates; tap a date to open that day with a strip of days to hop between. School comes first in each day and your own tasks sit under it. Course chips filter the list, and rows fold away smoothly instead of jumping. Swipe a row right to put it on today; left to pin it, mark it in class, hide or delete it — and a delete can be undone. By list uses the same rows and swipes. Drag and the date chip still move tasks to another day.'},
   {v:'2026.10.14-c', note:"Two things. FEWER BOXES: eight steps that were really a way of doing the step above them are now a bold note that is always visible on that step, instead of a checkbox of their own. Spit-don't-rinse sits on both brushes; nothing-but-water sits on the night brush; shape-it sits on the styling product; pat-dry sits on the second cleanse; drying between your toes is part of Dry off; and Get dressed now carries the shirt-goes-last rule instead of a separate Shirt on. Wait before the shirt is gone too: ticking Deodorant starts its 3-minute timer on that same row, and unticking stops it. Timers now remember their end time on this phone, so closing the app does not lose one \u2014 reopen it and the countdown is exactly where it should be, or reads done if it finished while you were away. A closed web page cannot ring, though: for a lock-screen alarm, turn on Hand timers to the Clock under settings. RECURRING TASKS can go on the date list too. Tap PLAN on one on the board, or open it in Full schedule to reach it on days it is not due. Its next occurrence then sits on its day in By date; tick it and the one after takes its place. Drag it or tap its date to move just that occurrence, later or earlier \u2014 a weekday task pulled early does not then ask again on its usual day, and an interval task counts its next one from whenever you actually did it."},
   {v:'2026.10.14-b', note:"The date list only shows the one-off tasks you choose now. Anything added from the box at the top of By date goes there; a task added on the board stays on the board unless you tap PLAN on it, which sends it over (tap again, or HIDE in the list, to take it back off \u2014 the task itself is not touched). Tasks on the list can be moved to another day two ways: drag the handle on the left of the row and let go among the day you want, or tap the date on the row for a calendar, which also reaches days that have nothing else on them. A moved task reappears on the board on its new day. Tasks you added before this update are not on the list; PLAN puts any of them back."},
