@@ -1237,7 +1237,7 @@ body.on-lists.lv-list .newlist{display:flex;margin-top:16px;}
 .dsep::after{content:'';flex:1;border-top:1px dashed rgba(255,255,255,.09);}
 .dgh{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);
   padding:0 2px 6px;max-height:44px;overflow:hidden;transition:max-height .36s var(--ease),opacity .28s,padding .36s;}
-.dgh.dgtask{padding-top:20px;}
+.dgh.dgtask,.dgh.dginclass{padding-top:20px;}
 
 .drow{display:block;position:relative;overflow:hidden;padding:0;min-height:0;border:0;border-radius:12px;gap:0;
   max-height:160px;transition:max-height .36s var(--ease),opacity .28s ease;cursor:pointer;}
@@ -1471,6 +1471,69 @@ input.pq,.rdate,input.atime-in,.lrow input.url,.lrow input.name,.nrow input,#bka
 .step.optional:not(.done) .box{border-style:dashed;}
 .step>.skiprow .skip.keep{background:#1F3B30;color:#BDF5DE;}
 .step>.skiprow .skip.keep.on{background:#2A2F38;color:#EEF0F3;box-shadow:none;}
+
+/* ---- at home / in class ---- */
+.drow[data-kind="inclass"] .dtext{color:var(--dim);}
+.drow.done[data-kind="inclass"] .dtext{color:var(--dimmer);}
+/* ---- course colours on the board ---- */
+.ccode{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dimmer);}
+.ccode i,.kmdot{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--c);flex:0 0 auto;}
+.kmdot{margin-right:8px;vertical-align:1px;}
+.step.course .meta{gap:10px;}
+/* ---- the step sheet ---- */
+.step .note{display:none!important;}
+.ntoggle svg{transform:none!important;}
+.sheetwrap{position:fixed;inset:0;z-index:90;}
+.sheetwrap[hidden]{display:none;}
+.sheetback{position:absolute;inset:0;background:rgba(5,6,8,.62);opacity:0;transition:opacity .3s ease;}
+.sheetwrap.up .sheetback{opacity:1;}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;max-height:88vh;overflow-y:auto;
+  box-sizing:border-box;padding:10px 22px calc(26px + env(safe-area-inset-bottom));border-radius:28px 28px 0 0;
+  background:#15171C;border-top:1px solid rgba(255,255,255,.08);box-shadow:0 -20px 50px rgba(0,0,0,.5);
+  transform:translateY(105%);transition:transform .36s var(--ease);overscroll-behavior:contain;}
+.sheetwrap.up .sheet{transform:translateY(0);}
+body.sheet-open{overflow:hidden;}
+.sheet:focus{outline:none;}
+.shgrab{width:38px;height:5px;border-radius:3px;background:rgba(255,255,255,.18);margin:0 auto 14px;}
+.shhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.shtitles{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.sheye{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;color:var(--dimmer);}
+.shhead h2{margin:0;font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.15;}
+.shopt{font-size:12px;font-weight:400;color:var(--dimmer);margin-left:10px;letter-spacing:0;vertical-align:3px;}
+.shprod{font-size:14px;color:var(--dim);}
+.shclose{flex:0 0 auto;width:44px;height:44px;border-radius:22px;border:0;background:#22252C;display:grid;place-items:center;
+  cursor:pointer;color:#DADDE2;transition:transform .16s ease,background .2s;}
+.shclose:active{transform:scale(.92);}
+.shclose svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;}
+.shtimer{position:relative;display:block;width:210px;height:210px;margin:20px auto 6px;border:0;background:transparent;
+  padding:0;cursor:pointer;border-radius:50%;transition:transform .2s var(--ease);}
+.shtimer:active{transform:scale(.97);}
+.shtimer svg{width:210px;height:210px;display:block;}
+.shring-bg{fill:none;stroke:rgba(255,255,255,.07);stroke-width:9;}
+.shring-fg{fill:none;stroke:var(--live);stroke-width:9;stroke-linecap:round;stroke-dasharray:590.6;stroke-dashoffset:590.6;
+  transition:stroke-dashoffset .25s linear,stroke .3s;}
+.sheet.rang .shring-fg{stroke:var(--done);}
+.shtimein{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
+.shtime{font-family:'Geist Mono',ui-monospace,monospace;font-size:52px;font-weight:500;letter-spacing:-.04em;line-height:1;color:var(--ink);}
+.shcap{font-size:13px;color:var(--dim);}
+.sheet.running .shtime{color:var(--live);} .sheet.rang .shtime{color:var(--done);}
+.shpin{margin-top:18px;padding:14px 16px;border-radius:16px;background:#1B1E24;font-size:14px;font-weight:600;line-height:1.45;}
+.shmeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;}
+.sheet .warn{margin-top:14px;}
+.shnote{margin-top:16px;font-size:14px;line-height:1.6;color:var(--dim);white-space:pre-line;}
+.shnote .pinnote{display:none;}
+.shbtns{display:flex;gap:10px;margin-top:22px;}
+.shdone{flex:1;height:52px;border:0;border-radius:16px;background:var(--done);color:#08130E;font-family:inherit;font-size:15px;
+  font-weight:600;cursor:pointer;transition:transform .16s ease,background .25s,color .25s;}
+.shdone.isdone{background:#22252C;color:#DADDE2;}
+.shdone:active{transform:scale(.97);}
+.shacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.shact{flex:1 1 auto;height:44px;padding:0 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:transparent;
+  font-family:inherit;font-size:14px;font-weight:500;color:var(--dim);cursor:pointer;text-transform:capitalize;
+  transition:transform .16s ease,background .2s,color .2s;}
+.shact:active{transform:scale(.96);}
+.shact.on{border-color:rgba(94,230,176,.4);color:var(--done);}
+@media (hover:hover) and (pointer:fine){ .shact:hover{background:#1B1E24;color:var(--ink);} .shclose:hover{background:#2A2E36;} }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -1741,6 +1804,10 @@ input.pq,.rdate,input.atime-in,.lrow input.url,.lrow input.name,.nrow input,#bka
   <button class="dockgo" id="jump" type="button" aria-label="Jump to the next step" title="Jump to the next step"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="6 13 12 19 18 13"/></svg></button>
   <button class="dockgo" id="ldockadd" type="button" aria-label="Add a task" title="Add a task"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
 </div></nav>
+<div class="sheetwrap" id="sheetwrap" hidden>
+  <div class="sheetback" data-sheetclose="1"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shtitle" tabindex="-1"></div>
+</div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -4433,6 +4500,11 @@ function assertGroups(){
    something to open \u2014 an affordance that does nothing is worse than none.  */
 function noteOpen(key){ return (S.notes||{})[key]===1; }
 function noteToggle(o){
+  if(o.nobox) return '';
+  return `<button class="ntoggle" data-sheet="${esc(o.key)}" title="Details" aria-label="Open details">`+
+         `<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></button>`;
+}
+function noteToggleInline(o){
   if(!o.note) return '';
   const open=noteOpen(o.key), lbl=open?'Hide the description':'Show the description';
   return `<button class="ntoggle${open?' on':''}" data-note="${esc(o.key)}" `+
@@ -4596,11 +4668,12 @@ function buildRows(){
     let n=0;
     const courseRow=a=>{
       const ai=n++;
+      const lid=String(a.key).slice(2).split('|')[0];
       sec.appendChild(makeRow({
         key:a.key, cls:['routine','course','custom'].concat(a.inclass?['inclass']:[]),
         num:String(ai+1).padStart(2,'0'),
         label:esc(a.text),
-        meta:[`<span class="sched">${esc(a.list)}</span>`,
+        meta:[`<span class="ccode" title="${esc(a.list)}"><i style="--c:${courseHex(listTint(lid))}"></i>${esc(listCode(a.list))}</span>`,
               /* Pinned undated work has no deadline to report, so say what it
                  IS doing here instead of leaving the row unexplained. */
               a.due?`<span class="rstat${a.late?'':' ok'}">${esc(dueChip(a.due,a.at))}</span>`
@@ -4616,7 +4689,7 @@ function buildRows(){
     };
     /* A sub-heading only earns its line when there is something to tell apart:
        with everything on your own the board looks exactly as it did before. */
-    if(own.length && inroom.length) sub('On your own');
+    if(own.length && inroom.length) sub('At home');
     own.forEach(courseRow);
     if(inroom.length) sub('In class');
     inroom.forEach(courseRow);
@@ -4630,7 +4703,7 @@ function buildRows(){
       keep.className='keepmind';
       keep.innerHTML=`<h3>Keep in mind</h3>`+
         soon.map(k=>`<div class="kmrow${k.inclass?' inclass':''}">`+
-          `<span class="kmtext">${esc(k.text)}</span>`+
+          `<span class="kmtext"><i class="kmdot" style="--c:${courseHex(listTint(String(k.key||'').slice(2).split('|')[0]))}"></i>${esc(k.text)}</span>`+
           (k.inclass?`<span class="kmclass">in class</span>`:'')+
           `<span class="kmlist">${esc(k.list)}</span>`+
           `<span class="kmdue">${esc(dueChip(k.due,k.at))}</span>`+
@@ -5299,6 +5372,123 @@ document.addEventListener('contextmenu',e=>{
   e.preventDefault();
   if(SW.open===row) swClose(row); else swOpen(row,'R');
 });
+
+/* =========================================================
+   THE STEP SHEET. Everything about one step, lifted out of the list: its
+   instruction and description, a big timer you can watch from across the
+   bathroom, and the row's own actions. It is a view of the row, never a copy:
+   the buttons press the row's own buttons and the ring reads the row's own
+   timer, so nothing in here can drift from the board.
+   ========================================================= */
+let SHEETKEY=null, sheetTick=null;
+function sheetRow(){ return SHEETKEY && document.querySelector('.step[data-n="'+cssEsc(SHEETKEY)+'"]'); }
+function openSheet(key){
+  SHEETKEY=key; swCloseAll(true);
+  const wrap=document.getElementById('sheetwrap');
+  paintSheet(true);
+  if(!sheetRow()){ SHEETKEY=null; return; }
+  wrap.hidden=false;
+  document.body.classList.add('sheet-open');
+  void wrap.offsetWidth; wrap.classList.add('up');
+  clearInterval(sheetTick); sheetTick=setInterval(()=>paintSheet(false),200);
+  /* Focus moves into the sheet for screen readers and the keyboard, onto the
+     sheet itself rather than a button, so no focus ring flashes on a tap. */
+  setTimeout(()=>{ const c=document.getElementById('sheet'); if(c) try{ c.focus({preventScroll:true}); }catch(e){} },60);
+}
+function closeSheet(){
+  const wrap=document.getElementById('sheetwrap'); if(wrap.hidden) return;
+  wrap.classList.remove('up'); clearInterval(sheetTick);
+  document.body.classList.remove('sheet-open');
+  const sh=document.getElementById('sheet'); if(sh) sh.style.transform='';
+  setTimeout(()=>{ if(!wrap.classList.contains('up')){ wrap.hidden=true; SHEETKEY=null; } },320);
+}
+function paintSheet(full){
+  const sh=document.getElementById('sheet'), r=sheetRow();
+  if(!sh) return;
+  if(!r){ if(!full) closeSheet(); return; }
+  const tm=r.querySelector('.timer');
+  if(!full){
+    /* Live bits only: the ring, the time, and the done state. */
+    if(tm){
+      const p=+(getComputedStyle(tm).getPropertyValue('--p')||0)||0, run=r.classList.contains('running'), rang=r.classList.contains('rang');
+      const ring=sh.querySelector('.shring-fg'); if(ring) ring.style.strokeDashoffset=String(590.6*(1-Math.min(100,p)/100));
+      const big=sh.querySelector('.shtime'); if(big) big.textContent=tm.textContent.trim();
+      const cap=sh.querySelector('.shcap'); if(cap) cap.textContent=run?'running — tap to stop':rang?'done':'tap to start';
+      sh.classList.toggle('running',run); sh.classList.toggle('rang',rang);
+    }
+    const done=r.classList.contains('done');
+    const db=sh.querySelector('[data-shdone]'); if(db){ db.textContent=done?'Untick':'Done'; db.classList.toggle('isdone',done); }
+    return;
+  }
+  const lab=r.querySelector('.label').cloneNode(true);
+  lab.querySelectorAll('button, .tag, .late').forEach(x=>x.remove());
+  const prod=lab.querySelector('.prod'); const prodText=prod?prod.textContent.replace(/^\s*—\s*/,''):'';
+  if(prod) prod.remove();
+  const title=lab.textContent.replace(/\s*—\s*$/,'').trim();
+  const sec=r.closest('section'); const ph=sec&&sec.querySelector('.phead h2');
+  const num=(r.querySelector('.num')||{}).textContent||'';
+  const pin=(r.querySelector(':scope > .rin .pinnote')||{}).textContent||'';
+  const note=r.querySelector('.note .nin');
+  const warns=[...r.querySelectorAll('.warn')].map(w=>w.outerHTML).join('');
+  const meta=r.querySelector('.meta');
+  const opt=r.classList.contains('optional');
+  /* The row's own actions, pressed by proxy. */
+  const acts=[...r.querySelectorAll(':scope > .skiprow button')].map((b,i)=>
+    `<button class="shact${b.classList.contains('on')?' on':''}" data-shproxy="${i}">${esc(b.getAttribute('aria-label')||b.textContent)}</button>`).join('');
+  sh.innerHTML=
+    `<div class="shgrab" aria-hidden="true"></div>`+
+    `<div class="shhead"><div class="shtitles">`+
+      `<span class="sheye">${num?'STEP '+esc(num)+' · ':''}${ph?esc(ph.textContent.toUpperCase()):''}</span>`+
+      `<h2 id="shtitle">${esc(title)}${opt?'<span class="shopt">optional</span>':''}</h2>`+
+      (prodText?`<span class="shprod">${esc(prodText)}</span>`:'')+
+    `</div><button class="shclose" data-sheetclose="1" aria-label="Close">`+
+      `<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button></div>`+
+    (tm?`<button class="shtimer" data-shtimer="1" aria-label="Start or stop the timer">`+
+      `<svg viewBox="0 0 210 210" aria-hidden="true"><circle class="shring-bg" cx="105" cy="105" r="94"/>`+
+      `<circle class="shring-fg" cx="105" cy="105" r="94" transform="rotate(-90 105 105)"/></svg>`+
+      `<span class="shtimein"><span class="shtime">${esc(tm.textContent.trim())}</span><span class="shcap">tap to start</span></span></button>`:'')+
+    (pin?`<div class="shpin">${esc(pin)}</div>`:'')+
+    (meta&&meta.textContent.trim()?`<div class="shmeta">${meta.innerHTML}</div>`:'')+
+    warns+
+    (note?`<div class="shnote">${note.innerHTML}</div>`:'')+
+    `<div class="shbtns"><button class="shdone" data-shdone="1">Done</button></div>`+
+    (acts?`<div class="shacts">${acts}</div>`:'');
+  paintSheet(false);
+}
+document.getElementById('sheetwrap').addEventListener('click',e=>{
+  if(e.target.closest('[data-sheetclose]')){ closeSheet(); return; }
+  const r=sheetRow(); if(!r) return;
+  if(e.target.closest('[data-shdone]')){
+    const was=r.classList.contains('done');
+    toggle(r); paintSheet(false);
+    /* Ticking it is usually the last thing you wanted from here. */
+    if(!was) setTimeout(closeSheet,260);
+    return;
+  }
+  if(e.target.closest('[data-shtimer]')){ const t=r.querySelector('.timer'); if(t) t.click(); paintSheet(false); return; }
+  const px=e.target.closest('[data-shproxy]');
+  if(px){
+    const b=r.querySelectorAll(':scope > .skiprow button')[+px.dataset.shproxy];
+    closeSheet();
+    if(b) setTimeout(()=>b.click(),10);
+  }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSheet(); });
+/* Pull the sheet down to dismiss it, the way a phone sheet works. */
+(function(){
+  const sh=document.getElementById('sheet'); let y0=null, dy=0;
+  sh.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button, a, input') || sh.scrollTop>0) return;
+    y0=e.clientY; dy=0; sh.style.transition='none';
+  });
+  document.addEventListener('pointermove',e=>{
+    if(y0==null) return; dy=Math.max(0,e.clientY-y0);
+    sh.style.transform=dy?'translateY('+dy+'px)':'';
+  });
+  const end=()=>{ if(y0==null) return; y0=null; sh.style.transition='';
+    if(dy>110) closeSheet(); else sh.style.transform=''; };
+  document.addEventListener('pointerup',end); document.addEventListener('pointercancel',end);
+})();
 
 /* The tick that was just made gets its little moment; nothing else does. */
 function flashTick(){
@@ -5999,6 +6189,12 @@ function listBuckets(){
   return B;
 }
 
+/* Hoisted, so the board can colour a course before the date view's own
+   tables exist. Same hues as the date list's dots. */
+function courseHex(t){
+  return ({blue:'#7FB0E8',green:'#7ED38F',violet:'#A78BFA',magenta:'#E58BB8',orange:'#E9B35E',
+           aqua:'#5EC8D8',red:'#F08A8A',yellow:'#D9C35E'})[t]||'#80868F';
+}
 function lviewBar(extra){
   const d=lview()==='date';
   return `<div class="lviewbar"><div class="lseg" role="group" aria-label="View">`+
@@ -6078,11 +6274,12 @@ function dateRow(r,big,inlist){
         `title="${r.inclass?'Done in class — tap if it is on your own':'Mark as done in class'}" aria-label="Done in class">${SWCAP}<span>${r.inclass?'Own work':'In class'}</span></button>`+
       `<button class="dact ddelact" data-lidel="${k}" aria-label="Delete item">${SWBIN}<span>Delete</span></button>`;
   }
-  const chips=(r.inclass?`<span class="lclasschip">in class</span>`:'')+
+  /* On the date list in-class work already sits under its own label. */
+  const chips=(r.inclass&&inlist?`<span class="lclasschip">in class</span>`:'')+
     (opensChip(r.opens)?`<span class="lopen">${esc(opensChip(r.opens))}</span>`:'');
   const onToday=r.pin&&!r.task&&!r.routine&&r.due!==today();
   return `<div class="drow${r.task?' dtask':''}${r.routine?' dtask droutine':''}${r.done?' done':''}${late?' overdue':''}${r.top?' ptop':''}${big?' big':''}" ${attrs} `+
-      `data-due="${esc(r.due||'')}" data-code="${esc(r.task||r.routine?'Tasks':r.code)}" data-kind="${kind}" `+
+      `data-due="${esc(r.due||'')}" data-code="${esc(r.task||r.routine?'Tasks':r.code)}" data-kind="${kind==='school'&&r.inclass?'inclass':kind}" `+
       `role="checkbox" aria-checked="${r.done}" tabindex="0">`+
     (trayL?`<div class="dtrayL">${trayL}</div>`:'')+
     `<div class="dtrayR">${trayR}</div>`+
@@ -6101,12 +6298,19 @@ function dateRow(r,big,inlist){
     `</div>`+
   `</div>`;
 }
+/* THREE RUNS a day: school you do at home, school that happens in the room,
+   then your own tasks. In-class work still has to be ticked, but it is not
+   the part you have to find time for, so it sits under its own label rather
+   than mixed in with the work that is. Dividers show only when there is more
+   than one run to tell apart, and filtering re-decides that live. */
+const DGROUPS=[['school','At home'],['inclass','In class'],['task','Tasks']];
 function dateRowsHTML(rows,big,heads){
-  const sch=rows.filter(r=>rowKind(r)==='school'), tsk=rows.filter(r=>rowKind(r)==='task');
-  return (heads?`<div class="dgh dgschool">School</div>`:'')+
-    sch.map(r=>dateRow(r,big)).join('')+
-    (heads?`<div class="dgh dgtask">Tasks</div>`:`<div class="dsep" aria-hidden="true"><span>Tasks</span></div>`)+
-    tsk.map(r=>dateRow(r,big)).join('');
+  const by={school:[],inclass:[],task:[]};
+  rows.forEach(r=>{ const k=rowKind(r); by[k==='school'&&r.inclass?'inclass':k].push(r); });
+  return DGROUPS.map(([g,label],i)=>
+    (heads?`<div class="dgh dg${g}" data-g="${g}">${label}</div>`
+          :(i?`<div class="dsep" data-before="${g}" aria-hidden="true"><span>${label}</span></div>`:''))+
+    by[g].map(r=>dateRow(r,big)).join('')).join('');
 }
 function dateSection(key,label,rows,opts){
   if(!rows.length) return '';
@@ -6218,18 +6422,23 @@ function lfApply(instant){
   let open=0;
   host.querySelectorAll('.dsec').forEach(sec=>{
     const rows=[...sec.querySelectorAll('.drow')];
-    let vs=0, vt=0;
+    const n={school:0,inclass:0,task:0};
     rows.forEach(r=>{
       const ok=f==='all'||r.dataset.code===f;
       r.classList.toggle('lfout',!ok);
       r.setAttribute('aria-hidden',ok?'false':'true');
-      if(ok){ if(r.dataset.kind==='task') vt++; else vs++;
+      if(ok){ n[r.dataset.kind in n ? r.dataset.kind : 'school']++;
               if(!r.classList.contains('done') && !sec.classList.contains('dfold')) open++; }
     });
-    const sep=sec.querySelector('.dsep'); if(sep) sep.classList.toggle('lfout',!(vs&&vt));
-    const gs=sec.querySelector('.dgschool'), gt=sec.querySelector('.dgtask');
-    if(gs) gs.classList.toggle('lfout',!(vs&&vt));
-    if(gt) gt.classList.toggle('lfout',!(vs&&vt));
+    const vs=n.school+n.inclass, vt=n.task, groups=DGROUPS.filter(([g])=>n[g]).length;
+    /* A divider marks where one run starts after another; a heading (one-day
+       view) names each run, but only once there is more than one. */
+    sec.querySelectorAll('.dsep').forEach(sp=>{
+      const g=sp.dataset.before, at=DGROUPS.findIndex(x=>x[0]===g);
+      const before=DGROUPS.slice(0,at).some(([x])=>n[x]);
+      sp.classList.toggle('lfout',!(n[g]&&before));
+    });
+    sec.querySelectorAll('.dgh').forEach(h=>h.classList.toggle('lfout',!(n[h.dataset.g]&&groups>1)));
     const em=sec.querySelector('.dempty'); if(em) em.classList.toggle('lfout',!!(vs+vt));
     if(sec.classList.contains('dlate')) sec.classList.toggle('lfgone',!(vs+vt));
     if(sec.classList.contains('dfold') && rows.length){
@@ -7023,6 +7232,7 @@ function wireRows(){
          event so the delegated handler still gets to open the tab. */
       if(e.target.closest('[data-kitchen]'))return;
       if(e.target.closest('.golink')){e.stopPropagation();return;}
+      if(e.target.closest('[data-sheet]')){ e.stopPropagation(); openSheet(r.dataset.n); return; }
       const nb=e.target.closest('[data-note]');
       if(nb){
         e.stopPropagation();
@@ -8091,6 +8301,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.15-f', note:'Three things. AT HOME / IN CLASS: on the date list, each day now runs school work you do at home, then in-class work under its own label, then your tasks — the same split the board makes, which now also says At home. COURSE COLOURS on the board: coursework rows show the course code with its colour dot, matching Lists, instead of the full list name. STEP DETAILS: the arrow on every step now opens a sheet from the bottom with the full description, a big timer ring you can start and stop, and Done, Not today, Skip and Keep. Pull it down or tap outside to close. Tapping the row itself still ticks it.'},
   {v:'2026.10.15-e', note:'Optional steps you keep. An optional step now counts for nothing until you KEEP it: swipe it left and tap Keep. A kept step is a normal step — it counts toward your Protocol number, shows in Up Next and on the widget, keeps its section from folding, and the day is not finished without it. The ones you have not kept stay on the board, quieter, with a dashed circle; tick them whenever you like, they just never make a day look unfinished, and Up Next skips them. Trim face, Cologne and Body lotion start out kept. Swipe a kept one and tap Make optional to undo.'},
   {v:'2026.10.15-d', note:'New daily steps. CONTACTS now comes first, so you can see the scale: Contacts, then Weigh in, then a new SOCKS ON step (after the scale, so the number stays consistent; a fresh pair goes on after the shower). At night, PLUG IN THE LAPTOP and PLUG IN THE MOUSE sit right after Screens down, so both start every day charged.'},
   {v:'2026.10.15-c', note:'The home-screen widget can now tell what you planned for today from what the schedule put there: one-off tasks, routines on the date list, and routines you moved onto today are flagged, and the widget lists them first in its Extras column.'},
