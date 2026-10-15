@@ -2335,8 +2335,9 @@ function rowPhase(r){
 
 /* PLANNED: something you put on today yourself, as opposed to something the
    schedule put there. A one-off is always that. A routine is when it sits on
-   the date list, or when you moved it onto today from another day. The
-   widget lists these first in its extras column. Additive to the digest, so
+   the date list, or when you moved it onto today from another day; a
+   one-off is when it sits on today's date list. The widget lists these
+   first in its extras column, then other one-offs, then the rest. Additive to the digest, so
    no version bump: an older widget just ignores the flag. */
 function plannedToday(r){
   try{
@@ -2399,7 +2400,12 @@ function summarize(){
        still sitting underneath it. Skips leaked the same way. */
     .concat(customToday().filter(c=>!isAside('c:'+c.id))
                          .map(c=>({l:c.l, done:S.checked.indexOf('c:'+c.id)>-1,
-                                   opt:false, late:customState(c).late, custom:true, planned:true})))
+                                   opt:false, late:customState(c).late, custom:true,
+                                   /* Planned means planned FOR TODAY: on the date list,
+                                      on today. A task left over from Tuesday is still
+                                      a one-off, but it is not what today was planned
+                                      around, and it must not push today's plan down. */
+                                   planned:!!(c.inlist && c.date===today())})))
     /* Coursework still rides in the `routines` list so the widget can show the
        assignments themselves — it is only the COUNTS that moved out of extras,
        into `school` below. */
@@ -8301,6 +8307,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.15-g', note:'Widget order fix: Extras now lists what is on TODAY\u2019s date list first, then other one-off tasks (leftovers from earlier days), then the scheduled extras. Leftover tasks were counted as planned and, being older, were jumping ahead of what you planned for today.'},
   {v:'2026.10.15-f', note:'Three things. AT HOME / IN CLASS: on the date list, each day now runs school work you do at home, then in-class work under its own label, then your tasks — the same split the board makes, which now also says At home. COURSE COLOURS on the board: coursework rows show the course code with its colour dot, matching Lists, instead of the full list name. STEP DETAILS: the arrow on every step now opens a sheet from the bottom with the full description, a big timer ring you can start and stop, and Done, Not today, Skip and Keep. Pull it down or tap outside to close. Tapping the row itself still ticks it.'},
   {v:'2026.10.15-e', note:'Optional steps you keep. An optional step now counts for nothing until you KEEP it: swipe it left and tap Keep. A kept step is a normal step — it counts toward your Protocol number, shows in Up Next and on the widget, keeps its section from folding, and the day is not finished without it. The ones you have not kept stay on the board, quieter, with a dashed circle; tick them whenever you like, they just never make a day look unfinished, and Up Next skips them. Trim face, Cologne and Body lotion start out kept. Swipe a kept one and tap Make optional to undo.'},
   {v:'2026.10.15-d', note:'New daily steps. CONTACTS now comes first, so you can see the scale: Contacts, then Weigh in, then a new SOCKS ON step (after the scale, so the number stays consistent; a fresh pair goes on after the shower). At night, PLUG IN THE LAPTOP and PLUG IN THE MOUSE sit right after Screens down, so both start every day charged.'},
