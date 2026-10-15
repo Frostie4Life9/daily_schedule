@@ -1465,6 +1465,12 @@ input.pq,.rdate,input.atime-in,.lrow input.url,.lrow input.name,.nrow input,#bka
   .lback:hover,.reset:hover,.histbtn:hover{background:#1B1E24;color:var(--ink);}
   .lbar{transition:background-color .2s;} .lbar:hover{background:rgba(255,255,255,.02);}
 }
+
+/* optional, not kept: on the board, out of the count */
+.step.optional:not(.done) .rin .label{color:var(--dim);font-weight:400;}
+.step.optional:not(.done) .box{border-style:dashed;}
+.step>.skiprow .skip.keep{background:#1F3B30;color:#BDF5DE;}
+.step>.skiprow .skip.keep.on{background:#2A2F38;color:#EEF0F3;box-shadow:none;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -1848,9 +1854,10 @@ const SLOTS = [
    ========================================================= */
 const PHASES = [
  {name:"Morning — before the shower", steps:[
-  {id:'weigh', l:"Weigh in", note:"First thing, before you drink anything. Same time and same conditions daily is the only way the number means anything \u2014 and the full glass in step {am_water} is a pound on the scale by itself, which is why this sits above it and not below."},
-  {id:'am_water', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
   {id:'contacts', l:"Contacts", note:"Acuvue Oasys 1-Day for Astigmatism. Wash and dry hands first \u2014 wet fingers make the lens stick to you instead of your eye. Check it isn't inverted: the edge should curve up like a bowl, not flare out. Both eyes are the same prescription, so there's no left/right sorting. After it's in, blink several times and give it 10\u201330 seconds \u2014 a toric lens has to rotate into its axis before vision sharpens, so early blur usually means it hasn't settled, not that it's the wrong lens. Daily disposables: new pair every day, never sleep in them, never rinse and reuse, never tap water."},
+  {id:'weigh', l:"Weigh in", note:"Right after contacts, so you can actually read it \u2014 and before you drink anything. Same time and same conditions daily is the only way the number means anything \u2014 and the full glass in step {am_water} is a pound on the scale by itself, which is why this sits above it and not below."},
+  {id:'socks', l:"Socks on", pin:"Barefoot for the scale only. A fresh pair after the shower.", note:"Apartment floors collect whatever came in on everyone's shoes, and bare feet pick it up and carry it into bed, into the shower and onto the bath mat. Socks are the cheap fix. They go on after the scale and not before because a pair is a few ounces, and the scale only means anything when the conditions match every morning. They come off for the shower, and a CLEAN pair goes on after it with the rest of your clothes \u2014 the morning pair has done its job on the floor."},
+  {id:'am_water', l:"Water", note:"Full glass. Eight hours of breathing dried you out."},
   {id:'meds', l:"Medication", note:"Wellbutrin XL 450mg (one 300mg + one 150mg) and Adderall XR 20mg (two 10mg). Swallow whole \u2014 don't split, crush, or chew any of them; an extended-release tablet dumps its entire dose at once if it's broken, and that matters most with bupropion. Same time every morning, and early \u2014 both are activating and a late dose costs you sleep. Keep acidic drinks away from the Adderall: orange juice and vitamin C measurably reduce amphetamine absorption."},
   {id:'am_floss', l:"Floss", slot:'floss', note:"Before brushing, not after."},
   {id:'am_rinse', l:"Mouthwash", slot:'mouthwash', note:"Before brushing, not after \u2014 rinsing afterward washes off the fluoride the toothpaste just left on your teeth. The one exception is a fluoride rinse, which belongs at midday instead, away from brushing at either end.", warns:[
@@ -1986,6 +1993,8 @@ const PHASES = [
   {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters, which is why it sits after the oral block and not before it. Floss drags across your lips, mouthwash swishes over them and toothpaste is a detergent \u2014 stripping an occlusive is exactly what SLS does. Applied here it's still on you eight hours later. If your lips are already cracked and toothpaste stings them, a throwaway smear beforehand is fine; this is the coat that does the work."},
   {id:'journal', l:"Journal", group:'End of day', sched:{dow:[0,1,2,3,4,5,6]}, link:1, note:"Digital, on the phone, sitting up \u2014 desk, chair, edge of the bed, anywhere that is not lying down. Last thing before sleep, which is also the risk. Open the journal, not everything else.\n\nThe reason it is not \u201Cin bed\u201D: on a night you drop off in minutes it makes no difference, but on a night you do not, it turns the mattress into the place you lie awake scrolling. Sitting up costs nothing on the good nights and protects the bad ones.\n\nThe button on this row opens Day One straight to a new entry. Paste a different URL under Full schedule \u2192 End of day if you ever switch apps."},
   {id:'sl_screens', l:"Screens down", note:"The cutoff, not the bedtime. This is the row that makes the next one possible \u2014 deciding to sleep while still holding the phone has never once worked.\n\nTHIS CAN BE THE SAME MOMENT AS LIGHTS OUT. Thirty to sixty minutes of buffer is the standard advice, but it is aimed at people who lie awake after putting the phone down. If you set it down and drop off, there is nothing for a buffer to fix and no reason to sit through one. Phone down, light off \u2014 that is a complete version of this block, not a shortcut through it.\n\nThe mechanism usually quoted for the buffer (blue light suppressing melatonin) is the weaker half of the case for it. The stronger half is that a phone is an engagement machine: the content keeps you awake far more reliably than the wavelength does. Night Shift and dark mode address the weak half and none of the strong half. Which is also why the buffer stops mattering once the phone is genuinely down \u2014 the engagement was the problem, and you have left it.\n\nPut the phone across the room if it charges there. The journal step above is deliberately the LAST thing on the phone, so this row is the handoff.\n\nIf you ever do start lying awake, the note on Lights out has what to do with that time."},
+  {id:'plug_laptop', l:"Plug in the laptop", pin:"At the desk, not the bed \u2014 it charges where it lives.", note:"Every night, whatever the battery says. A laptop that only gets plugged in when it is low is one that dies in the middle of a class or an exam; one that charges overnight starts every day full and never needs thinking about.\n\nIt sits right after {sl_screens} because that is the moment it gets closed anyway."},
+  {id:'plug_mouse', sub:1, l:"Plug in the mouse", note:"Same trip to the desk. A wireless mouse gives almost no warning before it dies, and it always picks the worst moment."},
   {id:'sl_out', l:"Lights out", note:"A target, not a rule you can fail. The point of putting it on the board is that it becomes a decision you make once rather than one you renegotiate nightly at 1am.\n\nCONSISTENCY BEATS DURATION. A steady window \u2014 same lights-out, same wake time, weekends included \u2014 does more for how you feel than an extra hour grabbed at random. Shifting your wake time by hours on the weekend produces something close to jet lag, which is why Monday feels like it does.\n\nWAKE TIME IS THE ANCHOR, not bedtime. It is the one you can actually control, because you cannot force sleep but you can force getting up. Fix the wake time and the bedtime follows within a week or two.\n\nSEVEN TO NINE HOURS is the adult range and college students are the most under-slept group there is. If you are hitting five, adding one hour will do more for training, skin, mood and recall than anything else on this board \u2014 including the training.\n\nIF YOU ARE LYING AWAKE MORE THAN TWENTY MINUTES, get up. Do not lie there waiting for it. Time spent awake in bed teaches your brain that bed is where you are awake, and that is how a few bad nights turn into a pattern.\n\nWhat to do with that time, best first: read a physical book under dim warm light \u2014 fiction, not anything you are studying. It occupies attention enough that you stop running tomorrow\u2019s list, without waking you up the way retrieval practice does. Or do tomorrow\u2019s prep: clothes out, bag packed, bottle filled. Dull, physical, fine in low light, and it clears the undone thing that is often what you were lying there thinking about. Light stretching works too. A screen does not, and neither do flashcards.\n\nGo back when you feel sleepy, not when the clock says you should. None of this is a nightly routine \u2014 it is only what the twenty-minute rule hands you off to on the nights it fires."}
  ]}
 ];
@@ -2301,7 +2310,7 @@ function summarize(){
                   : key.indexOf('c:')===0 ? 'custom'
                   : key.indexOf('l:')===0 ? 'coursework' : 'step';
   const next=visibleRows()
-    .filter(r=>S.checked.indexOf(r.dataset.n)===-1)
+    .filter(r=>S.checked.indexOf(r.dataset.n)===-1 && !r.classList.contains('optional'))
     .slice(0,9)
     .map(r=>({
       n:NUM[r.dataset.n]||'',
@@ -2313,8 +2322,7 @@ function summarize(){
     }));
   const due=dueRoutines()
     .filter(r=>!isAside('r:'+r.id))
-    .filter(r=>!(S.hideopt&&r.opt))
-    .sort((a,b)=>(a.opt?1:0)-(b.opt?1:0))
+    .filter(r=>!optionalNow(r.opt,'r:'+r.id))
     .map(r=>({l:r.l, done:S.checked.indexOf('r:'+r.id)>-1, opt:!!r.opt, late:routineState(r).late,
               planned:plannedToday(r)}))
     /* One-off tasks need the same aside filter the routines above get. They
@@ -4294,7 +4302,9 @@ function modeBtns(ph){
    the button saves.
    ========================================================= */
 function bulkTargets(ph){
-  return renderedSteps(ph).filter(st=>!stepData(st).hidden && !isAside(st.id));
+  /* "Shower done" ticks what you actually do in it: not the optional steps
+     you have not kept. */
+  return renderedSteps(ph).filter(st=>!stepData(st).hidden && !isAside(st.id) && !optionalNow(st.opt,st.id));
 }
 function bulkLabel(ph){
   if(!ph.toggle) return phaseName(ph);
@@ -4489,12 +4499,12 @@ function buildRows(){
     if(!items.length) return null;
     const sec=document.createElement('section');
     sec.className='phase';
-    const req=items.filter(r=>!r.opt).length;
+    const req=items.filter(r=>!optionalNow(r.opt,'r:'+r.id)).length;
     sec.innerHTML=`<div class="phead"><h2>${esc(g)}</h2><em>today \u00b7 ${req} core</em></div>`;
     items.forEach((r,ri)=>{
       const st=statusLabel(r), sl=schedLabel(r), state=routineState(r), key='r:'+r.id;
       sec.appendChild(makeRow({
-        key:key, cls:['routine','extra'], opt:r.opt, late:state.late, from:state.from,
+        key:key, cls:['routine','extra'], opt:optionalNow(r.opt,key), late:state.late, from:state.from,
         num:String(ri+1).padStart(2,'0'),
         label:esc(r.l),
         note:r.note,
@@ -4503,7 +4513,7 @@ function buildRows(){
         resched:reschedPanel(key,state.from),
         buttons:linkBtn(r.id)+
                 (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
-                asideBtns(key,plannable(r)?planBtn(r.id):'')
+                asideBtns(key,(r.opt?keepBtn(key):'')+(plannable(r)?planBtn(r.id):''))
       }));
     });
     return sec;
@@ -4517,7 +4527,7 @@ function buildRows(){
     if(vis.length || collapsed){
       const sec=document.createElement('section');
       sec.className='phase'+(collapsed?' collapsed':'');
-      const req=vis.filter(st=>!st.opt).length;
+      const req=vis.filter(st=>!optionalNow(st.opt,st.id)).length;
       const meta=collapsed
         ? 'skipped today'
         : `${numOf(vis[0].id)}\u2013${numOf(vis[vis.length-1].id)} \u00b7 ${req} core`;
@@ -4528,7 +4538,7 @@ function buildRows(){
         const ssl=st.sched?schedLabel(st):null, sst=st.sched?statusLabel(st):null;
         sec.appendChild(makeRow({
           key:st.id, cls:(p.big?['big']:[]).concat(d.autoTimer?['autotimer']:[]),
-          pin:d.pin, opt:st.opt, hidden:d.hidden,
+          pin:d.pin, opt:optionalNow(st.opt,st.id), hidden:d.hidden,
           late:!!(ss&&ss.late), from:ss&&ss.from,
           num:numOf(st.id),
           label:d.label,
@@ -4540,7 +4550,7 @@ function buildRows(){
           resched: st.sched?reschedPanel(st.id,ss.from):'',
           buttons: kitchenBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-                   asideBtns(st.id)
+                   asideBtns(st.id,st.opt?keepBtn(st.id):'')
         }));
       });
       if(p.bulk && vis.length && !collapsed){
@@ -4816,6 +4826,29 @@ function nextOccurrence(r){
   if(!(target>0)) return null;
   return addDaysISO(t,Math.round(target));
 }
+/* =========================================================
+   KEPT OPTIONAL STEPS. An optional step is one the protocol does not
+   insist on; KEEPING it says "I do this one". A kept step is an ordinary
+   step in every way that matters -- it counts toward the day, it shows in
+   Up Next, it holds its section open and the run needs it. An optional
+   step you have not kept counts for nothing: still on the board, still
+   tickable, still recorded, but never the reason a day looks unfinished.
+   Keyed by row key ('cologne', 'r:<id>'), synced with everything else.
+   ========================================================= */
+const KEEPSEED=['shave_face','cologne','pm_lotion'];
+function isKept(key){
+  /* Seeded here as well as at load: state pulled from a device on an older
+     build arrives without the field, and must not silently un-keep things. */
+  if(!S.keep){ S.keep={}; KEEPSEED.forEach(k=>{ S.keep[k]=true; }); }
+  return !!S.keep[key];
+}
+function optionalNow(isOpt,key){ return !!isOpt && !isKept(key); }
+function keepBtn(key){
+  const k=isKept(key);
+  return `<button class="skip keep${k?' on':''}" data-keep="${esc(key)}" aria-pressed="${k}" `+
+    `title="${k?'Kept \u2014 counts toward your day. Tap to make it optional again':'Keep this \u2014 it will count toward your day'}" `+
+    `aria-label="${k?'Make optional':'Keep this step'}">${k?'make optional':'keep'}</button>`;
+}
 const isOff=id=>S.off.indexOf(id)>-1;
 const isNotToday=id=>(S.notoday||{})[id]===today();
 /* Everything that asks "should this row be live?" asks this, not isOff. */
@@ -4939,16 +4972,20 @@ function logStrip(key){
    cost you a streak you otherwise earned. They get their own counter instead. */
 function coreIds(){
   const out=[];
-  PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!s.opt && !stepData(s).hidden && !isAside(s.id)) out.push(s.id); }));
+  PHASES.forEach(p=>renderedSteps(p).forEach(s=>{ if(!optionalNow(s.opt,s.id) && !stepData(s).hidden && !isAside(s.id)) out.push(s.id); }));
   return out;
 }
 /* THREE buckets now, not two. dailyRows() was defined as "everything that is
    not an extra", so moving coursework off .extra without touching this would
    have quietly poured it into the protocol count and the progress bar --
    worse than the problem being fixed. */
+/* Optional rows you have not kept sit outside every count: on the board,
+   tickable, but never part of "how much of today is done". */
 const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra') &&
-                                            !r.classList.contains('course'));
-const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra'));
+                                            !r.classList.contains('course') &&
+                                            !r.classList.contains('optional'));
+const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra') &&
+                                            !r.classList.contains('optional'));
 const courseRows=()=>visibleRows().filter(r=>r.classList.contains('course'));
 /* Hidden rows are easy to forget, which is the one cost of keeping unstarted
    items off the board. This is the receipt: a single line that says how many
@@ -5086,7 +5123,9 @@ function paintFolds(){
     const req=rows.filter(r=>!r.classList.contains('optional'));
     const done=rows.filter(r=>r.classList.contains('done')).length;
     const complete=!sec.classList.contains('collapsed') && req.length>0 && req.every(r=>r.classList.contains('done'));
-    const pc=sec.querySelector('.pcount'); if(pc) pc.textContent=rows.length?done+'/'+rows.length:'';
+    /* The section count is what the day counts: kept and required rows. */
+    const rdone=req.filter(r=>r.classList.contains('done')).length;
+    const pc=sec.querySelector('.pcount'); if(pc) pc.textContent=req.length?rdone+'/'+req.length:'';
     const was=sec.classList.contains('folded');
     const fold=complete && !POPEN.has(name);
     if(!complete) POPEN.delete(name);
@@ -7031,6 +7070,20 @@ function wireRows(){
         }
         commit({rebuild:true}); return;
       }
+      const kp=e.target.closest('[data-keep]');
+      if(kp){
+        e.stopPropagation();
+        const k=kp.dataset.keep; S.keep=S.keep||{};
+        if(S.keep[k]) delete S.keep[k]; else S.keep[k]=true;
+        const now=!!S.keep[k];
+        /* Keeping a step can be what finishes the day, or what un-finishes
+           it; the same check a tick runs. */
+        const core=coreIds();
+        if(core.length && core.every(x=>S.checked.includes(x)) && S.last!==today()) bumpStreak();
+        commit({rebuild:true});
+        toast(now?'Kept \u2014 it counts toward your day now':'Optional again \u2014 it no longer counts');
+        return;
+      }
       const sk=e.target.closest('[data-skip]');
       if(sk){
         e.stopPropagation();
@@ -8038,6 +8091,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.15-e', note:'Optional steps you keep. An optional step now counts for nothing until you KEEP it: swipe it left and tap Keep. A kept step is a normal step — it counts toward your Protocol number, shows in Up Next and on the widget, keeps its section from folding, and the day is not finished without it. The ones you have not kept stay on the board, quieter, with a dashed circle; tick them whenever you like, they just never make a day look unfinished, and Up Next skips them. Trim face, Cologne and Body lotion start out kept. Swipe a kept one and tap Make optional to undo.'},
+  {v:'2026.10.15-d', note:'New daily steps. CONTACTS now comes first, so you can see the scale: Contacts, then Weigh in, then a new SOCKS ON step (after the scale, so the number stays consistent; a fresh pair goes on after the shower). At night, PLUG IN THE LAPTOP and PLUG IN THE MOUSE sit right after Screens down, so both start every day charged.'},
   {v:'2026.10.15-c', note:'The home-screen widget can now tell what you planned for today from what the schedule put there: one-off tasks, routines on the date list, and routines you moved onto today are flagged, and the widget lists them first in its Extras column.'},
   {v:'2026.10.15-b', note:'Smoother, and it answers a mouse. Descriptions, optional steps, the Later / No date / Done folds and each list in By list now open and close by sliding instead of popping. Switching Today and Lists, By date and By list, and Shower / Bath all ease in. Anything you do from behind a row — pin, today, in class, plan, not today — leaves a soft glow on that row where it lands, and a new, moved or undeleted task does the same. A ticked box on the date list now pops like the board’s. On a computer, rows lift and their circles brighten under the pointer, and right-clicking a row opens its actions instead of having to drag it.'},
   {v:'2026.10.15-a', note:'A new look, same app. Darker and calmer, one typeface, and things move instead of snapping. TODAY: the date, run and three counts (Protocol, Extras, School) sit at the top, with an Up Next card that always shows the next step — Done ticks it, and its timer button runs that row’s timer. Each section is one card; when its required steps are all ticked it folds into a single line (tap to open it again). Ticking a box pops it and draws the check. Not today, skip, plan, class and delete now sit behind each row: swipe it left. The bottom bar switches views, and its round button jumps to the next step, then the next extra. LISTS: By date is a week agenda, one day per row of dates; tap a date to open that day with a strip of days to hop between. School comes first in each day and your own tasks sit under it. Course chips filter the list, and rows fold away smoothly instead of jumping. Swipe a row right to put it on today; left to pin it, mark it in class, hide or delete it — and a delete can be undone. By list uses the same rows and swipes. Drag and the date chip still move tasks to another day.'},
