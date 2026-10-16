@@ -1611,6 +1611,71 @@ body.set-open{overflow:hidden;}
 /* toasts must show over settings and the select bar too */
 #toast{z-index:120;}
 body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
+
+/* ---- update bar ---- */
+.updbar{position:fixed;left:0;right:0;top:0;z-index:130;padding:calc(10px + env(safe-area-inset-top)) 16px 0;pointer-events:none;}
+.updbar[hidden]{display:none;}
+.updin{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:10px;height:48px;padding:0 6px 0 16px;box-sizing:border-box;
+  border-radius:24px;background:rgba(30,33,39,.95);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid rgba(94,230,176,.25);box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:auto;
+  transform:translateY(calc(-100% - 40px));transition:transform .4s var(--ease);}
+.updbar.up .updin{transform:none;}
+.upddot{width:8px;height:8px;border-radius:4px;background:var(--done);flex:0 0 auto;box-shadow:0 0 8px rgba(94,230,176,.6);}
+.updtxt{flex:1;min-width:0;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.updgo{height:36px;padding:0 16px;border:0;border-radius:18px;background:var(--done);color:#08130E;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+.updx{width:36px;height:36px;border:0;border-radius:18px;background:transparent;color:var(--dim);display:grid;place-items:center;cursor:pointer;}
+.updx svg{width:14px;height:14px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;}
+/* ---- triage cards ---- */
+.triwrap{z-index:110;}
+.trisheet{min-height:62vh;}
+.trbar{height:3px;border-radius:3px;background:rgba(255,255,255,.07);margin:16px 0 4px;overflow:hidden;}
+.trbar i{display:block;height:100%;background:var(--done);border-radius:3px;transition:width .4s var(--ease);}
+.trbody.tr-in{animation:g-inR .32s var(--ease) both;}
+@keyframes g-inR{from{opacity:0;transform:translateX(34px)}to{opacity:1;transform:none}}
+.trq{margin:20px 0 10px;font-size:15px;font-weight:600;color:var(--ink);}
+.trq2{margin-top:24px;font-size:13px;font-weight:500;color:var(--dim);}
+.trlate{font-style:normal;color:var(--live);}
+.trchips{display:flex;flex-wrap:wrap;gap:8px;}
+.trchip{height:44px;padding:0 16px;border-radius:22px;border:1px solid rgba(255,255,255,.12);background:#1B1E24;color:var(--ink);
+  font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:transform .15s,background .2s,border-color .2s;}
+.trchip:active{transform:scale(.95);background:#22262D;}
+.trchip.on{border-color:rgba(94,230,176,.45);color:var(--done);}
+@media (hover:hover) and (pointer:fine){ .trchip:hover{background:#22262D;} }
+.trdate{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:0 6px 0 16px;height:48px;
+  border-radius:14px;background:#1B1E24;font-size:14px;color:var(--dim);}
+.trdate input{height:36px;border:0;border-radius:10px;background:#0E0F12;color:var(--ink);font-family:inherit;font-size:14px;padding:0 10px;color-scheme:dark;}
+.trisheet .shacts{margin-top:26px;}
+.trisheet .shact{text-transform:none;}
+.trgo{display:block;width:100%;height:48px;margin:12px 0 14px;border:0;border-radius:14px;background:var(--done);color:#08130E;
+  font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
+.trgo[hidden]{display:none;}
+.trgo:active{transform:scale(.98);}
+#setupnudge{cursor:pointer;}
+/* ---- header buttons ---- */
+.ghbtns{display:flex;align-items:center;gap:2px;margin-right:-10px;}
+.ghbtns .gset{margin-right:0;}
+.gadd svg{stroke-width:2.2;transition:transform .3s var(--ease);}
+.gadd.on svg{transform:rotate(45deg);}
+.gadd.on{color:var(--done);}
+.gset.alarm{position:relative;}
+.gset.alarm::after{content:'';position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:4px;background:var(--live);
+  box-shadow:0 0 0 2px var(--ground);}
+.controls[hidden]{display:none!important;}
+/* ---- settings switch ---- */
+.setsw{flex:0 0 auto;width:46px;height:28px;border-radius:14px;background:#2A2F38;position:relative;transition:background .25s;}
+.setsw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#DADDE2;transition:transform .25s var(--ease);}
+.setsw.on{background:var(--done);}
+.setsw.on i{transform:translateX(18px);background:#fff;}
+
+/* ---- Someday ---- */
+.dsome{margin-top:22px;padding-top:14px;border-top:1px solid var(--hair);display:block;}
+.dsomehead{display:flex;align-items:baseline;gap:10px;padding:0 2px 8px;}
+.dsomet{font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink);}
+.dsomes{font-size:13px;color:var(--dimmer);}
+.dsome .drows{display:block;}
+.dwhen.dsomeday{color:var(--extra);border-color:rgba(111,183,255,.35);}
+.dsomeadd{margin-top:8px;}
+body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-offset:4px;border-radius:10px;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -1633,7 +1698,7 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
   </div>
 </div>
 <header class="gh">
-  <div class="ghtop"><span class="geyebrow" id="daylabel"></span><button class="gset" id="gset" type="button" aria-label="Settings, history and sync" title="Settings, history and sync"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+  <div class="ghtop"><span class="geyebrow" id="daylabel"></span><span class="ghbtns"><button class="gset gadd" id="gadd" type="button" aria-label="Add a one-off task" title="Add a one-off task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="gset" id="gset" type="button" aria-label="Settings, history and sync" title="Settings, history and sync"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span></div>
   <div class="ghrow">
     <h1 class="title" id="gtitle">Today</h1>
     <div class="hstats">
@@ -1658,18 +1723,17 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
 
 <div id="view-today" role="tabpanel" aria-labelledby="tab-today">
   <div class="upnext" id="upnext" hidden></div>
-  <div class="controls">
+  <div class="controls" hidden>
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
     <button class="ctl" id="addbtn">+ One-off task</button>
     <button class="ctl" id="selbtn" title="Pick several steps and set them aside, or tick them, together">Select</button>
   </div>
   <div id="addpanel" style="display:none">
-    <input id="addtext" type="text" placeholder="Something to get done" autocomplete="off">
+    <input id="addtext" type="text" placeholder="Something you want to do" autocomplete="off">
     <input id="adddate" type="date">
     <button class="ctl" id="addgo">Add</button>
-    <p class="addnote">Sits with your routines, counts in Extras, and never touches the streak.
-      If you don't finish it, it moves itself to tomorrow and picks up a <b>late</b> tag — tap that to move it somewhere else. It shows on its day in Lists › By date too, and moving it there moves it here.</p>
+    <p class="addnote">Leave the date empty and it goes on your <b>Someday</b> list in Lists › By date — no day, never late, counts for nothing. Give it a day (here, or by dragging it in Lists) and it comes onto that day's board and counts in Extras.</p>
   </div>
 
   <div id="setupnudge" role="button" tabindex="0"></div>
@@ -1717,6 +1781,7 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
     </div>
     <div class="shelfbody">
       <p class="shelfnote">Everything overdue, longest first. A row that has been overdue three weeks is not a reminder any more, it is furniture — do it, change its interval, or take it off the board.</p>
+      <button class="trgo" id="revgo" type="button">Go through them one at a time</button>
       <div id="reviewlist"></div>
     </div>
   </section>
@@ -1898,6 +1963,11 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
   <button class="dockgo" id="jump" type="button" aria-label="Jump to the next step" title="Jump to the next step"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="6 13 12 19 18 13"/></svg></button>
   <button class="dockgo" id="ldockadd" type="button" aria-label="Add a task" title="Add a task"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
 </div></nav>
+<div class="updbar" id="updbar" hidden role="status">
+  <div class="updin"><span class="upddot"></span><span class="updtxt" id="updtxt">A new version is ready</span>
+    <button class="updgo" id="updgo" type="button">Reload</button>
+    <button class="updx" id="updx" type="button" aria-label="Not now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+</div>
 <div class="selbar" id="selbar" hidden role="toolbar" aria-label="Selected steps">
   <div class="selin">
     <button class="selx" id="selx" type="button" aria-label="Stop selecting"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -1905,6 +1975,10 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
     <button class="selact" id="selnt" type="button">Not today</button>
     <button class="selact prime" id="seldone" type="button">Done</button>
   </div>
+</div>
+<div class="sheetwrap triwrap" id="triwrap" hidden>
+  <div class="sheetback" id="triback"></div>
+  <div class="sheet trisheet" id="trisheet" role="dialog" aria-modal="true" aria-labelledby="trititle" tabindex="-1"></div>
 </div>
 <div class="sheetwrap" id="sheetwrap" hidden>
   <div class="sheetback" data-sheetclose="1"></div>
@@ -2622,6 +2696,12 @@ S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
 S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
 S.alert=S.alert||{}; S.hand=S.hand||{}; S.tlog=S.tlog||{};
 S.notoday=S.notoday||{};
+/* inlist now just means "has been given a day by this build", which is what
+   keeps this safe to run again if an older copy syncs the flag away */
+if(!S.somedayMoved){
+  (S.custom||[]).forEach(c=>{ if(!c.inlist && !c.done) c.date=null; });
+  S.somedayMoved=true;
+}
 S.notes=S.notes||{};
 S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
@@ -3918,20 +3998,35 @@ function customToday(){
   const t=today();
   /* A finished one-off stays on today's board and drops off tomorrow. Checking
      something off should show you the checkmark, not make the row evaporate. */
-  return (S.custom||[]).filter(c=>(!c.done || c.done===t) && c.date<=t)
+  return (S.custom||[]).filter(c=>c.date && (!c.done || c.done===t) && c.date<=t)
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
 }
-function customState(c){ return {due:true, late:c.date<today(), from:c.date}; }
+function customState(c){ return {due:!!c.date, late:!!c.date && c.date<today(), from:c.date}; }
+/* SOMEDAY. A one-off with no day is something you want to do, not something
+   you have said you will do on a day. It lives in Lists until you give it a
+   day; only then does it reach the board, the widget, or the Extras count,
+   and only then can it be late. */
+const someday=()=>(S.custom||[]).filter(c=>!c.date && !c.done);
+function scheduleTask(c,day){
+  if(day===null){
+    const k=S.checked.indexOf('c:'+c.id); if(k>-1) S.checked.splice(k,1);
+    c.date=null; c.inlist=null; return true;
+  }
+  if(!/^\d{4}-\d\d-\d\d$/.test(day||'') || day<today()) return false;
+  c.date=day; c.inlist=true; return true;
+}
 /* "Not today" for a one-off: it has no schedule to settle, so it simply goes
    to tomorrow, and today's tick goes with it. */
 function customTomorrow(c){
   const k=S.checked.indexOf('c:'+c.id); if(k>-1) S.checked.splice(k,1);
-  c.date=addDaysISO(today(),1);
+  c.date=addDaysISO(today(),1); c.inlist=true;
 }
 function addCustom(label,date,extra){
   S.custom=S.custom||[];
+  /* date null is Someday; an explicit day schedules it */
   const c=Object.assign({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-                 l:label, date:date||today(), done:null}, extra||{});
+                 l:label, date:date===undefined?today():(date||null), done:null}, extra||{});
+  if(c.date) c.inlist=true;
   S.custom.push(c);
   save(S);
   return c;
@@ -4880,7 +4975,7 @@ list.addEventListener('click',e=>{
     const key=mv.dataset.move, v=mv.closest('.resched').querySelector('.rdate').value;
     if(!v){ toast('Pick a date first'); return; }
     if(key.indexOf('c:')===0){
-      const c=(S.custom||[]).find(x=>x.id===key.slice(2)); if(c) c.date=v;
+      const c=(S.custom||[]).find(x=>x.id===key.slice(2)); if(c){ c.date=v; c.inlist=true; }
     } else {
       S.defer=S.defer||{}; S.defer[key.slice(2)]=v;
     }
@@ -5217,8 +5312,13 @@ function coreIds(){
 const dailyRows=()=>visibleRows().filter(r=>!r.classList.contains('extra') &&
                                             !r.classList.contains('course') &&
                                             !r.classList.contains('optional'));
+/* EXTRAS COUNT WHAT TODAY IS FOR: routines due today, routines and one-offs
+   you put on today. Something carried over from an earlier day (.slipped) is
+   on the board to be caught up, but it neither helps nor hurts the bar, so
+   the bar can always be finished by doing today. */
 const extraRows=()=>visibleRows().filter(r=>r.classList.contains('extra') &&
-                                            !r.classList.contains('optional'));
+                                            !r.classList.contains('optional') &&
+                                            !r.classList.contains('slipped'));
 const courseRows=()=>visibleRows().filter(r=>r.classList.contains('course'));
 /* Hidden rows are easy to forget, which is the one cost of keeping unstarted
    items off the board. This is the receipt: a single line that says how many
@@ -5266,12 +5366,11 @@ function paintNudge(){
   if(!n){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='block';
   el.innerHTML=`<b>${n} item${n===1?'':'s'} need a start date</b> \u2014 hidden from the board `+
-    `until the app knows when you last did ${n===1?'it':'them'}. Tap to set them up.`;
+    `until the app knows when you last did ${n===1?'it':'them'}. Tap to go through them — about a tap each.`;
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('#setupnudge')) return;
-  openSettings('plan');
-  planFilter='new'; paintSchedule();
+  openTriage('setup');
 });
 
 function paint(){
@@ -6277,7 +6376,7 @@ function listTint(id){
    you scroll past. */
 function listBuckets(){
   const t=today(), tm=addDaysISO(t,1), wk=addDaysISO(t,7), fn=addDaysISO(t,14);
-  const B={late:[],today:[],tomorrow:[],week:[],fortnight:[],later:[],none:[],done:[]};
+  const B={late:[],today:[],tomorrow:[],week:[],fortnight:[],later:[],none:[],done:[],someday:[]};
   (S.lists||[]).forEach(l=>{
     (l.items||[]).forEach(i=>{
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
@@ -6315,9 +6414,9 @@ function listBuckets(){
   (S.custom||[]).forEach(c=>{
     const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:null,
                done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
-    if(c.done && c.date && c.date<t){ B.done.push(row); return; }
+    if(c.done && (!c.date || c.date<t)){ B.done.push(row); return; }
     const d=row.due;
-    if(!d) B.none.push(row);
+    if(!d) B.someday.push(row);
     else if(d<t) B.late.push(row);
     else if(d===t) B.today.push(row);
     else if(d===tm) B.tomorrow.push(row);
@@ -6421,9 +6520,10 @@ function dateRow(r,big,inlist){
   } else if(r.task){
     attrs=`data-cit="${esc(r.cid)}"`;
     grip=`<span class="lgrip dgrip" data-cgrip="${esc(r.cid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`;
-    whenEl=`<label class="dwhen dpick${late?' late':''}" title="Change the day">${esc(r.due?(late?whenText(r):dayLabel(r.due)):'no day')}`+
+    whenEl=`<label class="dwhen dpick${late?' late':''}${r.due?'':' dsomeday'}" title="${r.due?'Change the day':'Give it a day'}">${esc(r.due?(late?whenText(r):dayLabel(r.due)):'schedule')}`+
       `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due||'')}" min="${today()}" aria-label="Change the day"></label>`;
-    trayR=topBtn('data-ctop',r.cid)+
+    if(r.due!==today() && !r.done) trayL=`<button class="dact dtodayact" data-ctoday="${esc(r.cid)}" title="Do it today" aria-label="Schedule for today">${SWSUN}<span>Today</span></button>`;
+    trayR=topBtn('data-ctop',r.cid)+(r.due?`<button class="dact dhideact" data-csome="${esc(r.cid)}" title="Take it off the calendar — back to Someday" aria-label="Move to Someday">${SWHIDE}<span>Someday</span></button>`:'')+
       `<button class="dact ddelact" data-cdel="${esc(r.cid)}" aria-label="Delete task">${SWBIN}<span>Delete</span></button>`;
   } else {
     const k=esc(r.lid)+'|'+esc(r.iid);
@@ -6483,6 +6583,28 @@ function dateSection(key,label,rows,opts){
       `<span class="dcar" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg></span>`+
       `${esc(label)}<span class="dfn">${rows.length}</span></div>`+
     `<div class="dfbody"><div class="drows">${open?rows.map(r=>dateRow(r)).join(''):''}</div></div></div>`;
+}
+/* Always open: it is the list you come here to read. Its heading is a drop
+   target, so dragging a task onto it un-schedules it. */
+function somedaySection(rows){
+  return `<section class="dsec dsome" data-sec="someday">`+
+    `<div class="dhead dsomehead" data-dday="someday"><span class="dsomet">Someday</span>`+
+      `<span class="dsomes">${rows.length?rows.length+' to schedule':'Ideas go here until you give them a day'}</span></div>`+
+    `<div class="drows">${dateRowsHTML(rows)}</div>`+
+    `<div class="ladd dsomeadd"><span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`+
+      `<input type="text" id="dsomet" placeholder="Something to do someday" autocomplete="off" maxlength="200">`+
+      `<button data-dsomego="1">Add</button></div>`+
+  `</section>`;
+}
+function addSomeday(){
+  const t=document.getElementById('dsomet'); const v=t?t.value.trim():'';
+  if(!v){ toast('Give it a name first'); return; }
+  const nc=addCustom(v,null);
+  t.value='';
+  after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(nc.id)+'"]').forEach(el=>{ arrive(el); glow(el); }));
+  paintLists();
+  const nt=document.getElementById('dsomet'); if(nt) nt.focus();
+  toast('On your Someday list');
 }
 function daySection(iso,rows){
   const t=today(), d=dayOf(iso);
@@ -6567,6 +6689,7 @@ function paintByDate(host){
     }
     h=lviewBar(`<span class="lcount" id="lcount"></span>`)+filterChips(B)+addBox(null,'Add a task to a day')+
       `<div class="dweek ${LANIM||''}">`+lateSection(B.late)+days+
+        somedaySection(B.someday)+
         dateSection('later','Later',B.later)+dateSection('none','No date',B.none)+dateSection('done','Done',B.done)+
       `</div>`;
   }
@@ -7011,6 +7134,12 @@ listsRoot.addEventListener('click',e=>{
     return;
   }
   if(e.target.closest('[data-dtaskgo]')){ addDayTask(); return; }
+  if(e.target.closest('[data-dsomego]')){ addSomeday(); return; }
+  const ctd=e.target.closest('[data-ctoday]');
+  if(ctd){ const c=(S.custom||[]).find(x=>x.id===ctd.dataset.ctoday); if(!c) return;
+    scheduleTask(c,today()); save(S); flipPaint(paintLists); rebuild(); toast('On today\u2019s board'); return; }
+  const cso=e.target.closest('[data-csome]');
+  if(cso){ moveTask(cso.dataset.csome,'someday'); return; }
   const ctop=e.target.closest('[data-ctop]');
   if(ctop){
     const c=(S.custom||[]).find(x=>x.id===ctop.dataset.ctop); if(!c) return;
@@ -7114,10 +7243,16 @@ listsRoot.addEventListener('click',e=>{
 /* Moving a one-off is just a new date: it reappears on the board that day. */
 function moveTask(id,day){
   const c=(S.custom||[]).find(x=>x.id===id); if(!c) return false;
+  if(day==='someday'){
+    if(!c.date) return false;
+    scheduleTask(c,null);
+    after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(id)+'"]').forEach(glow));
+    save(S); paintLists(); rebuild(); toast('Back on your Someday list'); return true;
+  }
   if(!/^\d{4}-\d\d-\d\d$/.test(day||'') || day<today() || day===c.date) return false;
   /* It leaves today's board, so today's record of it goes too. */
   if(c.date===today()){ const k=S.checked.indexOf('c:'+id); if(k>-1) S.checked.splice(k,1); }
-  c.date=day;
+  c.date=day; c.inlist=true;
   after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(id)+'"]').forEach(glow));
   save(S); paintLists(); rebuild();
   toast(day===today()?'Moved to today':day===addDaysISO(today(),1)?'Moved to tomorrow':'Moved to '+prettyDay(day));
@@ -7142,6 +7277,7 @@ let taskDrag=null;
 function taskDropDay(el){
   if(!el) return null;
   if(el.dataset.dday) return el.dataset.dday;
+  if(el.closest && el.closest('.dsec[data-sec="someday"]')) return 'someday';
   const d=el.dataset.due;
   return (d && d>=today()) ? d : null;
 }
@@ -7178,7 +7314,7 @@ document.addEventListener('pointermove',e=>{
     else if(e.clientY<r.top+r.height/2) t.parentNode.insertBefore(d.el,t);
     else t.parentNode.insertBefore(d.el,t.nextSibling);
     const lbl=d.el.querySelector('.dpick');
-    if(lbl && lbl.firstChild) lbl.firstChild.textContent =
+    if(lbl && lbl.firstChild) lbl.firstChild.textContent = day==='someday'?'someday':
       day===today()?'today':day===addDaysISO(today(),1)?'tomorrow':
       dayOf(day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     break;
@@ -7206,7 +7342,7 @@ function endTaskDrag(commit){
   d.el.classList.remove('dragging'); document.body.classList.remove('dragging-list');
   try{ d.grip.releasePointerCapture(d.pid); }catch(err){}
   if(!d.moved) return;
-  if(!(commit && d.day && (d.routine?moveRoutine(d.id,d.day):moveTask(d.id,d.day)))) paintLists();
+  if(!(commit && d.day && (d.routine?(d.day!=='someday' && moveRoutine(d.id,d.day)):moveTask(d.id,d.day)))) paintLists();
 }
 document.addEventListener('pointerup',()=>endTaskDrag(true));
 document.addEventListener('pointercancel',()=>endTaskDrag(false));
@@ -7225,6 +7361,7 @@ function addDayTask(){
 }
 listsRoot.addEventListener('keydown',e=>{
   if(e.target.id==='dtaskt' && e.key==='Enter'){ e.preventDefault(); addDayTask(); return; }
+  if(e.target.id==='dsomet' && e.key==='Enter'){ e.preventDefault(); addSomeday(); return; }
   if(e.target.dataset && e.target.dataset.ldue && e.key==='Enter'){
     const lid=e.target.dataset.ldue;
     const inp=listsRoot.querySelector('[data-ladd="'+lid+'"]');
@@ -7565,8 +7702,13 @@ function wireRows(){
       const nt=e.target.closest('[data-nt]');
       if(nt){
         e.stopPropagation();
-        setNotToday(nt.dataset.nt, !isNotToday(nt.dataset.nt));
-        commit({rebuild:true}); return;
+        const turnOn=!isNotToday(nt.dataset.nt);
+        setNotToday(nt.dataset.nt, turnOn);
+        commit({rebuild:true});
+        if(turnOn) try{ const n=+(localStorage.getItem('protocol_selhint')||0);
+          if(n<3){ localStorage.setItem('protocol_selhint',String(n+1));
+            if(n===2) setTimeout(()=>toast('Tip: hold a row to pick several at once'),300); } }catch(err){}
+        return;
       }
       const kp=e.target.closest('[data-keep]');
       if(kp){
@@ -8033,6 +8175,8 @@ function reviewItems(){
 function paintReview(){
   const m=document.getElementById('reviewlist'); if(!m) return;
   const items=reviewItems();
+  const go=document.getElementById('revgo');
+  if(go){ go.hidden=!items.length; go.textContent='Go through '+(items.length===1?'it':'all '+items.length)+' one at a time'; }
   if(!items.length){
     m.innerHTML='<div class="rvnone">Nothing overdue. Everything on the board is either done or not due yet.</div>';
     return;
@@ -8078,7 +8222,7 @@ document.getElementById('histcopy').addEventListener('click',()=>{
    ========================================================= */
 const SETGROUPS=[
   ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers']]],
-  ['The protocol',[['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
+  ['The protocol',[['@opt','Show optional steps'],['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
   ['This device',[['sync','Sync'],['about','About & backup']]]
 ];
 const SETTITLE={review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
@@ -8087,7 +8231,8 @@ function setSub(id){
   try{
     if(id==='review'){ const n=reviewItems().length; return n?`<em class="hot">${n} overdue</em>`:'Nothing overdue'; }
     if(id==='hist') return `${S.streak||0} day run`;
-    if(id==='sync'){ const c=document.getElementById('syncchip'); return c?esc(c.textContent.replace(/^Sync:\s*/,'')):''; }
+    if(id==='sync'){ const c=document.getElementById('syncchip'); if(!c) return '';
+      const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
   }catch(e){}
   return '';
@@ -8095,7 +8240,10 @@ function setSub(id){
 function paintSettings(){
   const m=document.getElementById('setlist'); if(!m) return;
   m.innerHTML=SETGROUPS.map(([g,rows])=>`<div class="setgroup"><div class="setgh">${esc(g)}</div><div class="setcard">`+
-    rows.map(([id,l])=>`<button class="setrow" type="button" data-setgo="${id}"><span class="setl">${esc(l)}</span>`+
+    rows.map(([id,l])=>id==='@opt'
+      ? `<button class="setrow" type="button" data-setopt role="switch" aria-checked="${!S.hideopt}"><span class="setl">${esc(l)}</span>`+
+        `<span class="setsw${S.hideopt?'':' on'}"><i></i></span></button>`
+      : `<button class="setrow" type="button" data-setgo="${id}"><span class="setl">${esc(l)}</span>`+
       `<span class="sets">${setSub(id)}</span><svg class="setchev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`).join('')+
     `</div></div>`).join('');
 }
@@ -8145,6 +8293,7 @@ function closeSettings(){
 /* Scroll something inside an open settings page into view. */
 function setReveal(el){ if(el && el.scrollIntoView) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),380); }
 document.getElementById('setlist').addEventListener('click',e=>{
+  if(e.target.closest('[data-setopt]')){ S.hideopt=!S.hideopt; save(S); paintOpt(); paintSettings(); return; }
   const b=e.target.closest('[data-setgo]'); if(b) setGo(b.dataset.setgo);
 });
 document.getElementById('setbackbtn').addEventListener('click',setBack);
@@ -8163,6 +8312,126 @@ document.addEventListener('keydown',e=>{
     if(Math.abs(t.clientY-y0)>40){ x0=null; return; }
     if(t.clientX-x0>80){ x0=null; setBack(); } },{passive:true});
 })();
+
+/* =========================================================
+   TRIAGE. Two queues, one card at a time.
+   SETUP: items the app has never seen done. "When did you last do this?"
+   REVIEW: items overdue. Did it, did it on a day, change how often, or
+   take it off. "Later" leaves it as it is and moves on.
+   ========================================================= */
+const TRI={mode:null,q:[],i:0,did:0};
+const ago=n=>addDaysISO(today(),-n);
+const isRoutineItem=r=>ROUTINES.indexOf(r)>-1;
+const offKey=r=>isRoutineItem(r)?'r:'+r.id:r.id;
+function intervalDays(r){
+  const sc=schedOf(r);
+  return sc.mode==='everyMonths' ? Math.round(+sc.everyMonths*30.44) : sc.mode==='everyDays' ? +sc.everyDays : 7;
+}
+const SETUPCHIPS=[['Today',0],['A few days ago',3],['Last week',7],['2 weeks ago',14],['A month ago',30],['2–3 months ago',75],['Never / not sure',null]];
+const OFTEN=[['Every 3 days',{mode:'everyDays',everyDays:3}],['Weekly',{mode:'everyDays',everyDays:7}],['Every 2 weeks',{mode:'everyDays',everyDays:14}],
+  ['Monthly',{mode:'everyMonths',everyMonths:1}],['Every 2 months',{mode:'everyMonths',everyMonths:2}],['Every 3 months',{mode:'everyMonths',everyMonths:3}],['Every 6 months',{mode:'everyMonths',everyMonths:6}]];
+function triQueue(mode){
+  if(mode==='setup') return SCHEDALL().filter(r=>unstarted(r) && !isAside(offKey(r)));
+  return reviewItems().map(x=>x.r);
+}
+function openTriage(mode){
+  TRI.mode=mode; TRI.q=triQueue(mode); TRI.i=0; TRI.did=0;
+  swCloseAll(); try{ closeSheet(); }catch(e){} try{ selExit(); }catch(e){}
+  const w=document.getElementById('triwrap'); w.hidden=false;
+  document.body.classList.add('sheet-open');
+  paintTri();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+}
+function closeTriage(){
+  const w=document.getElementById('triwrap'); if(w.hidden) return;
+  w.classList.remove('up');
+  if(!document.getElementById('sheetwrap').classList.contains('up') && !(typeof SETOPEN!=='undefined'&&SETOPEN))
+    document.body.classList.remove('sheet-open');
+  setTimeout(()=>{ w.hidden=true; },360);
+  if(TRI.did){ commit({rebuild:true,schedule:true}); try{ paintNudge(); paintReview(); paintSettings(); }catch(e){} }
+}
+function triCur(){ return TRI.q[TRI.i]||null; }
+function paintTri(dir){
+  const sh=document.getElementById('trisheet'), r=triCur();
+  const close=`<button class="shclose" data-tri="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  if(!r){
+    const none=!TRI.q.length;
+    sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">${TRI.mode==='setup'?'SET UP':'REVIEW'}</span>`+
+      `<h2 id="trititle">${none?'Nothing to do here':'All done'}</h2></div>${close}</div>`+
+      `<p class="trq">${none?(TRI.mode==='setup'?'Every item already has a start date.':'Nothing is overdue.'):
+        (TRI.did+' settled'+(TRI.q.length-TRI.did>0?', '+(TRI.q.length-TRI.did)+' left for later':'')+'.')}</p>`+
+      `<div class="shbtns"><button class="shdone" data-tri="close" type="button">Close</button></div>`;
+    return;
+  }
+  const by=TRI.mode==='review' ? (reviewItems().find(x=>x.r===r)||{}).by : null;
+  const sl=schedLabel(r)||'';
+  const meta=[by?`<em class="trlate">${by} day${by===1?'':'s'} late</em>`:'', esc(sl), esc(r.group||'')].filter(Boolean).join(' · ');
+  const cur=schedOf(r);
+  const curKey=cur.mode==='everyMonths'?'m'+cur.everyMonths:cur.mode==='everyDays'?'d'+cur.everyDays:'';
+  const oftenChips=cur.mode==='dow'?'':`<p class="trq trq2">Or change how often</p><div class="trchips">`+
+    OFTEN.map(([l,v],k)=>{ const key=v.mode==='everyMonths'?'m'+v.everyMonths:'d'+v.everyDays;
+      return `<button class="trchip${key===curKey?' on':''}" data-trof="${k}" type="button">${l}</button>`; }).join('')+`</div>`;
+  const body = TRI.mode==='setup'
+    ? `<p class="trq">When did you last do this?</p><div class="trchips">`+
+        SETUPCHIPS.map(([l,n],k)=>`<button class="trchip" data-trset="${k}" type="button">${l}</button>`).join('')+`</div>`+
+        `<label class="trdate">Pick the day<input type="date" data-trday max="${today()}"></label>`+oftenChips
+    : `<p class="trq">Did you do it?</p>`+
+        `<div class="shbtns"><button class="shdone" data-tri="today" type="button">Did it today</button></div>`+
+        `<label class="trdate">Did it on another day<input type="date" data-trday max="${today()}"></label>`+oftenChips;
+  sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles">`+
+    `<span class="sheye">${TRI.mode==='setup'?'SET UP':'REVIEW'} · ${TRI.i+1} OF ${TRI.q.length}</span>`+
+    `<h2 id="trititle">${esc(r.l)}</h2>${meta?`<span class="shprod">${meta}</span>`:''}</div>${close}</div>`+
+    `<div class="trbar"><i style="width:${Math.round(TRI.i/TRI.q.length*100)}%"></i></div>`+
+    `<div class="trbody${dir?' tr-in':''}">`+body+
+    `<div class="shacts"><button class="shact" data-tri="off" type="button">Take it off the board</button>`+
+    `<button class="shact" data-tri="next" type="button">Later</button></div></div>`;
+}
+function triNext(settled){
+  if(settled){ TRI.did++; save(S); }
+  TRI.i++; paintTri(true);
+}
+function triLog(r,day){
+  logDone(r.id, day+'T12:00:00');
+  if(S.defer) delete S.defer[r.id];
+  /* done today means today's row is ticked too */
+  if(day===today()){ const k=offKey(r); if(S.checked.indexOf(k)===-1) S.checked.push(k); }
+}
+document.getElementById('triback').addEventListener('click',closeTriage);
+document.getElementById('trisheet').addEventListener('click',e=>{
+  const r=triCur();
+  const a=e.target.closest('[data-tri]');
+  if(a){
+    const v=a.dataset.tri;
+    if(v==='close'){ closeTriage(); return; }
+    if(!r) return;
+    if(v==='next'){ triNext(false); return; }
+    if(v==='today'){ triLog(r,today()); triNext(true); return; }
+    if(v==='off'){ const k=offKey(r); if(S.off.indexOf(k)===-1) S.off.push(k); triNext(true); return; }
+  }
+  const st=e.target.closest('[data-trset]');
+  if(st && r){
+    const n=SETUPCHIPS[+st.dataset.trset][1];
+    /* "never" means due now: the last time is put one interval back */
+    triLog(r, ago(n===null ? intervalDays(r) : n));
+    triNext(true); return;
+  }
+  const of=e.target.closest('[data-trof]');
+  if(of && r){
+    const v=OFTEN[+of.dataset.trof][1];
+    S.sched=S.sched||{};
+    S.sched[r.id]=Object.assign({},S.sched[r.id]||{},{mode:v.mode},v.mode==='everyDays'?{everyDays:v.everyDays}:{everyMonths:v.everyMonths});
+    save(S);
+    if(TRI.mode==='review' && overdueBy(r)===null){ toast('Not overdue any more'); triNext(true); return; }
+    TRI.did++; paintTri(); toast('Now '+of.textContent.toLowerCase());
+  }
+});
+document.getElementById('trisheet').addEventListener('change',e=>{
+  const r=triCur(); const inp=e.target.closest('[data-trday]');
+  if(!r || !inp || !/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value>today()) return;
+  triLog(r,inp.value); triNext(true);
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('triwrap').hidden) closeTriage(); });
+document.getElementById('revgo').addEventListener('click',()=>openTriage('review'));
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
   /* The panels live behind the gear now; opening the app should open Today,
@@ -8345,6 +8614,9 @@ function syncStatus(s,msg){
   const label={off:'Sync: off',sync:'Sync: working',ok:'Sync: on',err:'Sync: failed'};
   el.dataset.s=s;
   el.textContent=msg||label[s]||label.off;
+  /* the chip is gone from Today; a failing sync still has to be seen */
+  const gs=document.getElementById('gset'); if(gs) gs.classList.toggle('alarm', s==='err');
+  if(typeof SETOPEN!=='undefined' && SETOPEN) try{ paintSettings(); }catch(e){}
 }
 function syncSchedule(){
   if(!syncReady||syncQuiet) return;
@@ -8613,15 +8885,22 @@ const addText=document.getElementById('addtext'), addDate=document.getElementByI
 document.getElementById('addbtn').addEventListener('click',()=>{
   const open=addPanel.style.display==='none';
   addPanel.style.display=open?'flex':'none';
-  if(open){ addDate.value=today(); addText.value=''; addText.focus(); }
+  if(open){ addDate.value=''; addText.value=''; addText.focus(); }
+  const g=document.getElementById('gadd'); if(g){ g.classList.toggle('on',open); g.setAttribute('aria-expanded',open); }
+});
+document.getElementById('gadd').addEventListener('click',()=>{
+  if(document.body.classList.contains('on-lists')) showView('today');
+  document.getElementById('addbtn').click();
+  if(addPanel.style.display!=='none') try{ addPanel.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
 });
 function submitCustom(){
   const v=addText.value.trim();
   if(!v){ toast('Give it a name first'); return; }
-  addCustom(v, addDate.value||today());
+  const day=addDate.value||null;
+  addCustom(v, day);
   addText.value=''; addText.focus();
-  rebuild();
-  toast('Added');
+  rebuild(); try{ paintLists(); }catch(e){}
+  toast(!day?'On your Someday list \u2014 give it a day in Lists':day===today()?'Added to today':'Added to '+prettyDay(day));
 }
 document.getElementById('addgo').addEventListener('click',submitCustom);
 addText.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); submitCustom(); }});
@@ -8677,6 +8956,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.16-c', note:'SOMEDAY. A one-off without a day is now an idea, not a commitment: it sits on your Someday list at the bottom of Lists › By date, never goes late, and counts for nothing. Give it a day — drag it onto one, tap its Schedule chip, or swipe right for Today — and it comes onto that day’s board. Drag it back onto Someday (or swipe left › Someday) to take it off the calendar without deleting it. The + on Today adds to Someday unless you pick a date. One-offs you had added on Today and never put on the date list have moved to Someday. EXTRAS COUNT WHAT TODAY IS FOR: routines due today and things you put on today. Anything carried over from an earlier day still shows with its late tag, but no longer counts, so the bar can always be finished.'},
+  {v:'2026.10.16-b', note:'Three things. NEW VERSION PROMPT: when a newer copy is on GitHub, a bar slides down — tap Reload. No more hard-refreshing or checking build numbers. ONE AT A TIME: tap the ‘need a start date’ note on Today and answer ‘when did you last do this?’ with one tap per item. Settings › Review has Go through them: did it today, did it on a day, change how often, take it off the board, or Later. A QUIETER TODAY: the chips under Up Next are gone. Add a one-off with the + next to the gear; Optional steps is a switch in Settings; a failing sync shows as a red dot on the gear; hold any row to pick several.'},
   {v:'2026.10.16-a', note:'Five things. EXTRAS ARE BLUE: the extras bar and its mark were orange, which is also the app’s warning colour; orange now only means late or over budget. NOT TODAY, FAST: pull a row far to the left and let go to set it aside in one move (Undo in the toast). Or hold any row, or tap Select, to pick several — tap rows, or a section’s name for all of it — then Not today or Done once. One-offs get Not today too: it moves them to tomorrow. ONE-OFFS ARE ONE LIST: every one-off shows on its day in Lists › By date, wherever you added it, and moving it in either place moves it in both. The Plan and Hide buttons for them are gone. SETTINGS: the gear opens a settings screen — Review, Streak, Alerts, Schedule, Products, Guide, Cost, Sync — instead of a drawer at the foot of Today, and the build notes, Reset and Backup moved into About & backup. Swipe from the left edge or tap Settings to go back. PINS GLIDE: pinning or releasing on the date list slides rows to their new places.'},
   {v:'2026.10.15-g', note:'Widget order fix: Extras now lists what is on TODAY\u2019s date list first, then other one-off tasks (leftovers from earlier days), then the scheduled extras. Leftover tasks were counted as planned and, being older, were jumping ahead of what you planned for today.'},
   {v:'2026.10.15-f', note:'Three things. AT HOME / IN CLASS: on the date list, each day now runs school work you do at home, then in-class work under its own label, then your tasks — the same split the board makes, which now also says At home. COURSE COLOURS on the board: coursework rows show the course code with its colour dot, matching Lists, instead of the full list name. STEP DETAILS: the arrow on every step now opens a sheet from the bottom with the full description, a big timer ring you can start and stop, and Done, Not today, Skip and Keep. Pull it down or tap outside to close. Tapping the row itself still ticks it.'},
@@ -8764,6 +9045,50 @@ function buildPrint(){
 const BUILDPRINT=buildPrint();
 try{ document.getElementById('buildid').textContent=
        BUILD+' · '+BUILDPRINT+' · digest v'+DIGEST; }catch(e){}
+
+/* ---------------- is there a newer copy? ---------------- */
+function printOf(html){
+  try{
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    let src=''; doc.querySelectorAll('script').forEach(t=>{ src+=t.textContent; });
+    let h=5381;
+    for(let i=0;i<src.length;i++) h=(((h*33)>>>0)^src.charCodeAt(i))>>>0;
+    return ('000000'+h.toString(36)).slice(-6);
+  }catch(e){ return null; }
+}
+let UPD={last:0,dismissed:null,shown:null};
+async function checkUpdate(force){
+  if(!/^https?:$/.test(location.protocol) || !window.fetch) return;
+  if(!force && Date.now()-UPD.last<5*60e3) return;
+  UPD.last=Date.now();
+  try{
+    const r=await fetch(location.pathname+'?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const html=await r.text();
+    const fp=printOf(html); if(!fp || fp===BUILDPRINT || fp===UPD.dismissed) return;
+    const m=html.match(/v:'(\d{4}\.\d\d\.\d\d-[a-z]+)'/);
+    showUpdate(fp, m?m[1]:null);
+  }catch(e){}
+}
+function showUpdate(fp,ver){
+  UPD.shown=fp;
+  document.getElementById('updtxt').textContent=ver&&ver!==BUILD?'Build '+ver+' is ready':'A new version is ready';
+  const b=document.getElementById('updbar'); b.hidden=false;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.add('up')));
+}
+document.getElementById('updgo').addEventListener('click',()=>{
+  /* a query string the cache has never seen gets the live file; the next
+     load cleans it off the address again */
+  try{ save(S); }catch(e){}
+  location.replace(location.pathname+'?v='+Date.now());
+});
+document.getElementById('updx').addEventListener('click',()=>{
+  UPD.dismissed=UPD.shown;
+  const b=document.getElementById('updbar'); b.classList.remove('up'); setTimeout(()=>{ b.hidden=true; },320);
+});
+if(/[?&]v=\d+/.test(location.search)) try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){}
+setTimeout(()=>checkUpdate(true),2500);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false); });
 try{
   document.getElementById('buildnote').innerHTML='<b>New:</b> '+esc(CHANGELOG[0].note);
   const hl=document.getElementById('histlist'), hb=document.getElementById('histbtn');
