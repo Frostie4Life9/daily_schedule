@@ -1676,6 +1676,68 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
 .dwhen.dsomeday{color:var(--extra);border-color:rgba(111,183,255,.35);}
 .dsomeadd{margin-top:8px;}
 body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-offset:4px;border-radius:10px;}
+
+/* ---- cards on Today ---- */
+#cardmount:empty{display:none;}
+.tcard{margin:0 0 14px;padding:16px 16px 14px;border-radius:20px;background:var(--card);border:1px solid rgba(111,183,255,.22);
+  animation:g-rise .35s var(--ease) both;}
+.tch{display:flex;align-items:center;justify-content:space-between;margin:-4px -6px 4px 0;}
+.tce{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;color:var(--extra);}
+.tcx{width:32px;height:32px;border:0;border-radius:16px;background:transparent;color:var(--dimmer);display:grid;place-items:center;cursor:pointer;}
+.tcx svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;}
+.tcard h3{margin:0;font-size:18px;font-weight:600;letter-spacing:-.015em;line-height:1.25;}
+.tcp{margin:6px 0 0;font-size:13.5px;color:var(--dim);}
+.tclist{margin-top:12px;border-top:1px solid var(--hair);}
+.tcrow{display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--hair);}
+.tcl{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcb{flex:0 0 auto;height:32px;padding:0 11px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--dim);
+  font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;position:relative;}
+.tcb:active{transform:scale(.95);}
+.tcpick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;}
+.tcbtns{display:flex;gap:8px;margin-top:12px;}
+.tcgo{flex:1;height:44px;border:0;border-radius:14px;background:var(--extra);color:#08121C;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;}
+.tcgo:active{transform:scale(.98);}
+/* ---- plan the week ---- */
+.planwrap{z-index:108;}
+.plhint{margin:16px 0 10px;font-size:14px;color:var(--dim);}
+.plhint b{color:var(--ink);font-weight:600;}
+.plsome{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:16px;border-bottom:1px solid var(--hair);}
+.plitem{min-height:40px;padding:8px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:#1B1E24;color:var(--ink);
+  font-family:inherit;font-size:14px;text-align:left;cursor:pointer;transition:transform .15s,background .2s,border-color .2s,color .2s;}
+.plitem.on{background:rgba(111,183,255,.14);border-color:var(--extra);color:#CFE6FF;}
+.plitem:active{transform:scale(.96);}
+.pldays{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+.plday{padding:12px 14px;border-radius:16px;background:#1B1E24;border:1px solid transparent;cursor:pointer;transition:border-color .25s,background .25s;}
+.pldays.armed .plday{border-color:rgba(111,183,255,.28);}
+.pldays.armed .plday:active{background:rgba(111,183,255,.12);}
+.plday.glow{animation:g-plglow 1s ease;}
+@keyframes g-plglow{0%{background:rgba(111,183,255,.25)}100%{background:#1B1E24}}
+.pldh{display:flex;align-items:baseline;gap:8px;}
+.pldn{font-size:15px;font-weight:600;}
+.plddate{font-size:12.5px;color:var(--dimmer);}
+.pldl{margin-left:auto;font-size:12.5px;color:var(--dim);}
+.pltasks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.pltask{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:15px;border:0;background:rgba(111,183,255,.12);
+  color:#CFE6FF;font-family:inherit;font-size:13px;cursor:pointer;}
+.pltask i{font-style:normal;color:var(--dimmer);}
+.dsomeplan{margin-left:auto;height:30px;padding:0 12px;border-radius:15px;border:1px solid rgba(111,183,255,.35);background:transparent;
+  color:var(--extra);font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;}
+.lsome .lbar{cursor:default;}
+.lsomebar{display:flex;align-items:center;gap:10px;}
+/* ---- set-aside patterns ---- */
+.skipbox{margin:16px 0;padding:14px 16px;border-radius:16px;background:#1B1E24;}
+.skipbox h3{margin:0 0 8px;font-size:14px;font-weight:600;}
+.skiprowx{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:14px;border-bottom:1px solid var(--hair);}
+.skiprowx span{color:var(--live);font-size:13px;white-space:nowrap;}
+.skipbox .hint{margin-top:10px;}
+/* ---- folded intros ---- */
+.setnote{margin:0 0 14px;border-radius:14px;background:#15171C;border:1px solid var(--hair);}
+.setnote summary{list-style:none;cursor:pointer;padding:12px 14px;font-size:14px;color:var(--dim);display:flex;align-items:center;gap:8px;}
+.setnote summary::-webkit-details-marker{display:none;}
+.setnote summary::before{content:'i';display:grid;place-items:center;width:18px;height:18px;border-radius:9px;border:1px solid var(--dimmer);
+  font-family:'Geist Mono',monospace;font-size:11px;color:var(--dim);}
+.setnote[open] summary{color:var(--ink);}
+.setnote .shelfnote{margin:0;padding:0 14px 12px!important;border:0;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -1722,6 +1784,7 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 
 
 <div id="view-today" role="tabpanel" aria-labelledby="tab-today">
+  <div id="cardmount"></div>
   <div class="upnext" id="upnext" hidden></div>
   <div class="controls" hidden>
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
@@ -1840,6 +1903,7 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
       <p class="shelfnote">The chain is one view of this and it is the most fragile one. The grid is the honest one — a bad night is one square in a season, which is what it actually was.</p>
       <div class="bigstats" id="histstats"></div>
       <div id="gracemount"></div>
+      <div id="skipmount"></div>
       <div class="hmwrap"><div id="hmmon" class="hmmon"></div><div id="hmgrid" class="hmgrid"></div></div>
       <div class="hmleg"><span>less</span><span class="hmc"></span><span class="hmc l1"></span><span class="hmc l2"></span><span class="hmc l3"></span><span class="hmc l4"></span><span>all clear</span></div>
       <p class="shelfnote"><b>One missed day never breaks the run.</b> Two consecutive missed days do. Completing anything renews the grace, so the only way to lose a run is to actually stop for two days — not to have one late night.</p>
@@ -1975,6 +2039,10 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
     <button class="selact" id="selnt" type="button">Not today</button>
     <button class="selact prime" id="seldone" type="button">Done</button>
   </div>
+</div>
+<div class="sheetwrap planwrap" id="planwrap" hidden>
+  <div class="sheetback" id="planback"></div>
+  <div class="sheet plansheet" id="plansheet" role="dialog" aria-modal="true" aria-labelledby="plantitle" tabindex="-1"></div>
 </div>
 <div class="sheetwrap triwrap" id="triwrap" hidden>
   <div class="sheetback" id="triback"></div>
@@ -2702,6 +2770,9 @@ if(!S.somedayMoved){
   (S.custom||[]).forEach(c=>{ if(!c.inlist && !c.done) c.date=null; });
   S.somedayMoved=true;
 }
+/* Age is counted from the first day this build saw a task, which for
+   everything already there is today: the six-week clock starts now. */
+(S.custom||[]).forEach(c=>{ if(!c.made) c.made=today(); });
 S.notes=S.notes||{};
 S.lists=S.lists||[];
 S.modes=S.modes||{}; S.custom=S.custom||[]; S.defer=S.defer||{};
@@ -4025,7 +4096,7 @@ function addCustom(label,date,extra){
   S.custom=S.custom||[];
   /* date null is Someday; an explicit day schedules it */
   const c=Object.assign({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-                 l:label, date:date===undefined?today():(date||null), done:null}, extra||{});
+                 l:label, date:date===undefined?today():(date||null), done:null, made:today()}, extra||{});
   if(c.date) c.inlist=true;
   S.custom.push(c);
   save(S);
@@ -5147,10 +5218,16 @@ function setNotToday(id,on){
             PHASES.flatMap(ph=>ph.steps||[]).find(x=>x.id===rid && x.sched) || null;
   if(!on){
     delete S.notoday[id];
+    if(S.ntlog && S.ntlog[id]) S.ntlog[id]=S.ntlog[id].filter(d=>d!==today());
     if(rid && S.defer) delete S.defer[rid];       /* undo puts the debt back too */
     return;
   }
   S.notoday[id]=today();
+  /* kept for four weeks, so the history page can say what keeps getting
+     set aside */
+  S.ntlog=S.ntlog||{};
+  const lg=(S.ntlog[id]=(S.ntlog[id]||[]).filter(d=>d>=addDaysISO(today(),-28)));
+  if(lg.indexOf(today())===-1) lg.push(today());
   /* a row set aside leaves the count; leaving it ticked would count it */
   const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
   /* waving it off settles this turn of the schedule rather than making
@@ -5375,6 +5452,7 @@ document.addEventListener('click',e=>{
 
 function paint(){
   paintNudge();
+  try{ paintCards(); }catch(e){}
   allRows().forEach(r=>{
     const on=S.checked.includes(r.dataset.n);
     r.classList.toggle('done',on);
@@ -6589,7 +6667,8 @@ function dateSection(key,label,rows,opts){
 function somedaySection(rows){
   return `<section class="dsec dsome" data-sec="someday">`+
     `<div class="dhead dsomehead" data-dday="someday"><span class="dsomet">Someday</span>`+
-      `<span class="dsomes">${rows.length?rows.length+' to schedule':'Ideas go here until you give them a day'}</span></div>`+
+      `<span class="dsomes">${rows.length?rows.length+' to schedule':'Ideas go here until you give them a day'}</span>`+
+      (rows.length?`<button class="dsomeplan" data-planweek="1" type="button">Plan the week</button>`:'')+`</div>`+
     `<div class="drows">${dateRowsHTML(rows)}</div>`+
     `<div class="ladd dsomeadd"><span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`+
       `<input type="text" id="dsomet" placeholder="Something to do someday" autocomplete="off" maxlength="200">`+
@@ -6760,11 +6839,19 @@ function paintLists(){
      has something to show -- and an add box to use -- even with no lists. */
   document.body.classList.toggle('lv-list',lview()==='list');
   if(lview()==='date'){ paintByDate(host); flashListTick(); runPending(); return; }
+  /* Someday rides at the top of By list as a list of its own: the same
+     rows, swipes and add box as at the foot of By date. */
+  const someRows=someday().map(c=>({task:true, cid:c.id, text:c.l, due:null, at:null, done:false, top:!!c.top, code:'TASK', list:'One-off task'}));
+  const someCard=`<div class="llist lsome"><div class="lbar lsomebar"><h3>Someday</h3><span class="lnum">${someRows.length}</span>`+
+      (someRows.length?`<button class="dsomeplan" data-planweek="1" type="button">Plan the week</button>`:'')+`</div>`+
+    `<div class="lbody">${someRows.length?someRows.map(r=>dateRow(r,true,true)).join(''):'<p class="lempty">Ideas go here until you give them a day.</p>'}`+
+    `<div class="ladd dsomeadd"><input type="text" id="dsomet" placeholder="Something to do someday" autocomplete="off" maxlength="200">`+
+    `<button data-dsomego="1">Add</button></div></div></div>`;
   if(!S.lists.length){
-    host.innerHTML='<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
+    host.innerHTML=lviewBar()+someCard+'<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
     return;
   }
-  host.innerHTML=lviewBar()+S.lists.map(l=>{
+  host.innerHTML=lviewBar()+someCard+S.lists.map(l=>{
     const items=l.items||[];
     /* Dated first, soonest first; undated keep their original order below.
        A coursework list is useless if the thing due tomorrow is buried. */
@@ -7135,6 +7222,7 @@ listsRoot.addEventListener('click',e=>{
   }
   if(e.target.closest('[data-dtaskgo]')){ addDayTask(); return; }
   if(e.target.closest('[data-dsomego]')){ addSomeday(); return; }
+  if(e.target.closest('[data-planweek]')){ openPlan(); return; }
   const ctd=e.target.closest('[data-ctoday]');
   if(ctd){ const c=(S.custom||[]).find(x=>x.id===ctd.dataset.ctoday); if(!c) return;
     scheduleTask(c,today()); save(S); flipPaint(paintLists); rebuild(); toast('On today\u2019s board'); return; }
@@ -8094,7 +8182,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    characters each and differed only in which element and which paint call \u2014
    plus each wrote fresh text into a caret element that the drawer keeps
    permanently hidden, which was work nobody could see. */
-const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>paintHist(), money:()=>paintMoney(),
+const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>{ paintHist(); try{ paintSkips(); }catch(e){} }, money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
                     review:()=>paintReview(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
@@ -8234,6 +8322,7 @@ function setSub(id){
     if(id==='sync'){ const c=document.getElementById('syncchip'); if(!c) return '';
       const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
+    if(id==='money'){ const m=document.getElementById('mtotal'); return m?esc(m.textContent)+'/mo':''; }
   }catch(e){}
   return '';
 }
@@ -8258,6 +8347,15 @@ function setMount(){
     sec.appendChild(sb); sb.appendChild(foot); dr.appendChild(sec);
   }
   body.appendChild(dr);
+  /* The explanations at the top of each page are worth having and not worth
+     scrolling past every time: they fold away, a tap from being read. */
+  dr.querySelectorAll('section > .shelfbody').forEach(sb=>{
+    const lead=[]; for(const ch of sb.children){ if(ch.tagName==='P' && ch.classList.contains('shelfnote')) lead.push(ch); else break; }
+    if(!lead.length) return;
+    const d=document.createElement('details'); d.className='setnote';
+    const su=document.createElement('summary'); su.textContent='How this works'; d.appendChild(su);
+    sb.insertBefore(d,lead[0]); lead.forEach(p=>d.appendChild(p));
+  });
 }
 let SETOPEN=false;
 function openSettings(id){
@@ -8331,6 +8429,7 @@ const SETUPCHIPS=[['Today',0],['A few days ago',3],['Last week',7],['2 weeks ago
 const OFTEN=[['Every 3 days',{mode:'everyDays',everyDays:3}],['Weekly',{mode:'everyDays',everyDays:7}],['Every 2 weeks',{mode:'everyDays',everyDays:14}],
   ['Monthly',{mode:'everyMonths',everyMonths:1}],['Every 2 months',{mode:'everyMonths',everyMonths:2}],['Every 3 months',{mode:'everyMonths',everyMonths:3}],['Every 6 months',{mode:'everyMonths',everyMonths:6}]];
 function triQueue(mode){
+  if(mode==='someday') return staleSomeday();
   if(mode==='setup') return SCHEDALL().filter(r=>unstarted(r) && !isAside(offKey(r)));
   return reviewItems().map(x=>x.r);
 }
@@ -8348,7 +8447,7 @@ function closeTriage(){
   if(!document.getElementById('sheetwrap').classList.contains('up') && !(typeof SETOPEN!=='undefined'&&SETOPEN))
     document.body.classList.remove('sheet-open');
   setTimeout(()=>{ w.hidden=true; },360);
-  if(TRI.did){ commit({rebuild:true,schedule:true}); try{ paintNudge(); paintReview(); paintSettings(); }catch(e){} }
+  if(TRI.did){ commit({rebuild:true,schedule:true}); try{ paintNudge(); paintReview(); paintSettings(); paintLists(); paintCards(); }catch(e){} }
 }
 function triCur(){ return TRI.q[TRI.i]||null; }
 function paintTri(dir){
@@ -8356,11 +8455,27 @@ function paintTri(dir){
   const close=`<button class="shclose" data-tri="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
   if(!r){
     const none=!TRI.q.length;
-    sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">${TRI.mode==='setup'?'SET UP':'REVIEW'}</span>`+
+    sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">${TRI.mode==='setup'?'SET UP':TRI.mode==='someday'?'SOMEDAY':'REVIEW'}</span>`+
       `<h2 id="trititle">${none?'Nothing to do here':'All done'}</h2></div>${close}</div>`+
       `<p class="trq">${none?(TRI.mode==='setup'?'Every item already has a start date.':'Nothing is overdue.'):
-        (TRI.did+' settled'+(TRI.q.length-TRI.did>0?', '+(TRI.q.length-TRI.did)+' left for later':'')+'.')}</p>`+
+        (TRI.mode==='someday'?TRI.did+' decided':TRI.did+' settled'+(TRI.q.length-TRI.did>0?', '+(TRI.q.length-TRI.did)+' left for later':''))+'.'}</p>`+
       `<div class="shbtns"><button class="shdone" data-tri="close" type="button">Close</button></div>`;
+    return;
+  }
+  if(TRI.mode==='someday'){
+    const age=Math.round((dayOf(today())-dayOf(r.made||today()))/864e5);
+    sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles">`+
+      `<span class="sheye">SOMEDAY \u00b7 ${TRI.i+1} OF ${TRI.q.length}</span>`+
+      `<h2 id="trititle">${esc(r.l)}</h2><span class="shprod">On Someday for ${Math.round(age/7)} weeks</span></div>${close}</div>`+
+      `<div class="trbar"><i style="width:${Math.round(TRI.i/TRI.q.length*100)}%"></i></div>`+
+      `<div class="trbody${dir?' tr-in':''}"><p class="trq">Still want this?</p>`+
+      `<div class="shbtns"><button class="shdone" data-tri="keep" type="button">Keep it</button></div>`+
+      `<p class="trq trq2">Or give it a day</p><div class="trchips">`+
+        `<button class="trchip" data-trsch="0" type="button">Today</button><button class="trchip" data-trsch="1" type="button">Tomorrow</button>`+
+        `<button class="trchip" data-trsch="sat" type="button">This weekend</button></div>`+
+      `<label class="trdate">Pick a day<input type="date" data-trsday min="${today()}"></label>`+
+      `<div class="shacts"><button class="shact" data-tri="del" type="button">Let it go \u2014 delete</button>`+
+      `<button class="shact" data-tri="next" type="button">Later</button></div></div>`;
     return;
   }
   const by=TRI.mode==='review' ? (reviewItems().find(x=>x.r===r)||{}).by : null;
@@ -8406,7 +8521,15 @@ document.getElementById('trisheet').addEventListener('click',e=>{
     if(!r) return;
     if(v==='next'){ triNext(false); return; }
     if(v==='today'){ triLog(r,today()); triNext(true); return; }
+    if(v==='keep'){ r.made=today(); triNext(true); return; }
+    if(v==='del'){ const at=S.custom.indexOf(r); if(at>-1) S.custom.splice(at,1); triNext(true); return; }
     if(v==='off'){ const k=offKey(r); if(S.off.indexOf(k)===-1) S.off.push(k); triNext(true); return; }
+  }
+  const sc=e.target.closest('[data-trsch]');
+  if(sc && r){
+    const v=sc.dataset.trsch, t=today();
+    let day=v==='sat'?(()=>{ for(let i=0;i<7;i++){ const d=addDaysISO(t,i); if(dayOf(d).getDay()===6) return d; } return t; })():addDaysISO(t,+v);
+    scheduleTask(r,day); triNext(true); return;
   }
   const st=e.target.closest('[data-trset]');
   if(st && r){
@@ -8426,12 +8549,197 @@ document.getElementById('trisheet').addEventListener('click',e=>{
   }
 });
 document.getElementById('trisheet').addEventListener('change',e=>{
-  const r=triCur(); const inp=e.target.closest('[data-trday]');
+  const r=triCur();
+  const si=e.target.closest('[data-trsday]');
+  if(r && si && /^\d{4}-\d\d-\d\d$/.test(si.value) && si.value>=today()){ scheduleTask(r,si.value); triNext(true); return; }
+  const inp=e.target.closest('[data-trday]');
   if(!r || !inp || !/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value>today()) return;
   triLog(r,inp.value); triNext(true);
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('triwrap').hidden) closeTriage(); });
 document.getElementById('revgo').addEventListener('click',()=>openTriage('review'));
+
+/* =========================================================
+   PLAN THE WEEK. Someday on top, the next seven days below with what
+   each already holds. Tap a thing, then tap its day. Tap a planned task
+   on a day to send it back. Taps rather than a drag: a drag inside a
+   scrolling sheet on a phone is a fight; two taps never are.
+   ========================================================= */
+const PLAN={pick:null};
+function planDayLoad(iso){
+  let school=0,tasks=[];
+  try{
+    const B=listBuckets();
+    [].concat(B.today,B.tomorrow,B.week,B.fortnight).filter(r=>r.due===iso && !r.done).forEach(r=>{
+      if(r.task) tasks.push(r); else if(!r.routine) school++;
+    });
+  }catch(e){}
+  return {school,tasks};
+}
+function openPlan(){
+  PLAN.pick=null;
+  try{ localStorage.setItem('protocol_planask',today()); }catch(e){}
+  swCloseAll(); try{ closeSheet(); }catch(e){}
+  const w=document.getElementById('planwrap'); w.hidden=false;
+  document.body.classList.add('sheet-open');
+  paintPlan();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+  try{ paintCards(); }catch(e){}
+}
+function closePlan(){
+  const w=document.getElementById('planwrap'); if(w.hidden) return;
+  w.classList.remove('up');
+  if(!(typeof SETOPEN!=='undefined'&&SETOPEN)) document.body.classList.remove('sheet-open');
+  setTimeout(()=>{ w.hidden=true; },360);
+  commit({rebuild:true}); try{ paintLists(); }catch(e){}
+}
+function paintPlan(glowDay){
+  const sh=document.getElementById('plansheet'), t=today();
+  const some=someday();
+  const pick=PLAN.pick && some.find(c=>c.id===PLAN.pick);
+  const days=[0,1,2,3,4,5,6].map(i=>addDaysISO(t,i));
+  const hint=!some.length?'Someday is empty — nothing waiting for a day.'
+    :pick?`Now tap a day for <b>${esc(pick.l)}</b>.`:'Tap something, then tap the day you will do it.';
+  sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">PLAN THE WEEK</span>`+
+    `<h2 id="plantitle">Give Someday a day</h2></div>`+
+    `<button class="shclose" data-plan="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
+    `<p class="plhint">${hint}</p>`+
+    (some.length?`<div class="plsome">`+some.map(c=>`<button class="plitem${c.id===PLAN.pick?' on':''}" data-pk="${esc(c.id)}" type="button" aria-pressed="${c.id===PLAN.pick}">${esc(c.l)}</button>`).join('')+`</div>`:'')+
+    `<div class="pldays${pick?' armed':''}">`+days.map(iso=>{
+      const L=planDayLoad(iso), d=dayOf(iso);
+      const name=iso===t?'Today':iso===addDaysISO(t,1)?'Tomorrow':d.toLocaleDateString('en-US',{weekday:'long'});
+      const load=[L.school?L.school+' school':'', L.tasks.length?L.tasks.length+' task'+(L.tasks.length>1?'s':''):''].filter(Boolean).join(' · ')||'Free';
+      return `<div class="plday${iso===glowDay?' glow':''}" data-pday="${iso}" role="button" tabindex="0" aria-label="${esc(name)}">`+
+        `<div class="pldh"><span class="pldn">${esc(name)}</span><span class="plddate">${esc(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>`+
+        `<span class="pldl">${esc(load)}</span></div>`+
+        (L.tasks.length?`<div class="pltasks">`+L.tasks.map(r=>`<button class="pltask" data-pback="${esc(r.cid)}" type="button" title="Send back to Someday">${esc(r.text)}<i aria-hidden="true">×</i></button>`).join('')+`</div>`:'')+
+      `</div>`;
+    }).join('')+`</div>`+
+    `<div class="shbtns"><button class="shdone" data-plan="close" type="button">Done</button></div>`;
+}
+document.getElementById('planback').addEventListener('click',closePlan);
+document.getElementById('plansheet').addEventListener('click',e=>{
+  if(e.target.closest('[data-plan="close"]')){ closePlan(); return; }
+  const pk=e.target.closest('[data-pk]');
+  if(pk){ PLAN.pick = PLAN.pick===pk.dataset.pk ? null : pk.dataset.pk; paintPlan(); return; }
+  const pb=e.target.closest('[data-pback]');
+  if(pb){ const c=(S.custom||[]).find(x=>x.id===pb.dataset.pback); if(c){ scheduleTask(c,null); save(S); PLAN.pick=c.id; paintPlan(); } return; }
+  const pd=e.target.closest('[data-pday]');
+  if(pd){
+    const c=PLAN.pick && (S.custom||[]).find(x=>x.id===PLAN.pick);
+    if(!c){ toast('Tap something on Someday first'); return; }
+    scheduleTask(c,pd.dataset.pday); save(S); PLAN.pick=null; paintPlan(pd.dataset.pday);
+  }
+});
+document.getElementById('plansheet').addEventListener('keydown',e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-pday]')){ e.preventDefault(); e.target.click(); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('planwrap').hidden) closePlan(); });
+
+/* =========================================================
+   CARDS ON TODAY. At most one at a time, the most timely first:
+   the evening sweep, then Sunday's planning offer, then old Someday
+   items. Each one remembers being waved off for the day.
+   ========================================================= */
+let hourNow=()=>new Date().getHours();
+function waved(k){ try{ return localStorage.getItem('protocol_card_'+k)===today(); }catch(e){ return false; } }
+function wave(k){ try{ localStorage.setItem('protocol_card_'+k,today()); }catch(e){} }
+function sweepItems(){
+  const t=today(), out=[];
+  customToday().filter(c=>!c.done).forEach(c=>out.push({kind:'c', id:c.id, l:c.l, late:c.date<t}));
+  ROUTINES.filter(r=>plannedToday(r) && doneOn(r.id)!==t && !isAside('r:'+r.id)).forEach(r=>out.push({kind:'r', id:r.id, l:r.l}));
+  return out;
+}
+const SOMEDAYAGE=42;
+function staleSomeday(){ return someday().filter(c=>c.made && c.made<=addDaysISO(today(),-SOMEDAYAGE)); }
+function whichCard(){
+  const h=hourNow();
+  if((h>=21 || h<(+S.dayStart||4)) && !waved('sweep') && sweepItems().length) return 'sweep';
+  if(dayOf(today()).getDay()===0 && !waved('plan') && someday().length) return 'plan';
+  if(!waved('stale') && staleSomeday().length) return 'stale';
+  return null;
+}
+function paintCards(){
+  const m=document.getElementById('cardmount'); if(!m) return;
+  const k=whichCard();
+  /* paint() runs on every tick; only rebuild the card when what it says changed */
+  const sig=!k?'':k+':'+(k==='sweep'?sweepItems().map(i=>i.id).join(','):k==='plan'?someday().length:staleSomeday().length);
+  if(m.dataset.sig===sig) return;
+  m.dataset.sig=sig;
+  if(!k){ m.innerHTML=''; return; }
+  const x=`<button class="tcx" data-card="wave:${k}" type="button" aria-label="Not now"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  if(k==='sweep'){
+    const it=sweepItems();
+    m.innerHTML=`<div class="tcard tsweep"><div class="tch"><span class="tce">WRAPPING UP</span>${x}</div>`+
+      `<h3>${it.length} thing${it.length>1?'s':''} you planned ${it.length>1?'are':'is'} still open</h3>`+
+      `<p class="tcp">Decide again rather than let ${it.length>1?'them':'it'} go late.</p>`+
+      `<div class="tclist">`+it.map(i=>`<div class="tcrow"><span class="tcl">${esc(i.l)}</span>`+
+        `<button class="tcb" data-card="tmr:${i.kind}:${esc(i.id)}" type="button">Tomorrow</button>`+
+        (i.kind==='c'?`<label class="tcb tcpick">Day<input type="date" data-cardday="${esc(i.id)}" min="${addDaysISO(today(),1)}"></label>`+
+          `<button class="tcb" data-card="some:${esc(i.id)}" type="button">Someday</button>`:'')+`</div>`).join('')+`</div>`+
+      `<div class="tcbtns"><button class="tcgo" data-card="alltmr" type="button">All to tomorrow</button></div></div>`;
+  } else if(k==='plan'){
+    const n=someday().length;
+    m.innerHTML=`<div class="tcard"><div class="tch"><span class="tce">SUNDAY</span>${x}</div>`+
+      `<h3>Plan the week?</h3><p class="tcp">${n} thing${n>1?'s':''} on Someday waiting for a day.</p>`+
+      `<div class="tcbtns"><button class="tcgo" data-card="plan" type="button">Plan the week</button></div></div>`;
+  } else {
+    const n=staleSomeday().length;
+    m.innerHTML=`<div class="tcard"><div class="tch"><span class="tce">SOMEDAY</span>${x}</div>`+
+      `<h3>${n} idea${n>1?'s have':' has'} sat there six weeks</h3><p class="tcp">Still want ${n>1?'them':'it'}? Keep, schedule, or let ${n>1?'them':'it'} go.</p>`+
+      `<div class="tcbtns"><button class="tcgo" data-card="stale" type="button">Go through ${n>1?'them':'it'}</button></div></div>`;
+  }
+}
+function sweepMove(kind,id,day){
+  if(kind==='r'){ moveRoutine(id,day); return; }
+  const c=(S.custom||[]).find(x=>x.id===id); if(!c) return;
+  scheduleTask(c,day);
+}
+document.getElementById('cardmount').addEventListener('click',e=>{
+  const b=e.target.closest('[data-card]'); if(!b) return;
+  const v=b.dataset.card, tm=addDaysISO(today(),1);
+  if(v.indexOf('wave:')===0){ wave(v.slice(5)); paintCards(); return; }
+  if(v==='plan'){ wave('plan'); openPlan(); return; }
+  if(v==='stale'){ wave('stale'); openTriage('someday'); return; }
+  if(v==='alltmr'){
+    const it=sweepItems(); it.forEach(i=>sweepMove(i.kind,i.id,tm));
+    commit({rebuild:true}); try{ paintLists(); }catch(err){}
+    toast(it.length+' moved to tomorrow'); return;
+  }
+  if(v.indexOf('tmr:')===0){ const [,kind,id]=v.split(':'); sweepMove(kind,id,tm);
+    commit({rebuild:true}); try{ paintLists(); }catch(err){} toast('Moved to tomorrow'); return; }
+  if(v.indexOf('some:')===0){ const c=(S.custom||[]).find(x=>x.id===v.slice(5)); if(c){ scheduleTask(c,null);
+    commit({rebuild:true}); try{ paintLists(); }catch(err){} toast('Back on your Someday list'); } return; }
+});
+document.getElementById('cardmount').addEventListener('change',e=>{
+  const i=e.target.closest('[data-cardday]'); if(!i || !i.value) return;
+  const c=(S.custom||[]).find(x=>x.id===i.dataset.cardday); if(!c) return;
+  if(scheduleTask(c,i.value)){ commit({rebuild:true}); try{ paintLists(); }catch(err){} toast('Moved to '+prettyDay(i.value)); }
+});
+/* the clock crossing 9pm is not an event; look again every few minutes */
+setInterval(()=>{ try{ paintCards(); }catch(e){} },5*60e3);
+
+/* =========================================================
+   WHAT KEEPS GETTING SET ASIDE. Three or more of the last seven days
+   is a pattern worth a decision: make it optional, or change when it
+   happens. The app does not decide that for you.
+   ========================================================= */
+function skipPatterns(){
+  const t=today(), wk=addDaysISO(t,-6), lg=S.ntlog||{};
+  const lab=k=>{
+    if(k.indexOf('r:')===0){ const r=ROUTINES.find(x=>x.id===k.slice(2)); return r&&r.l; }
+    const st=PHASES.flatMap(p=>p.steps||[]).find(x=>x.id===k); return st&&st.l;
+  };
+  return Object.keys(lg).map(k=>({k, l:lab(k), n:lg[k].filter(d=>d>=wk && d<=t).length}))
+    .filter(x=>x.l && x.n>=3).sort((a,b)=>b.n-a.n);
+}
+function paintSkips(){
+  const m=document.getElementById('skipmount'); if(!m) return;
+  const p=skipPatterns();
+  m.innerHTML=!p.length?'':`<div class="skipbox"><h3>Set aside a lot this week</h3>`+
+    p.map(x=>`<div class="skiprowx"><b>${esc(x.l.split(' — ')[0])}</b><span>${x.n} of the last 7 days</span></div>`).join('')+
+    `<p class="hint">Something you set aside most days is telling you something. If you do it some days, it may want to be optional; if it is just at the wrong time, change its schedule in Full schedule.</p></div>`;
+}
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
   /* The panels live behind the gear now; opening the app should open Today,
@@ -8956,6 +9264,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.16-d', note:'PLAN THE WEEK: from Someday (in Lists, or the card on Sundays), tap an idea and then the day you will do it; each day shows what it already holds. Tap a task on a day to send it back. WRAPPING UP: after 9pm a card lists what you planned for today that is still open — Tomorrow, pick a day, Someday, or all to tomorrow. SOMEDAY CHECK-INS: an idea that has sat six weeks gets a card — keep it, give it a day, or let it go. SET ASIDE A LOT: Streak & history lists anything set aside three or more of the last seven days. Someday also heads Lists › By list. Settings pages fold their long explanations behind How this works, and Monthly cost shows its total on the settings list. The widget has lock-screen sizes now.'},
   {v:'2026.10.16-c', note:'SOMEDAY. A one-off without a day is now an idea, not a commitment: it sits on your Someday list at the bottom of Lists › By date, never goes late, and counts for nothing. Give it a day — drag it onto one, tap its Schedule chip, or swipe right for Today — and it comes onto that day’s board. Drag it back onto Someday (or swipe left › Someday) to take it off the calendar without deleting it. The + on Today adds to Someday unless you pick a date. One-offs you had added on Today and never put on the date list have moved to Someday. EXTRAS COUNT WHAT TODAY IS FOR: routines due today and things you put on today. Anything carried over from an earlier day still shows with its late tag, but no longer counts, so the bar can always be finished.'},
   {v:'2026.10.16-b', note:'Three things. NEW VERSION PROMPT: when a newer copy is on GitHub, a bar slides down — tap Reload. No more hard-refreshing or checking build numbers. ONE AT A TIME: tap the ‘need a start date’ note on Today and answer ‘when did you last do this?’ with one tap per item. Settings › Review has Go through them: did it today, did it on a day, change how often, take it off the board, or Later. A QUIETER TODAY: the chips under Up Next are gone. Add a one-off with the + next to the gear; Optional steps is a switch in Settings; a failing sync shows as a red dot on the gear; hold any row to pick several.'},
   {v:'2026.10.16-a', note:'Five things. EXTRAS ARE BLUE: the extras bar and its mark were orange, which is also the app’s warning colour; orange now only means late or over budget. NOT TODAY, FAST: pull a row far to the left and let go to set it aside in one move (Undo in the toast). Or hold any row, or tap Select, to pick several — tap rows, or a section’s name for all of it — then Not today or Done once. One-offs get Not today too: it moves them to tomorrow. ONE-OFFS ARE ONE LIST: every one-off shows on its day in Lists › By date, wherever you added it, and moving it in either place moves it in both. The Plan and Hide buttons for them are gone. SETTINGS: the gear opens a settings screen — Review, Streak, Alerts, Schedule, Products, Guide, Cost, Sync — instead of a drawer at the foot of Today, and the build notes, Reset and Backup moved into About & backup. Swipe from the left edge or tap Settings to go back. PINS GLIDE: pinning or releasing on the date list slides rows to their new places.'},
