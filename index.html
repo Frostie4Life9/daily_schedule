@@ -21,7 +21,7 @@
   color-scheme:dark;
   --ground:#0E0F12; --panel:#15171C; --panel-2:#1B1E24; --line:#24272E;
   --ink:#EEF0F3; --dim:#A3A9B3; --dimmer:#80868F;
-  --done:#5EE6B0; --live:#FF8A7A; --live-soft:rgba(255,138,122,.12); --opt:#8EA2FF; --warn:#F2995E;
+  --done:#5EE6B0; --live:#FF8A7A; --live-soft:rgba(255,138,122,.12); --opt:#8EA2FF; --warn:#F2995E; --extra:#6FB7FF;
   /* Schoolwork gets its OWN accent rather than borrowing --done. Teal already
      means "finished" everywhere on the board, so an outstanding assignment
      marked in it would read as the opposite of what it is. */
@@ -586,8 +586,8 @@ input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(-
 #adddate{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;background:var(--panel);
   border:1px solid var(--line);color:var(--ink);padding:9px 10px;border-radius:6px;}
 .addnote{flex:1 1 100%;font-size:11.5px;line-height:1.6;color:var(--dimmer);margin:2px 0 0;}
-#star{color:var(--warn);font-size:17px;line-height:0;margin-right:6px;position:relative;top:1px;
-  text-shadow:0 0 7px color-mix(in srgb, var(--warn) 45%, transparent);}
+#star{color:var(--extra);font-size:17px;line-height:0;margin-right:6px;position:relative;top:1px;
+  text-shadow:0 0 7px color-mix(in srgb, var(--extra) 45%, transparent);}
 /* The star is the orange all-clear; this is its counterpart for schoolwork and
    has to be legible as a DIFFERENT claim at a glance, so it differs in both
    shape and colour rather than being a second orange mark. */
@@ -924,9 +924,9 @@ header.gh .hstats{margin-left:0;display:flex;align-items:center;gap:12px;transit
 .gmarks span.lit{opacity:1;}
 .gmarks span.glow{animation:g-boop .5s var(--ease);}
 #bulb,#star{display:inline!important;margin:0;top:0;line-height:1;text-shadow:none;}
-#bulb{color:var(--school);font-size:18px;} #star{color:var(--warn);font-size:17px;}
+#bulb{color:var(--school);font-size:18px;} #star{color:var(--extra);font-size:17px;}
 #bulb.lit{text-shadow:0 0 9px color-mix(in srgb,var(--school) 60%,transparent);}
-#star.lit{text-shadow:0 0 9px color-mix(in srgb,var(--warn) 50%,transparent);}
+#star.lit{text-shadow:0 0 9px color-mix(in srgb,var(--extra) 50%,transparent);}
 header.gh .stat{text-align:right;}
 header.gh .stat b{font-family:'Geist Mono',ui-monospace,monospace;font-size:26px;font-weight:600;
   line-height:1;letter-spacing:-.02em;color:var(--ink);display:block;}
@@ -943,7 +943,7 @@ header.gh .stat i{font-style:normal;font-size:11px;letter-spacing:0;text-transfo
 .gcard b.bump{animation:g-num .3s ease;}
 .gbar{height:3px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:9px;overflow:hidden;}
 .gbar div{height:100%;width:0;border-radius:3px;background:var(--done);transition:width .5s var(--ease);}
-.gx .gbar div{background:var(--warn);} .gs .gbar div{background:var(--school);}
+.gx .gbar div{background:var(--extra);} .gs .gbar div{background:var(--school);}
 body.on-lists .gcards,body.on-lists header.gh .hstats{display:none;}
 
 /* ---------------- dock ---------------- */
@@ -1534,11 +1534,104 @@ body.sheet-open{overflow:hidden;}
 .shact:active{transform:scale(.96);}
 .shact.on{border-color:rgba(94,230,176,.4);color:var(--done);}
 @media (hover:hover) and (pointer:fine){ .shact:hover{background:#1B1E24;color:var(--ink);} .shclose:hover{background:#2A2E36;} }
+
+/* ---- long swipe ---- */
+.step.swfull>.skiprow .skip.nt{background:var(--live)!important;color:#1A0C0A!important;transform:scale(1.04);}
+.step>.skiprow .skip.nt{transition:background .18s,color .18s,transform .18s var(--ease);}
+#list .step{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+/* ---- select mode ---- */
+body.selecting .dock{transform:translateY(140%);opacity:0;pointer-events:none;}
+.dock{transition:transform .32s var(--ease),opacity .25s;}
+body.selecting #list .step .rin{transition:background .2s,box-shadow .2s;}
+body.selecting #list .step .box{border-style:solid;}
+body.selecting #list .step .timer,body.selecting #list .step .ntoggle{pointer-events:none;opacity:.35;}
+body.selecting #list .phead{cursor:pointer;}
+body.selecting #list .phead h2::after{content:'select all';margin-left:10px;font-size:11px;font-weight:500;color:var(--dimmer);letter-spacing:0;text-transform:none;}
+#list .step.sel .rin{background:rgba(111,183,255,.10);box-shadow:inset 3px 0 0 var(--extra);}
+#list .step.sel .box{border-color:var(--extra);background:var(--extra);}
+#list .step.sel .box svg{opacity:1;stroke:#08121C;}
+#list .step.sel.done .box{background:var(--extra);}
+.selbar{position:fixed;left:0;right:0;bottom:0;z-index:70;padding:0 20px calc(18px + env(safe-area-inset-bottom));pointer-events:none;}
+.selbar[hidden]{display:none;}
+.selin{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:8px;height:56px;padding:5px 5px 5px 6px;box-sizing:border-box;
+  border-radius:28px;background:rgba(30,33,39,.94);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:auto;
+  transform:translateY(140%);transition:transform .34s var(--ease);}
+.selbar.up .selin{transform:none;}
+.selx{flex:0 0 auto;width:44px;height:44px;border-radius:22px;border:0;background:#262A31;color:#DADDE2;display:grid;place-items:center;cursor:pointer;}
+.selx svg{width:15px;height:15px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;}
+.selcount{flex:1;min-width:0;font-size:14px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.selact{flex:0 0 auto;height:44px;padding:0 16px;border-radius:22px;border:0;background:#2A2F38;color:var(--ink);
+  font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s,transform .15s;}
+.selact.prime{background:var(--done);color:#08130E;}
+.selact:disabled{opacity:.35;cursor:default;}
+.selact:active:not(:disabled),.selx:active{transform:scale(.95);}
+/* ---- settings ---- */
+body.set-open{overflow:hidden;}
+.setwrap{position:fixed;inset:0;z-index:95;}
+.setwrap[hidden]{display:none;}
+.setback{position:absolute;inset:0;background:rgba(5,6,8,.6);opacity:0;transition:opacity .32s ease;}
+.setwrap.up .setback{opacity:1;}
+.setstage{position:absolute;inset:0;max-width:680px;margin:0 auto;overflow:hidden;background:var(--ground);
+  transform:translateY(100%);transition:transform .38s var(--ease);}
+@media (min-width:700px){ .setstage{top:24px;bottom:24px;border-radius:28px;border:1px solid var(--hair-2);} }
+.setwrap.up .setstage{transform:none;}
+.setpane{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;box-sizing:border-box;
+  padding:calc(14px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
+  transition:transform .36s var(--ease),opacity .3s;}
+.setsub{transform:translateX(100%);background:var(--ground);}
+.setwrap.deep .setsub{transform:none;}
+.setwrap.deep #sethome{transform:translateX(-28%);opacity:.0;}
+.sethead{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:10px;}
+.sethead h2{margin:0;font-size:30px;font-weight:600;letter-spacing:-.025em;}
+.setbackbtn{display:inline-flex;align-items:center;gap:2px;height:44px;margin-left:-10px;padding:0 12px 0 4px;border:0;border-radius:22px;
+  background:transparent;color:var(--done);font-family:inherit;font-size:16px;font-weight:500;cursor:pointer;}
+.setbackbtn svg{width:22px;height:22px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.setbackbtn:active{opacity:.6;}
+.setptitle{margin:2px 0 14px;font-size:28px;font-weight:600;letter-spacing:-.025em;}
+.setgroup{margin-top:22px;}
+.setgh{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);margin:0 4px 8px;}
+.setcard{background:var(--card);border:1px solid var(--hair);border-radius:18px;overflow:hidden;}
+.setrow{display:flex;align-items:center;gap:10px;width:100%;min-height:54px;padding:0 14px 0 16px;border:0;border-bottom:1px solid var(--hair);
+  background:transparent;color:var(--ink);font-family:inherit;font-size:16px;text-align:left;cursor:pointer;transition:background .2s;}
+.setrow:last-child{border-bottom:0;}
+.setrow:active{background:rgba(255,255,255,.04);}
+@media (hover:hover) and (pointer:fine){ .setrow:hover{background:rgba(255,255,255,.03);} }
+.setl{flex:1;min-width:0;}
+.sets{flex:0 1 auto;min-width:0;font-size:14px;color:var(--dimmer);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sets em{font-style:normal;color:var(--live);}
+.setchev{flex:0 0 auto;width:16px;height:16px;stroke:#5F6570;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+/* the panels, inside a page: no frame, no tab strip, no heading of their own */
+#setbody #drawer{margin:0;border:0;border-radius:0;background:transparent;overflow:visible;}
+#setbody #drawtabs,#setbody #drawempty{display:none;}
+#setbody #drawer section .shelfbody{padding:0;animation:none;}
+#setbody .shelfnote:first-child{margin-top:0;font-size:14px;line-height:1.55;color:var(--dim);}
+#setbody .foot{margin:0;padding:0;border:0;font-size:14px;line-height:1.6;color:var(--dim);}
+#setbody .slot,#setbody .lrow{margin-top:14px;}
+/* toasts must show over settings and the select bar too */
+#toast{z-index:120;}
+body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
 <body>
 
+<div class="setwrap" id="setwrap" hidden>
+  <div class="setback" id="setback"></div>
+  <div class="setstage" id="setstage">
+    <div class="setpane" id="sethome" role="dialog" aria-modal="true" aria-labelledby="sethtitle">
+      <div class="sethead"><h2 id="sethtitle">Settings</h2>
+        <button class="shclose" id="setclose" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div id="setlist"></div>
+    </div>
+    <div class="setpane setsub" id="setpage" role="dialog" aria-modal="true" aria-labelledby="setptitle">
+      <div class="sethead"><button class="setbackbtn" id="setbackbtn" type="button" aria-label="Back to settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Settings</span></button>
+        <button class="shclose" id="setclose2" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <h2 class="setptitle" id="setptitle"></h2>
+      <div id="setbody"></div>
+    </div>
+  </div>
+</div>
 <header class="gh">
   <div class="ghtop"><span class="geyebrow" id="daylabel"></span><button class="gset" id="gset" type="button" aria-label="Settings, history and sync" title="Settings, history and sync"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   <div class="ghrow">
@@ -1569,13 +1662,14 @@ body.sheet-open{overflow:hidden;}
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
     <button class="ctl" id="addbtn">+ One-off task</button>
+    <button class="ctl" id="selbtn" title="Pick several steps and set them aside, or tick them, together">Select</button>
   </div>
   <div id="addpanel" style="display:none">
     <input id="addtext" type="text" placeholder="Something to get done" autocomplete="off">
     <input id="adddate" type="date">
     <button class="ctl" id="addgo">Add</button>
     <p class="addnote">Sits with your routines, counts in Extras, and never touches the streak.
-      If you don't finish it, it moves itself to tomorrow and picks up a <b>late</b> tag — tap that to move it somewhere else.</p>
+      If you don't finish it, it moves itself to tomorrow and picks up a <b>late</b> tag — tap that to move it somewhere else. It shows on its day in Lists › By date too, and moving it there moves it here.</p>
   </div>
 
   <div id="setupnudge" role="button" tabindex="0"></div>
@@ -1583,8 +1677,8 @@ body.sheet-open{overflow:hidden;}
 
   <div class="foot">
     <b>Timers.</b> Tap the dial on a step to start its dwell. The ring fills clockwise as it runs and the row sweeps behind it; both go teal when the time is up. A check says you shampooed — the timer says you left it on long enough.<br><br>
-    <b>Non-daily items</b> live in Full schedule below, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
-    <b>The day ends at <span id="footstart">4am</span></b>, not midnight — a routine finished at 1am counts for the night you were awake. The run counts days where every core step got checked, and <b>one missed day never breaks it</b>; two in a row do. Your best run is kept whatever happens to the current one. See <b>Streak &amp; history</b> below.<br>
+    <b>Non-daily items</b> live in Settings › Full schedule, whether or not they're due today. Change the days there and it sticks; you don't need a rebuilt file.<br><br>
+    <b>The day ends at <span id="footstart">4am</span></b>, not midnight — a routine finished at 1am counts for the night you were awake. The run counts days where every core step got checked, and <b>one missed day never breaks it</b>; two in a row do. Your best run is kept whatever happens to the current one. See Settings › <b>Streak &amp; history</b>.<br>
     <b>Build <span id="buildid">-</span>.</b> The middle code is a fingerprint of this file's own code. If two devices show different fingerprints, one is on a cached copy — hard-refresh it.
     <div class="whatsnew"><span id="buildnote"></span>
       <button class="histbtn" id="histbtn" aria-expanded="false">earlier</button></div>
@@ -1804,6 +1898,14 @@ body.sheet-open{overflow:hidden;}
   <button class="dockgo" id="jump" type="button" aria-label="Jump to the next step" title="Jump to the next step"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="6 13 12 19 18 13"/></svg></button>
   <button class="dockgo" id="ldockadd" type="button" aria-label="Add a task" title="Add a task"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
 </div></nav>
+<div class="selbar" id="selbar" hidden role="toolbar" aria-label="Selected steps">
+  <div class="selin">
+    <button class="selx" id="selx" type="button" aria-label="Stop selecting"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="selcount" id="selcount">Tap steps to select</span>
+    <button class="selact" id="selnt" type="button">Not today</button>
+    <button class="selact prime" id="seldone" type="button">Done</button>
+  </div>
+</div>
 <div class="sheetwrap" id="sheetwrap" hidden>
   <div class="sheetback" data-sheetclose="1"></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shtitle" tabindex="-1"></div>
@@ -2405,7 +2507,7 @@ function summarize(){
                                       on today. A task left over from Tuesday is still
                                       a one-off, but it is not what today was planned
                                       around, and it must not push today's plan down. */
-                                   planned:!!(c.inlist && c.date===today())})))
+                                   planned:c.date===today()})))
     /* Coursework still rides in the `routines` list so the widget can show the
        assignments themselves — it is only the COUNTS that moved out of extras,
        into `school` below. */
@@ -3820,6 +3922,12 @@ function customToday(){
     .sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0));
 }
 function customState(c){ return {due:true, late:c.date<today(), from:c.date}; }
+/* "Not today" for a one-off: it has no schedule to settle, so it simply goes
+   to tomorrow, and today's tick goes with it. */
+function customTomorrow(c){
+  const k=S.checked.indexOf('c:'+c.id); if(k>-1) S.checked.splice(k,1);
+  c.date=addDaysISO(today(),1);
+}
 function addCustom(label,date,extra){
   S.custom=S.custom||[];
   const c=Object.assign({id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
@@ -4569,6 +4677,8 @@ function makeRow(o){
 }
 
 function buildRows(){
+  const picked=(typeof SEL!=='undefined' && SEL.on)?[...list.querySelectorAll('.step.sel')].map(r=>r.dataset.n):[];
+  if(picked.length) after(()=>selReapply(picked));
   list.innerHTML='';
   const due=dueRoutines();
 
@@ -4738,9 +4848,8 @@ function buildRows(){
         /* default the picker to the day it currently sits on, not today \u2014
            moving something that is not late is the whole point here */
         resched:reschedPanel(key,state.from,c.date),
-        buttons:`<div class="skiprow"><button class="skip${c.inlist?' on':''}" data-cplan="${esc(c.id)}" `+
-                  `title="${c.inlist?'On the date list \u2014 tap to take it off':'Put this on the date list in Lists'}" `+
-                  `aria-pressed="${!!c.inlist}" aria-label="Put this on the date list">${c.inlist?'planned':'plan'}</button>`+
+        buttons:`<div class="skiprow"><button class="skip nt" data-ctmr="${esc(c.id)}" `+
+                  `title="Not today \u2014 move it to tomorrow" aria-label="Not today, move to tomorrow">not today</button>`+
                 `<button class="skip" data-drop="${esc(c.id)}" title="Delete this task" aria-label="Delete this task">delete</button></div>`
       }));
     });
@@ -4775,15 +4884,18 @@ list.addEventListener('click',e=>{
     } else {
       S.defer=S.defer||{}; S.defer[key.slice(2)]=v;
     }
-    save(S); rebuild();
+    save(S); rebuild(); try{ paintLists(); }catch(err){}
     toast(v===today()?'Moved to today':'Moved to '+prettyDay(v));
     return;
   }
-  const cpl=e.target.closest('[data-cplan]');
-  if(cpl){
-    const c=(S.custom||[]).find(x=>x.id===cpl.dataset.cplan);
-    if(c){ c.inlist = c.inlist ? null : true; save(S); rebuild(); paintLists();
-           toast(c.inlist?'On the date list':'Off the date list'); }
+  const ctm=e.target.closest('[data-ctmr]');
+  if(ctm){
+    const id=ctm.dataset.ctmr, c=(S.custom||[]).find(x=>x.id===id); if(!c) return;
+    const was={date:c.date, ck:S.checked.indexOf('c:'+id)>-1};
+    customTomorrow(c);
+    commit({rebuild:true}); paintLists();
+    toast('Moved to tomorrow',()=>{ c.date=was.date; if(was.ck&&S.checked.indexOf('c:'+id)===-1) S.checked.push('c:'+id);
+      commit({rebuild:true}); paintLists(); });
     return;
   }
   const clk=e.target.closest('[data-lclass]');
@@ -4930,6 +5042,48 @@ function keepBtn(key){
 }
 const isOff=id=>S.off.indexOf(id)>-1;
 const isNotToday=id=>(S.notoday||{})[id]===today();
+/* THE ONE PLACE "not today" is decided, for the button, the long swipe and
+   select mode alike. Keyed by the ROW key ('r:<id>' for a routine, the bare id
+   for a step); S.defer and schedOf() use the BARE id, so strip the prefix. */
+function setNotToday(id,on){
+  S.notoday=S.notoday||{};
+  const rid = id.indexOf('r:')===0 ? id.slice(2) : id;
+  const r = ROUTINES.find(x=>x.id===rid) ||
+            PHASES.flatMap(ph=>ph.steps||[]).find(x=>x.id===rid && x.sched) || null;
+  if(!on){
+    delete S.notoday[id];
+    if(rid && S.defer) delete S.defer[rid];       /* undo puts the debt back too */
+    return;
+  }
+  S.notoday[id]=today();
+  /* a row set aside leaves the count; leaving it ticked would count it */
+  const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
+  /* waving it off settles this turn of the schedule rather than making
+     tomorrow's row red */
+  const nx=nextOccurrence(r);
+  if(nx){ S.defer=S.defer||{}; S.defer[rid]=nx; }
+}
+/* What a row's "not today" means, whatever kind of row it is. Returns false
+   for a row that has no such thing (an ordinary daily step you can only skip). */
+function asideToday(row){
+  const key=row.dataset.n;
+  if(key.indexOf('c:')===0){
+    const c=(S.custom||[]).find(x=>x.id===key.slice(2)); if(!c) return false;
+    customTomorrow(c); return true;
+  }
+  if(!row.querySelector(':scope > .skiprow [data-nt]') || isNotToday(key)) return false;
+  setNotToday(key,true); return true;
+}
+function asideSnap(){
+  return JSON.stringify({nt:S.notoday||{}, df:S.defer||{}, ck:S.checked,
+    cd:(S.custom||[]).map(c=>[c.id,c.date])});
+}
+function asideRestore(snap){
+  const o=JSON.parse(snap);
+  S.notoday=o.nt; S.defer=o.df; S.checked=o.ck;
+  o.cd.forEach(([id,d])=>{ const c=(S.custom||[]).find(x=>x.id===id); if(c) c.date=d; });
+  commit({rebuild:true}); try{ paintLists(); }catch(e){}
+}
 /* Everything that asks "should this row be live?" asks this, not isOff. */
 const isAside=id=>isOff(id)||isNotToday(id);
 /* Drop dismissals from days gone by. Not load-bearing \u2014 isNotToday already
@@ -5116,10 +5270,8 @@ function paintNudge(){
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('#setupnudge')) return;
-  setPanel('plan',true);
+  openSettings('plan');
   planFilter='new'; paintSchedule();
-  const el=document.getElementById('plan');
-  if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'start'});
 });
 
 function paint(){
@@ -5376,6 +5528,7 @@ document.addEventListener('contextmenu',e=>{
   const row=e.target.closest && e.target.closest('#list .step, #lists .drow');
   if(!row || !swipeable(row) || e.target.closest('input, textarea, a')) return;
   e.preventDefault();
+  if(SEL.on || e.pointerType==='touch') return;
   if(SW.open===row) swClose(row); else swOpen(row,'R');
 });
 
@@ -6155,7 +6308,11 @@ function listBuckets(){
      the box at the top, or sent over with the PLAN button on its board row.
      The board stays the place for quick throwaway tasks; this is the place for
      the ones worth scheduling. */
-  (S.custom||[]).filter(c=>c.inlist).forEach(c=>{
+  /* EVERY one-off, wherever it was added. Added on the board or here, it is
+     the same task: on its day's board, in its day here, and moving it in
+     either place moves it in both. (It used to be opt-in, via a Plan button;
+     two lists that disagree about what you have to do were the worse deal.) */
+  (S.custom||[]).forEach(c=>{
     const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:null,
                done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
     if(c.done && c.date && c.date<t){ B.done.push(row); return; }
@@ -6267,7 +6424,6 @@ function dateRow(r,big,inlist){
     whenEl=`<label class="dwhen dpick${late?' late':''}" title="Change the day">${esc(r.due?(late?whenText(r):dayLabel(r.due)):'no day')}`+
       `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due||'')}" min="${today()}" aria-label="Change the day"></label>`;
     trayR=topBtn('data-ctop',r.cid)+
-      `<button class="dact dhideact" data-cunlist="${esc(r.cid)}" title="Take it off this list — it stays on the board" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`+
       `<button class="dact ddelact" data-cdel="${esc(r.cid)}" aria-label="Delete task">${SWBIN}<span>Delete</span></button>`;
   } else {
     const k=esc(r.lid)+'|'+esc(r.iid);
@@ -6859,7 +7015,7 @@ listsRoot.addEventListener('click',e=>{
   if(ctop){
     const c=(S.custom||[]).find(x=>x.id===ctop.dataset.ctop); if(!c) return;
     c.top = c.top ? null : true;
-    save(S); paintLists(); toast(c.top?'Pinned to the top':'Released'); return;
+    save(S); flipPaint(paintLists); toast(c.top?'Pinned to the top':'Released'); return;
   }
   const run=e.target.closest('[data-runplan]');
   if(run){
@@ -6870,7 +7026,7 @@ listsRoot.addEventListener('click',e=>{
   if(rtp){
     S.rtop=S.rtop||{}; const id=rtp.dataset.rtop;
     if(S.rtop[id]) delete S.rtop[id]; else S.rtop[id]=true;
-    save(S); paintLists(); toast(S.rtop[id]?'Pinned to the top':'Released'); return;
+    save(S); flipPaint(paintLists); toast(S.rtop[id]?'Pinned to the top':'Released'); return;
   }
   const rit=e.target.closest('[data-rit]');
   if(rit && !e.target.closest('button, a, input, label, .dgrip')){
@@ -6927,7 +7083,7 @@ listsRoot.addEventListener('click',e=>{
     const l=listById(lid); if(!l) return;
     const item=(l.items||[]).find(x=>x.id===iid); if(!item) return;
     item.top = item.top ? null : true;
-    save(S); paintLists();
+    save(S); flipPaint(paintLists);
     toast(item.top?'Pinned to the top':'Released');
     return;
   }
@@ -7028,6 +7184,22 @@ document.addEventListener('pointermove',e=>{
     break;
   }
 });
+function flipKey(el){ const d=el.dataset; return d.cit?'c'+d.cit:d.rit?'r'+d.rit:d.lit?'l'+d.lit:null; }
+function flipPaint(fn){
+  const root=document.getElementById('lists');
+  const sel='[data-cit],[data-rit],[data-lit]', was=new Map();
+  if(root) root.querySelectorAll(sel).forEach(el=>{ const k=flipKey(el); if(k) was.set(k,el.getBoundingClientRect().top); });
+  fn();
+  if(!root || REDUCED()) return;
+  root.querySelectorAll(sel).forEach(el=>{
+    const k=flipKey(el), t0=was.get(k); if(t0==null) return;
+    const dy=t0-el.getBoundingClientRect().top; if(Math.abs(dy)<1) return;
+    el.style.transition='none'; el.style.transform='translateY('+dy.toFixed(1)+'px)'; el.style.position='relative'; el.style.zIndex='2';
+    el.getBoundingClientRect();
+    el.style.transition='transform .42s var(--ease)'; el.style.transform='';
+    setTimeout(()=>{ el.style.transition=''; el.style.zIndex=''; el.style.position=''; },460);
+  });
+}
 function endTaskDrag(commit){
   const d=taskDrag; if(!d) return;
   taskDrag=null;
@@ -7141,10 +7313,19 @@ document.addEventListener('pointermove',e=>{
   e.preventDefault();
   let off=SW.base+dx;
   const max=SW.wL, min=-SW.wR;
+  /* A row with a "not today" can be pulled well past its tray: let go out
+     there and it is set aside in one gesture, the way Mail archives. */
+  const full=swFullable(SW.el);
   if(off>max) off=max+(off-max)*.25;
-  if(off<min) off=min+(off-min)*.25;
+  if(off<min) off=min+(off-min)*(full?.7:.25);
   swSet(SW.el,off,false);
+  if(full) SW.el.classList.toggle('swfull', off < min-SWFULL);
 },{passive:false});
+const SWFULL=70;
+function swFullable(el){
+  return !!(el && el.classList.contains('step') &&
+    el.querySelector(':scope > .skiprow [data-nt]:not([aria-label^="Undo"]), :scope > .skiprow [data-ctmr]'));
+}
 function swEnd(){
   if(!SW.el) return;
   const el=SW.el, was=SW.dec; SW.el=null;
@@ -7152,6 +7333,20 @@ function swEnd(){
   el.classList.remove('swiping');
   const off=+(el.dataset.swoff||0);
   SW.until=Date.now()+400;
+  if(el.classList.contains('swfull')){
+    el.classList.remove('swfull');
+    const label=(el.querySelector('.label')||{}).textContent||'';
+    const snap=asideSnap();
+    swSet(el,-el.offsetWidth,true);
+    setTimeout(()=>{
+      if(SW.open===el) SW.open=null;
+      if(!asideToday(el)){ swClose(el); return; }
+      commit({rebuild:true}); try{ paintLists(); }catch(e){}
+      toast((el.dataset.n.indexOf('c:')===0?'Tomorrow: ':'Not today: ')+label.replace(/\s+\u2014.*$/,'').slice(0,40),
+            ()=>asideRestore(snap));
+    },200);
+    return;
+  }
   if(off < -Math.min(64,SW.wR*.45) && SW.wR) swOpen(el,'R');
   else if(off > Math.min(44,SW.wL*.5) && SW.wL) swOpen(el,'L');
   else swClose(el);
@@ -7171,6 +7366,117 @@ document.addEventListener('click',e=>{
   }
   swClose(o); e.preventDefault(); e.stopPropagation();
 },true);
+
+/* =========================================================
+   SELECT MODE. Setting five things aside used to be five swipes and five
+   taps. Hold any row (or tap Select) and the board turns into a picker:
+   tap rows to choose them, tap a section's name to choose all of it, then
+   Not today or Done once for the lot. Nothing is ticked while picking.
+   ========================================================= */
+const SEL={on:false,lp:null,x:0,y:0};
+function selectable(row){
+  return !!row && !row.classList.contains('hidden') && !row.classList.contains('off') &&
+    !row.classList.contains('notoday') && !row.closest('.phase.collapsed');
+}
+function selPicked(){ return [...document.querySelectorAll('#list .step.sel')]; }
+function paintSelBar(){
+  const bar=document.getElementById('selbar'); if(!bar) return;
+  const n=selPicked().length;
+  document.getElementById('selcount').textContent=n?n+' selected':'Tap steps to select';
+  document.getElementById('selnt').disabled=!n;
+  document.getElementById('seldone').disabled=!n;
+  const allDone=n && selPicked().every(r=>r.classList.contains('done'));
+  document.getElementById('seldone').textContent=allDone?'Undo done':'Done';
+}
+function selEnter(row){
+  if(SEL.on){ if(row) row.classList.add('sel'); paintSelBar(); return; }
+  SEL.on=true; swCloseAll();
+  try{ closeSheet(); }catch(e){}
+  document.body.classList.add('selecting');
+  const bar=document.getElementById('selbar'); bar.hidden=false;
+  requestAnimationFrame(()=>bar.classList.add('up'));
+  if(row && selectable(row)) row.classList.add('sel');
+  paintSelBar();
+}
+function selExit(){
+  if(!SEL.on) return;
+  SEL.on=false;
+  document.body.classList.remove('selecting');
+  document.querySelectorAll('#list .step.sel').forEach(r=>r.classList.remove('sel'));
+  const bar=document.getElementById('selbar'); bar.classList.remove('up');
+  setTimeout(()=>{ if(!SEL.on) bar.hidden=true; },320);
+}
+/* A rebuild while picking (a sync pull, a timer ringing) must not drop the
+   picks: they are re-applied by key. */
+function selReapply(keys){
+  if(!SEL.on) return;
+  keys.forEach(k=>{ const r=document.querySelector('#list .step[data-n="'+cssEsc(k)+'"]'); if(r && selectable(r)) r.classList.add('sel'); });
+  paintSelBar();
+}
+document.getElementById('selbtn').addEventListener('click',()=>{ if(SEL.on) selExit(); else selEnter(null); });
+document.getElementById('selx').addEventListener('click',selExit);
+document.getElementById('selnt').addEventListener('click',()=>{
+  const rows=selPicked(); if(!rows.length) return;
+  const snap=asideSnap();
+  let n=0, skipped=0;
+  rows.forEach(r=>{ if(asideToday(r)) n++; else skipped++; });
+  selExit();
+  if(!n){ toast('Those are daily steps — swipe one to skip it'); return; }
+  commit({rebuild:true}); try{ paintLists(); }catch(e){}
+  toast(n+' set aside for today'+(skipped?' · '+skipped+' daily left as is':''),()=>asideRestore(snap));
+});
+document.getElementById('seldone').addEventListener('click',()=>{
+  const rows=selPicked(); if(!rows.length) return;
+  const keys=rows.map(r=>r.dataset.n);
+  const undo=rows.every(r=>r.classList.contains('done'));
+  selExit();
+  /* toggle() re-renders as it goes, so look each row up fresh by key */
+  keys.forEach(k=>{
+    const r=document.querySelector('#list .step[data-n="'+cssEsc(k)+'"]');
+    if(r && r.classList.contains('done')===undo) toggle(r);
+  });
+  if(!undo) toast(keys.length+' done');
+});
+/* Capture phase: while picking, a tap on a row picks it and goes no further. */
+document.addEventListener('click',e=>{
+  /* the swipe guard on this same node stops the event reaching rows, not us */
+  if(!SEL.on || Date.now()<SW.until || e.target.closest('#selbar')) return;
+  const ph=e.target.closest('#list .phead');
+  if(ph){
+    e.preventDefault(); e.stopPropagation();
+    const rs=[...ph.closest('section').querySelectorAll('.step')].filter(selectable);
+    const all=rs.length && rs.every(r=>r.classList.contains('sel'));
+    rs.forEach(r=>r.classList.toggle('sel',!all)); paintSelBar(); return;
+  }
+  const row=e.target.closest('#list .step');
+  if(row){
+    e.preventDefault(); e.stopPropagation();
+    if(selectable(row)){ row.classList.toggle('sel'); paintSelBar(); }
+  }
+},true);
+/* Hold to start picking. Cancelled by any movement, so a scroll or a swipe
+   that starts slowly never turns into it. */
+function lpCancel(){ if(SEL.lp){ clearTimeout(SEL.lp); SEL.lp=null; } }
+document.addEventListener('pointerdown',e=>{
+  if(e.button>0 || SEL.on) return;
+  const row=e.target.closest && e.target.closest('#list .step'); if(!row) return;
+  if(e.target.closest('button, a, input, label, select, textarea, .timer, .skiprow')) return;
+  lpCancel(); SEL.x=e.clientX; SEL.y=e.clientY;
+  SEL.lp=setTimeout(()=>{
+    SEL.lp=null;
+    if(!row.isConnected || !selectable(row)) return;
+    if(SW.el===row){ SW.el=null; swSet(row,0,true); }
+    SW.until=Date.now()+650;           /* swallow the click the release makes */
+    try{ navigator.vibrate && navigator.vibrate(12); }catch(err){}
+    selEnter(row);
+  },460);
+});
+document.addEventListener('pointermove',e=>{
+  if(SEL.lp && (Math.abs(e.clientX-SEL.x)>8 || Math.abs(e.clientY-SEL.y)>8)) lpCancel();
+});
+document.addEventListener('pointerup',lpCancel);
+document.addEventListener('pointercancel',lpCancel);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && SEL.on) selExit(); });
 /* Keyboard reaches the actions too: focusing one opens its row. */
 document.addEventListener('focusin',e=>{
   const b=e.target.closest && e.target.closest('.step > .skiprow .skip, .drow > .dtrayR .dact, .drow > .dtrayL .dact');
@@ -7259,31 +7565,7 @@ function wireRows(){
       const nt=e.target.closest('[data-nt]');
       if(nt){
         e.stopPropagation();
-        const id=nt.dataset.nt;
-        S.notoday=S.notoday||{};
-        /* Aside state is keyed by the ROW key, which for a routine is
-           'r:<id>'; schedules and deferrals are keyed by the bare id. Getting
-           these two crossed writes a deferral nothing ever reads. */
-        /* S.defer and schedOf() are keyed by the BARE id whichever shape the
-           row used, so strip the prefix first and look in both places. */
-        const rid = id.indexOf('r:')===0 ? id.slice(2) : id;
-        const r = ROUTINES.find(x=>x.id===rid) ||
-                  PHASES.flatMap(ph=>ph.steps||[]).find(x=>x.id===rid && x.sched) || null;
-        if(isNotToday(id)){
-          delete S.notoday[id];
-          /* Undo puts back the debt as well as the row. */
-          if(rid && S.defer) delete S.defer[rid];
-        } else {
-          S.notoday[id]=today();
-          /* Unchecking is the point: a row set aside must leave the count, and
-             leaving it checked would have it counted and dismissed at once. */
-          const c=S.checked.indexOf(id); if(c>-1) S.checked.splice(c,1);
-          /* Waving something off settles this turn of the schedule. It is a
-             different way of clearing the row, not a way of postponing it by
-             one day into a red one. */
-          const nx=nextOccurrence(r);
-          if(nx){ S.defer=S.defer||{}; S.defer[rid]=nx; }
-        }
+        setNotToday(nt.dataset.nt, !isNotToday(nt.dataset.nt));
         commit({rebuild:true}); return;
       }
       const kp=e.target.closest('[data-keep]');
@@ -7323,10 +7605,9 @@ function wireRows(){
       }
       const su=e.target.closest('[data-setup]');
       if(su){
-        e.stopPropagation(); toggleShelf(true);
-        shelf.scrollIntoView({behavior:'smooth',block:'start'});
+        e.stopPropagation(); openSettings('shelf');
         const el=document.getElementById('sel-'+su.dataset.setup);
-        setTimeout(()=>{ if(el){ el.scrollIntoView({block:'center'}); el.focus(); } },400);
+        setTimeout(()=>{ if(el){ el.scrollIntoView({block:'center'}); el.focus(); } },420);
         return;
       }
       /* THE ROW IS THE CHECKBOX, AND NOTHING INSIDE IT IS. Every control that
@@ -7673,7 +7954,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    permanently hidden, which was work nobody could see. */
 const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>paintHist(), money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
-                    review:()=>paintReview(), shelf:()=>{}, sync:()=>{} };
+                    review:()=>paintReview(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
   const sec=document.getElementById(id); if(!sec) return;
   const open=force!==undefined?force:!sec.classList.contains('open');
@@ -7690,7 +7971,8 @@ const DRAWTABS=[
   {id:'money',  label:'Cost',     open:f=>toggleMoney(f)},
   {id:'guide',  label:'Guide',    open:f=>toggleGuide(f)},
   {id:'shelf',  label:'Products', open:f=>toggleShelf(f)},
-  {id:'sync',   label:'Sync',     open:f=>window.__toggleSync(f)}
+  {id:'sync',   label:'Sync',     open:f=>window.__toggleSync(f)},
+  {id:'about',  label:'About',    open:f=>setPanel('about',f)}
 ];
 /* One function actually moves the drawer, so "open this" and "restore this"
    cannot drift apart. The earlier version had restoreDrawer bail out early on
@@ -7715,6 +7997,7 @@ function paintDrawTabs(){
     const badge=(t.id==='review'&&overdue)?`<span class="dcount">${overdue}</span>`:'';
     return `<button class="dtab" role="tab" data-draw="${t.id}" aria-selected="${on}">${esc(t.label)}${badge}</button>`;
   }).join('');
+  if(typeof SETOPEN!=='undefined' && SETOPEN) try{ paintSettings(); }catch(e){}
 }
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-draw]'); if(!b) return;
@@ -7789,10 +8072,103 @@ document.getElementById('histcopy').addEventListener('click',()=>{
   copyText(csv, keys.length+' days copied');
 });
 
+
+/* =========================================================
+   THE SETTINGS SCREEN.
+   ========================================================= */
+const SETGROUPS=[
+  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers']]],
+  ['The protocol',[['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
+  ['This device',[['sync','Sync'],['about','About & backup']]]
+];
+const SETTITLE={review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
+  shelf:'Products',guide:'Product guide',money:'Monthly cost',sync:'Sync',about:'About & backup'};
+function setSub(id){
+  try{
+    if(id==='review'){ const n=reviewItems().length; return n?`<em class="hot">${n} overdue</em>`:'Nothing overdue'; }
+    if(id==='hist') return `${S.streak||0} day run`;
+    if(id==='sync'){ const c=document.getElementById('syncchip'); return c?esc(c.textContent.replace(/^Sync:\s*/,'')):''; }
+    if(id==='about') return esc(BUILD);
+  }catch(e){}
+  return '';
+}
+function paintSettings(){
+  const m=document.getElementById('setlist'); if(!m) return;
+  m.innerHTML=SETGROUPS.map(([g,rows])=>`<div class="setgroup"><div class="setgh">${esc(g)}</div><div class="setcard">`+
+    rows.map(([id,l])=>`<button class="setrow" type="button" data-setgo="${id}"><span class="setl">${esc(l)}</span>`+
+      `<span class="sets">${setSub(id)}</span><svg class="setchev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>`).join('')+
+    `</div></div>`).join('');
+}
+function setMount(){
+  /* once: the drawer and the old footer move into the settings page */
+  const body=document.getElementById('setbody'), dr=document.getElementById('drawer');
+  if(!body || !dr || dr.parentNode===body) return;
+  const foot=document.querySelector('.foot');
+  if(foot && !document.getElementById('about')){
+    const sec=document.createElement('section'); sec.id='about';
+    const sb=document.createElement('div'); sb.className='shelfbody';
+    sec.appendChild(sb); sb.appendChild(foot); dr.appendChild(sec);
+  }
+  body.appendChild(dr);
+}
+let SETOPEN=false;
+function openSettings(id){
+  setMount(); paintSettings();
+  const w=document.getElementById('setwrap');
+  if(!SETOPEN){
+    SETOPEN=true; swCloseAll(); try{ closeSheet(); }catch(e){} try{ selExit(); }catch(e){}
+    w.hidden=false; document.body.classList.add('set-open');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+  }
+  if(id) setGo(id); else { w.classList.remove('deep'); }
+}
+function setGo(id){
+  const w=document.getElementById('setwrap');
+  applyDrawer(id); save(S);
+  document.getElementById('setptitle').textContent=SETTITLE[id]||'';
+  const pg=document.getElementById('setpage'); pg.scrollTop=0;
+  w.classList.add('deep');
+}
+function setBack(){
+  const w=document.getElementById('setwrap');
+  w.classList.remove('deep'); paintSettings();
+  setTimeout(()=>{ if(!w.classList.contains('deep')){ applyDrawer(null); save(S); } },360);
+}
+function closeSettings(){
+  if(!SETOPEN) return;
+  SETOPEN=false;
+  const w=document.getElementById('setwrap');
+  w.classList.remove('up');
+  document.body.classList.remove('set-open');
+  setTimeout(()=>{ if(!SETOPEN){ w.hidden=true; w.classList.remove('deep'); applyDrawer(null); save(S); } },380);
+}
+/* Scroll something inside an open settings page into view. */
+function setReveal(el){ if(el && el.scrollIntoView) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),380); }
+document.getElementById('setlist').addEventListener('click',e=>{
+  const b=e.target.closest('[data-setgo]'); if(b) setGo(b.dataset.setgo);
+});
+document.getElementById('setbackbtn').addEventListener('click',setBack);
+document.getElementById('setclose').addEventListener('click',closeSettings);
+document.getElementById('setclose2').addEventListener('click',closeSettings);
+document.getElementById('setback').addEventListener('click',closeSettings);
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape' || !SETOPEN) return;
+  if(document.getElementById('setwrap').classList.contains('deep')) setBack(); else closeSettings();
+});
+/* Swipe right from a page to go back, the way every iPhone app does. */
+(function(){
+  const pg=document.getElementById('setpage'); let x0=null,y0=0;
+  pg.addEventListener('touchstart',e=>{ const t=e.touches[0]; x0=t.clientX<40?t.clientX:null; y0=t.clientY; },{passive:true});
+  pg.addEventListener('touchmove',e=>{ if(x0===null) return; const t=e.touches[0];
+    if(Math.abs(t.clientY-y0)>40){ x0=null; return; }
+    if(t.clientX-x0>80){ x0=null; setBack(); } },{passive:true});
+})();
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
-  const want=S.drawer;
-  applyDrawer(DRAWTABS.some(t=>t.id===want) ? want : null);
+  /* The panels live behind the gear now; opening the app should open Today,
+     not whichever panel you last looked at. */
+  applyDrawer(null);
+  try{ setMount(); }catch(e){}
 }
 function rebuild(){ reconcileChecked(); computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }
 
@@ -7870,11 +8246,7 @@ document.getElementById('ldockadd').addEventListener('click',()=>{
   scrollToRow(t.closest('.ladd')||t);
   setTimeout(()=>{ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } },320);
 });
-document.getElementById('gset').addEventListener('click',()=>{
-  if(document.body.classList.contains('on-lists')) showView('today');
-  const el=document.getElementById('drawer');
-  if(el) setTimeout(()=>scrollToRow(el),40);
-});
+document.getElementById('gset').addEventListener('click',()=>openSettings());
 document.getElementById('jumpx').addEventListener('click',()=>{
   jumpIn(extraRows(),'Extras are all clear','No extras today');
 });
@@ -8143,9 +8515,7 @@ function syncPull(){
      block out of the scope it depends on. */
   window.__toggleSync=force=>setPanel('sync',force);
   document.getElementById('syncchip').addEventListener('click',()=>{
-    if(typeof openDrawer==='function' && S.drawer!=='sync') openDrawer('sync');
-    else toggleSync(true);
-    sec.scrollIntoView({behavior:'smooth',block:'center'});
+    openSettings('sync');
   });
 
   let cfgT=null;
@@ -8307,6 +8677,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.16-a', note:'Five things. EXTRAS ARE BLUE: the extras bar and its mark were orange, which is also the app’s warning colour; orange now only means late or over budget. NOT TODAY, FAST: pull a row far to the left and let go to set it aside in one move (Undo in the toast). Or hold any row, or tap Select, to pick several — tap rows, or a section’s name for all of it — then Not today or Done once. One-offs get Not today too: it moves them to tomorrow. ONE-OFFS ARE ONE LIST: every one-off shows on its day in Lists › By date, wherever you added it, and moving it in either place moves it in both. The Plan and Hide buttons for them are gone. SETTINGS: the gear opens a settings screen — Review, Streak, Alerts, Schedule, Products, Guide, Cost, Sync — instead of a drawer at the foot of Today, and the build notes, Reset and Backup moved into About & backup. Swipe from the left edge or tap Settings to go back. PINS GLIDE: pinning or releasing on the date list slides rows to their new places.'},
   {v:'2026.10.15-g', note:'Widget order fix: Extras now lists what is on TODAY\u2019s date list first, then other one-off tasks (leftovers from earlier days), then the scheduled extras. Leftover tasks were counted as planned and, being older, were jumping ahead of what you planned for today.'},
   {v:'2026.10.15-f', note:'Three things. AT HOME / IN CLASS: on the date list, each day now runs school work you do at home, then in-class work under its own label, then your tasks — the same split the board makes, which now also says At home. COURSE COLOURS on the board: coursework rows show the course code with its colour dot, matching Lists, instead of the full list name. STEP DETAILS: the arrow on every step now opens a sheet from the bottom with the full description, a big timer ring you can start and stop, and Done, Not today, Skip and Keep. Pull it down or tap outside to close. Tapping the row itself still ticks it.'},
   {v:'2026.10.15-e', note:'Optional steps you keep. An optional step now counts for nothing until you KEEP it: swipe it left and tap Keep. A kept step is a normal step — it counts toward your Protocol number, shows in Up Next and on the widget, keeps its section from folding, and the day is not finished without it. The ones you have not kept stay on the board, quieter, with a dashed circle; tick them whenever you like, they just never make a day look unfinished, and Up Next skips them. Trim face, Cologne and Body lotion start out kept. Swipe a kept one and tap Make optional to undo.'},
