@@ -1787,6 +1787,26 @@ body.dragging-list .dock{opacity:0;pointer-events:none;}
 .phase .phead h2{transition:font-size .3s var(--ease),color .3s ease;}
 .phead{-webkit-tap-highlight-color:transparent;}
 .phead:focus:not(:focus-visible){outline:none;}
+
+/* ---- your other apps ---- */
+.gapps svg{stroke-width:1.9;}
+.gapps[aria-expanded="true"]{color:var(--ink);background:rgba(255,255,255,.06);}
+.appmenu{position:fixed;inset:0;z-index:125;}
+.appmenu[hidden]{display:none;}
+.appback{position:absolute;inset:0;}
+.appcard{position:absolute;width:212px;padding:6px;border-radius:18px;background:rgba(30,33,39,.97);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.09);
+  box-shadow:0 18px 44px rgba(0,0,0,.55);transform-origin:top right;transform:scale(.92) translateY(-6px);opacity:0;
+  transition:transform .22s var(--ease),opacity .18s ease;}
+.appmenu.up .appcard{transform:none;opacity:1;}
+.appi{display:flex;align-items:center;gap:12px;height:46px;padding:0 12px;border-radius:12px;color:var(--ink);
+  text-decoration:none;font-size:15px;font-weight:500;}
+.appi svg{width:20px;height:20px;flex:0 0 auto;fill:none;stroke:var(--dim);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+a.appi:active{background:rgba(255,255,255,.07);}
+@media (hover:hover) and (pointer:fine){ a.appi:hover{background:rgba(255,255,255,.05);} }
+.appi.here{color:var(--dimmer);}
+.appi.here svg{stroke:var(--done);}
+.appi i{margin-left:auto;font-style:normal;font-size:12px;color:var(--done);}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -1809,7 +1829,7 @@ body.dragging-list .dock{opacity:0;pointer-events:none;}
   </div>
 </div>
 <header class="gh">
-  <div class="ghtop"><span class="geyebrow" id="daylabel"></span><span class="ghbtns"><button class="gset gadd" id="gadd" type="button" aria-label="Add a one-off task" title="Add a one-off task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="gset" id="gset" type="button" aria-label="Settings, history and sync" title="Settings, history and sync"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span></div>
+  <div class="ghtop"><span class="geyebrow" id="daylabel"></span><span class="ghbtns"><button class="gset gapps" id="gapps" type="button" aria-label="Your other apps" title="Your other apps" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></button><button class="gset gadd" id="gadd" type="button" aria-label="Add a one-off task" title="Add a one-off task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="gset" id="gset" type="button" aria-label="Settings, history and sync" title="Settings, history and sync"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></span></div>
   <div class="ghrow">
     <h1 class="title" id="gtitle">Today</h1>
     <div class="hstats">
@@ -2076,6 +2096,16 @@ body.dragging-list .dock{opacity:0;pointer-events:none;}
   <button class="dockgo" id="jump" type="button" aria-label="Jump to the next step" title="Jump to the next step"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="6 13 12 19 18 13"/></svg></button>
   <button class="dockgo" id="ldockadd" type="button" aria-label="Add a task" title="Add a task"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
 </div></nav>
+<div class="appmenu" id="appmenu" hidden>
+  <div class="appback" id="appback"></div>
+  <nav class="appcard" aria-label="Your apps">
+    <a class="appi" href="https://frostie4life9.github.io/kitchen/index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h13v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M17 12.5h3M8 4.5c0 1.5 1.5 1.5 1.5 3M12 4.5c0 1.5 1.5 1.5 1.5 3"/></svg><span>Kitchen</span></a>
+    <a class="appi" href="https://frostie4life9.github.io/kitchen/grocery.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.2l2.2 11h10.4l2-7.5H6.4"/><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="16.5" cy="19.5" r="1.4"/></svg><span>Grocery</span></a>
+    <a class="appi" href="https://frostie4life9.github.io/kitchen/workout.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M4 9.5v5M20 9.5v5M6.5 12h11"/></svg><span>Lift</span></a>
+    <a class="appi" href="https://frostie4life9.github.io/kitchen/dishlog.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11M17 21V3c-2 0-3.5 2.5-3.5 6s1.5 4 3.5 4"/></svg><span>DishLog</span></a>
+    <span class="appi here" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg><span>Protocol</span><i>here</i></span>
+  </nav>
+</div>
 <div class="updbar" id="updbar" hidden role="status">
   <div class="updin"><span class="upddot"></span><span class="updtxt" id="updtxt">A new version is ready</span>
     <button class="updgo" id="updgo" type="button">Reload</button>
@@ -9009,6 +9039,29 @@ function paintSkips(){
   },t)); });
   pin();
 })();
+
+/* ---------------- your other apps ----------------
+   The same five, the same icons, as the switcher in Kitchen -- but behind
+   one button instead of a row across the top, because the top of Today is
+   for Up Next. */
+(function(){
+  const btn=document.getElementById('gapps'), m=document.getElementById('appmenu');
+  function place(){
+    const r=btn.getBoundingClientRect(), c=m.querySelector('.appcard');
+    c.style.top=Math.round(r.bottom+6)+'px';
+    c.style.right=Math.max(12,Math.round(window.innerWidth-r.right-6))+'px';
+  }
+  function open(){ place(); m.hidden=false; btn.setAttribute('aria-expanded','true');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>m.classList.add('up'))); }
+  function close(){ if(m.hidden) return; m.classList.remove('up'); btn.setAttribute('aria-expanded','false');
+    setTimeout(()=>{ if(!m.classList.contains('up')) m.hidden=true; },220); }
+  btn.addEventListener('click',()=>{ m.hidden?open():close(); });
+  document.getElementById('appback').addEventListener('click',close);
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+  window.addEventListener('scroll',close,{passive:true});
+  /* save before leaving, so a tick made a second ago is not lost on the way out */
+  m.addEventListener('click',e=>{ if(e.target.closest('a')) try{ save(S); }catch(err){} });
+})();
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
   /* The panels live behind the gear now; opening the app should open Today,
@@ -9571,6 +9624,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-d', note:'YOUR OTHER APPS: a button in the header, left of +, opens Kitchen, Grocery, Lift and DishLog \u2014 the same apps and icons as the switcher in Kitchen, one tap away without a row across the top of Today.'},
   {v:'2026.10.17-c', note:'THE CLOSE, redone from your video. Finishing a section is now one sequence: the check pops in, a short beat, the rows fold up into the heading at an even pace, then the heading settles into its folded card. Not today counts the same as a tick, so setting the last thing aside closes the section smoothly instead of snapping it shut. If you were scrolled down inside the section, the page glides up to its heading as it closes. Tapping an open finished section shut uses the same close, without the pause. No more white outline on the heading after a tap.'},
   {v:'2026.10.17-b', note:'Three touch-ups. DIVIDERS: the board now marks where School and Extras begin, so the end of the protocol is easy to see. FULL NAMES: long task and assignment names in Lists wrap onto a second line instead of being cut off. SMOOTH CLOSE: finishing a section closes it with the animation again \u2014 the last fix had made it snap shut when the tick redrew the board.'},
   {v:'2026.10.17-a', note:'FINISHED SECTIONS HOLD STILL: ticking a task rebuilt the board, and every folded section replayed its closing animation at once \u2014 the jumping. A rebuilt section now takes its folded state instantly; only the one you just finished animates. NOT TODAY ON UP NEXT: the tile at the top has a Not today button next to Done. It sets the step aside for today (a one-off moves to tomorrow), Up Next moves on to the next thing, and the toast has Undo.'},
