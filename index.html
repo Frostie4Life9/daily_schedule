@@ -1745,6 +1745,20 @@ body.selecting .dock{transform:translateY(calc(140% + var(--vvb,0px)));}
 .selbar{transform:translateY(var(--vvb,0px));}
 body.typing .dock,body.typing .selbar{opacity:0;pointer-events:none;transform:translateY(140%);}
 html{overflow-anchor:auto;}
+
+/* ---- dragging a task to a day ---- */
+.drow .dgrip{padding:12px 8px 12px 12px!important;margin:-8px -6px -8px 0!important;touch-action:none;}
+#lists .drow[data-cit],#lists .drow[data-rit]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+.drow.dragging{opacity:.35!important;box-shadow:none!important;}
+.dghost{position:fixed;left:16px;right:16px;top:0;z-index:140;pointer-events:none;display:flex;align-items:center;gap:10px;
+  min-height:52px;padding:0 16px;border-radius:16px;background:#22262D;border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 18px 40px rgba(0,0,0,.55);will-change:transform;}
+.dghost.armed{border-color:rgba(111,183,255,.6);}
+.dgt{flex:1;min-width:0;font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dgd{flex:0 0 auto;font-size:13px;color:var(--dimmer);}
+.dghost.armed .dgd{color:var(--extra);font-weight:600;}
+.dsec.dropon,.drow.dropon{background:rgba(111,183,255,.10);box-shadow:inset 3px 0 0 var(--extra);border-radius:14px;transition:background .15s;}
+body.dragging-list .dock{opacity:0;pointer-events:none;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -7390,45 +7404,129 @@ function taskDropDay(el){
   const d=el.dataset.due;
   return (d && d>=today()) ? d : null;
 }
+/* DRAG, rebuilt for a phone. Three things made the old one a fight:
+   - the handle was a 20px target at the far edge;
+   - the page could not scroll mid-drag, so a day off-screen was unreachable;
+   - the row itself hopped between rows under your finger, which moved the
+     rows, which moved the target -- it flickered.
+   Now: HOLD any task or planned routine (or touch its handle) to lift it.
+   The row stays put, dimmed; a copy follows your finger and says where it
+   will land; the day it would land in lights up; and holding near the top
+   or bottom edge scrolls the page. Let go to drop, or drop it back where it
+   came from to cancel. */
+function dragDayAt(x,y){
+  let hit=null; try{ hit=document.elementFromPoint(x,y); }catch(e){}
+  if(!hit){
+    /* no hit-testing (or nothing there): fall back to rows by height */
+    const me=taskDrag&&taskDrag.el;
+    for(const t of document.querySelectorAll('#lists .drow, #lists .dhead[data-dday]')){
+      if(t===me) continue;
+      const r=t.getBoundingClientRect();
+      if(y<r.top || y>=r.top+r.height) continue;
+      const d=taskDropDay(t); return d?{day:d, box:t.closest('.dsec')||t}:null;
+    }
+    return null;
+  }
+  if(hit.closest('.dsec[data-sec="someday"]')) return {day:'someday', box:hit.closest('.dsec')};
+  const sec=hit.closest('.dsec[data-day]');
+  if(sec) return {day:sec.dataset.day>=today()?sec.dataset.day:null, box:sec};
+  const row=hit.closest('.drow');
+  if(row){ const d=taskDropDay(row); return d?{day:d, box:row}:null; }
+  const head=hit.closest('[data-dday]');
+  if(head) return {day:head.dataset.dday, box:head.closest('.dsec')||head};
+  return null;
+}
+function dayWord(day){
+  return day==='someday'?'Someday':day===today()?'Today':day===addDaysISO(today(),1)?'Tomorrow':
+    dayOf(day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function dragBegin(el,id,routine,x,y,how){
+  if(taskDrag) return;
+  try{ swCloseAll(true); }catch(e){} if(typeof SW!=='undefined') SW.el=null;
+  const ghost=document.createElement('div'); ghost.className='dghost';
+  ghost.innerHTML=`<span class="dgt">${esc((el.querySelector('.dtext')||{}).textContent||'')}</span><span class="dgd"></span>`;
+  document.body.appendChild(ghost);
+  const r=el.getBoundingClientRect();
+  taskDrag={id, routine, el, x, y, dy:y-r.top, ghost, day:null, box:null, how, from:el.dataset.due||'', raf:0};
+  el.classList.add('dragging'); document.body.classList.add('dragging-list');
+  try{ navigator.vibrate && navigator.vibrate(10); }catch(e){}
+  dragMove(x,y);
+  taskDrag.raf=requestAnimationFrame(dragScroll);
+}
+function dragMove(x,y){
+  const d=taskDrag; if(!d) return;
+  d.x=x; d.y=y;
+  d.ghost.style.transform=`translate3d(0,${Math.round(y-d.dy)}px,0)`;
+  const t=dragDayAt(x,y);
+  const day=t && t.day && !(t.day===d.from || (t.day==='someday' && !d.from)) ? t.day : null;
+  if(d.box && (!t || d.box!==t.box)) d.box.classList.remove('dropon');
+  d.box=t?t.box:null; d.day=(d.routine && day==='someday')?null:day;
+  if(d.box && d.day) d.box.classList.add('dropon');
+  d.ghost.classList.toggle('armed',!!d.day);
+  d.ghost.querySelector('.dgd').textContent=d.day?'→ '+dayWord(d.day):(t&&t.day===d.from?'same day':'drag to a day');
+}
+/* near an edge, scroll -- faster the closer you are -- and re-aim */
+function dragScroll(){
+  const d=taskDrag; if(!d) return;
+  const edge=90, H=window.innerHeight;
+  let v=0;
+  if(d.y<edge) v=-Math.ceil((edge-d.y)/6);
+  else if(d.y>H-edge) v=Math.ceil((d.y-(H-edge))/6);
+  if(v){ window.scrollBy(0,v); dragMove(d.x,d.y); }
+  d.raf=requestAnimationFrame(dragScroll);
+}
+function endTaskDrag(commit){
+  const d=taskDrag; if(!d) return;
+  taskDrag=null;
+  cancelAnimationFrame(d.raf);
+  d.el.classList.remove('dragging'); document.body.classList.remove('dragging-list');
+  if(d.box) d.box.classList.remove('dropon');
+  d.ghost.remove();
+  if(typeof SW!=='undefined') SW.until=Date.now()+400;      /* the release is not a tap */
+  if(!(commit && d.day && (d.routine?moveRoutine(d.id,d.day):moveTask(d.id,d.day)))) paintLists();
+}
+function dragSource(t){
+  const el=t.closest && t.closest('#lists .drow'); if(!el) return null;
+  if(el.dataset.cit) return {el, id:el.dataset.cit, routine:false};
+  if(el.dataset.rit) return {el, id:el.dataset.rit, routine:true};
+  return null;
+}
+/* touch: the handle lifts at once; anywhere else on the row, after a hold */
+const DH={t:null,x:0,y:0,src:null};
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1 || taskDrag) return;
+  const src=dragSource(e.target); if(!src) return;
+  if(e.target.closest('button, a, input, label, select, textarea, .dtrayL, .dtrayR')) return;
+  const p=e.touches[0]; DH.x=p.clientX; DH.y=p.clientY; DH.src=src;
+  clearTimeout(DH.t);
+  const go=()=>{ DH.t=null; if(DH.src) dragBegin(DH.src.el,DH.src.id,DH.src.routine,DH.x,DH.y,'touch'); };
+  if(e.target.closest('.dgrip')){ e.preventDefault(); go(); }
+  else DH.t=setTimeout(go,380);
+},{passive:false});
+document.addEventListener('touchmove',e=>{
+  const p=e.touches[0]; if(!p) return;
+  if(taskDrag){ e.preventDefault(); dragMove(p.clientX,p.clientY); return; }
+  if(DH.t && (Math.abs(p.clientX-DH.x)>8 || Math.abs(p.clientY-DH.y)>8)){ clearTimeout(DH.t); DH.t=null; DH.src=null; }
+},{passive:false});
+document.addEventListener('touchend',()=>{ clearTimeout(DH.t); DH.t=null; DH.src=null; if(taskDrag) endTaskDrag(true); });
+document.addEventListener('touchcancel',()=>{ clearTimeout(DH.t); DH.t=null; DH.src=null; if(taskDrag) endTaskDrag(false); });
+/* the long-press menu iOS would otherwise show on a held row */
+document.addEventListener('contextmenu',e=>{ if(taskDrag || (e.target.closest && e.target.closest('#lists .drow') && e.pointerType==='touch')) e.preventDefault(); },true);
+/* mouse: the handle, press and move */
 document.addEventListener('pointerdown',e=>{
-  const grip=e.target.closest && e.target.closest('[data-cgrip],[data-rgrip]');
-  if(!grip) return;
-  const el=grip.closest('.drow'); if(!el) return;
+  if(e.pointerType==='touch' || e.button>0) return;
+  const grip=e.target.closest && e.target.closest('[data-cgrip],[data-rgrip]'); if(!grip) return;
+  const src=dragSource(grip); if(!src) return;
   e.preventDefault(); e.stopPropagation();
-  const isR=!!grip.dataset.rgrip;
-  taskDrag={id:isR?grip.dataset.rgrip:grip.dataset.cgrip, routine:isR,
-            el:el, grip:grip, pid:e.pointerId, y0:e.clientY,
-            moved:false, day:null, from:el.dataset.due||''};
-  try{ grip.setPointerCapture(e.pointerId); }catch(err){}
+  DH.src=src; DH.x=e.clientX; DH.y=e.clientY; DH.mouse=true;
 });
 document.addEventListener('pointermove',e=>{
-  const d=taskDrag; if(!d) return;
-  if(!d.moved && Math.abs(e.clientY-d.y0)<6) return;
-  if(!d.moved){ d.moved=true; d.el.classList.add('dragging'); document.body.classList.add('dragging-list'); }
-  e.preventDefault();
-  const targets=[...document.querySelectorAll('#lists .drow, #lists .dhead[data-dday]')]
-                  .filter(x=>x!==d.el);
-  for(const t of targets){
-    const r=t.getBoundingClientRect();
-    if(e.clientY<r.top || e.clientY>=r.top+r.height) continue;
-    const day=taskDropDay(t);
-    if(!day) break;
-    d.day=day;
-    /* Follow the finger, so where it will land is visible before letting go. */
-    if(t.classList.contains('dhead')){
-      const box=t.parentNode.querySelector('.drows')||t.parentNode;
-      const em=box.querySelector('.dempty');
-      box.insertBefore(d.el, em?em.nextSibling:box.firstChild);
-    }
-    else if(e.clientY<r.top+r.height/2) t.parentNode.insertBefore(d.el,t);
-    else t.parentNode.insertBefore(d.el,t.nextSibling);
-    const lbl=d.el.querySelector('.dpick');
-    if(lbl && lbl.firstChild) lbl.firstChild.textContent = day==='someday'?'someday':
-      day===today()?'today':day===addDaysISO(today(),1)?'tomorrow':
-      dayOf(day).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-    break;
-  }
+  if(e.pointerType==='touch') return;
+  if(taskDrag){ e.preventDefault(); dragMove(e.clientX,e.clientY); return; }
+  if(DH.mouse && DH.src && Math.abs(e.clientY-DH.y)>5) dragBegin(DH.src.el,DH.src.id,DH.src.routine,e.clientX,e.clientY,'mouse');
 });
+document.addEventListener('pointerup',e=>{ if(e.pointerType==='touch') return; DH.mouse=false; DH.src=null; if(taskDrag) endTaskDrag(true); });
+document.addEventListener('pointercancel',e=>{ if(e.pointerType==='touch') return; DH.mouse=false; DH.src=null; if(taskDrag) endTaskDrag(false); });
 function flipKey(el){ const d=el.dataset; return d.cit?'c'+d.cit:d.rit?'r'+d.rit:d.lit?'l'+d.lit:null; }
 function flipPaint(fn){
   const root=document.getElementById('lists');
@@ -7445,16 +7543,6 @@ function flipPaint(fn){
     setTimeout(()=>{ el.style.transition=''; el.style.zIndex=''; el.style.position=''; },460);
   });
 }
-function endTaskDrag(commit){
-  const d=taskDrag; if(!d) return;
-  taskDrag=null;
-  d.el.classList.remove('dragging'); document.body.classList.remove('dragging-list');
-  try{ d.grip.releasePointerCapture(d.pid); }catch(err){}
-  if(!d.moved) return;
-  if(!(commit && d.day && (d.routine?(d.day!=='someday' && moveRoutine(d.id,d.day)):moveTask(d.id,d.day)))) paintLists();
-}
-document.addEventListener('pointerup',()=>endTaskDrag(true));
-document.addEventListener('pointercancel',()=>endTaskDrag(false));
 
 function addDayTask(){
   const t=document.getElementById('dtaskt'), d=document.getElementById('dtaskd');
@@ -9349,6 +9437,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.16-f', note:'DRAGGING ON A PHONE, rebuilt. Hold any task (or touch its handle) to pick it up. The row stays put; a copy follows your finger and says where it will land, the day lights up, and holding near the top or bottom of the screen scrolls. Let go to drop it; drop it back on its own day to cancel.'},
   {v:'2026.10.16-e', note:'Fixes. THE PAGE HOLDS STILL: ticking a row no longer jumps the screen — the row you tapped stays where it was while the board updates around it. THE TAB BAR STAYS AT THE BOTTOM after the keyboard closes or the browser’s toolbars resize, and hides while you type. WRAPPING UP lets go: a routine moved to tomorrow is no longer counted as planned for today, so All to tomorrow clears the card. ANY STEP CAN BE OPTIONAL: swipe it and tap Make optional; tap Keep to make it count again. Rinse the Owala is now optional.'},
   {v:'2026.10.16-d', note:'PLAN THE WEEK: from Someday (in Lists, or the card on Sundays), tap an idea and then the day you will do it; each day shows what it already holds. Tap a task on a day to send it back. WRAPPING UP: after 9pm a card lists what you planned for today that is still open — Tomorrow, pick a day, Someday, or all to tomorrow. SOMEDAY CHECK-INS: an idea that has sat six weeks gets a card — keep it, give it a day, or let it go. SET ASIDE A LOT: Streak & history lists anything set aside three or more of the last seven days. Someday also heads Lists › By list. Settings pages fold their long explanations behind How this works, and Monthly cost shows its total on the settings list. The widget has lock-screen sizes now.'},
   {v:'2026.10.16-c', note:'SOMEDAY. A one-off without a day is now an idea, not a commitment: it sits on your Someday list at the bottom of Lists › By date, never goes late, and counts for nothing. Give it a day — drag it onto one, tap its Schedule chip, or swipe right for Today — and it comes onto that day’s board. Drag it back onto Someday (or swipe left › Someday) to take it off the calendar without deleting it. The + on Today adds to Someday unless you pick a date. One-offs you had added on Today and never put on the date list have moved to Someday. EXTRAS COUNT WHAT TODAY IS FOR: routines due today and things you put on today. Anything carried over from an earlier day still shows with its late tag, but no longer counts, so the bar can always be finished.'},
