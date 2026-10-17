@@ -985,6 +985,11 @@ body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
 .unlabel .prod{color:var(--dimmer);font-weight:400;}
 .unpin{font-size:13.5px;font-weight:600;line-height:1.4;color:#DADDE2;}
 .unbtns{display:flex;gap:8px;margin-top:4px;}
+.unnt{flex:0 0 auto;height:48px;padding:0 14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:transparent;
+  color:var(--dim);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:transform .16s ease,background .2s,color .2s;}
+.unnt:active{transform:scale(.96);background:rgba(255,138,122,.08);color:var(--live);}
+@media (hover:hover) and (pointer:fine){ .unnt:hover{color:var(--ink);border-color:rgba(255,255,255,.22);} }
+@media (max-width:370px){ .unnt{padding:0 10px;font-size:13px;} }
 .undone{flex:1;height:48px;border:0;border-radius:14px;background:var(--done);color:#08130E;font-family:inherit;
   font-size:15px;font-weight:600;cursor:pointer;transition:transform .16s ease;}
 .untimer{height:48px;padding:0 18px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:transparent;
@@ -1759,6 +1764,7 @@ html{overflow-anchor:auto;}
 .dghost.armed .dgd{color:var(--extra);font-weight:600;}
 .dsec.dropon,.drow.dropon{background:rgba(111,183,255,.10);box-shadow:inset 3px 0 0 var(--extra);border-radius:14px;transition:background .15s;}
 body.dragging-list .dock{opacity:0;pointer-events:none;}
+.phase.notrans,.phase.notrans *{transition:none!important;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -2712,11 +2718,16 @@ function summarize(){
 function commit(opts){
   const o=opts||{};
   save(S);
-  if(o.rebuild) buildRows();
-  if(o.schedule) paintSchedule();
-  if(o.money) paintMoney();
-  if(o.paint!==false) paint();
-  if(o.drawer) { paintReview(); paintDrawTabs(); }
+  /* The rebuild and the repaint are one change to the page: hold the scroll
+     across both, not just the repaint, or the anchor is taken after the board
+     has already been emptied and refilled. */
+  keepScroll(()=>{
+    if(o.rebuild) buildRows();
+    if(o.schedule) paintSchedule();
+    if(o.money) paintMoney();
+    if(o.paint!==false) paint();
+    if(o.drawer) { paintReview(); paintDrawTabs(); }
+  });
 }
 const save=s=>{
   if(syncReady && !syncQuiet){
@@ -5571,6 +5582,13 @@ function paintFolds(){
     const pc=sec.querySelector('.pcount'); if(pc) pc.textContent=req.length?rdone+'/'+req.length:'';
     const was=sec.classList.contains('folded');
     const fold=complete && !POPEN.has(name);
+    /* A section just rebuilt is born open and then told to fold; without this
+       every finished section on the board replayed its half-second close on
+       every rebuild -- all of them at once, on every tick. A new section takes
+       its state instantly; only the one you just finished animates. */
+    const born=!sec.dataset.fseen; sec.dataset.fseen='1';
+    const justMine=!!(JUST.k && Date.now()-JUST.t<800 && sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]'));
+    if(born && !justMine) sec.classList.add('notrans');
     if(!complete) POPEN.delete(name);
     /* Only the tick that finished it gets the pause and the flourish. */
     const fresh=fold && !was && paint.ready && JUST.k && Date.now()-JUST.t<800 &&
@@ -5585,6 +5603,7 @@ function paintFolds(){
     }
     if(fresh){ sec.classList.remove('justfold'); void sec.offsetWidth; sec.classList.add('justfold');
                setTimeout(()=>sec.classList.remove('justfold'),1400); }
+    if(born && !justMine){ void sec.offsetHeight; requestAnimationFrame(()=>requestAnimationFrame(()=>sec.classList.remove('notrans'))); }
   });
 }
 function wrapCards(){
@@ -5649,6 +5668,10 @@ function paintUpNext(){
       (tm?`<button class="untimer" type="button" data-uptimer="1" aria-label="Start the timer">`+
         `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>`+
         `<span>${esc(tm.textContent.trim())}</span></button>`:'')+
+      /* Not today, right here: the step at the top is the one you are most
+         likely to be deciding about. One-offs move to tomorrow, as elsewhere. */
+      ((r.querySelector(':scope > .skiprow [data-nt]') || key.indexOf('c:')===0)?
+        `<button class="unnt" type="button" data-upnt="1">Not today</button>`:'')+
     `</div>`;
   const changed=key!==UPKEY;
   if(changed || box.dataset.h!==html){ box.innerHTML=html; box.dataset.h=html; }
@@ -5671,6 +5694,15 @@ setInterval(syncUpTimer,500);
 document.getElementById('upnext').addEventListener('click',e=>{
   const r=UPKEY&&document.querySelector('.step[data-n="'+cssEsc(UPKEY)+'"]'); if(!r) return;
   if(e.target.closest('[data-updone]')){ toggle(r); return; }
+  if(e.target.closest('[data-upnt]')){
+    const label=(r.querySelector('.label')||{}).textContent||'';
+    const snap=asideSnap();
+    if(!asideToday(r)) return;
+    commit({rebuild:true}); try{ paintLists(); }catch(err){}
+    toast((key0=>key0.indexOf('c:')===0?'Tomorrow: ':'Not today: ')(r.dataset.n)+label.replace(/\s+\u2014.*$/,'').replace(/optional$/,'').slice(0,40),
+          ()=>asideRestore(snap));
+    return;
+  }
   if(e.target.closest('[data-uptimer]')){ const tm=r.querySelector('.timer'); if(tm) tm.click(); syncUpTimer(); }
 });
 
@@ -8898,9 +8930,9 @@ function ksAnchor(){
   if(!el || !vis(el)) el=[...document.querySelectorAll('#list .step')].find(vis);
   if(!el) return null;
   const sec=el.closest('section');
-  const secs=[...document.querySelectorAll('#list > section')];
+  const h=sec&&sec.querySelector('.phead h2');
   return {k:el.dataset.n, top:el.getBoundingClientRect().top,
-          si:secs.indexOf(sec), stop:sec?sec.getBoundingClientRect().top:null};
+          sn:h?h.textContent:null, stop:sec?sec.getBoundingClientRect().top:null};
 }
 function keepScroll(fn){
   if(KS || document.body.classList.contains('on-lists')){ KS++; try{ return fn(); } finally{ KS--; } }
@@ -8913,9 +8945,15 @@ function keepScroll(fn){
     if(L) L.style.minHeight='';
     if(a){
       let el=document.querySelector('#list .step[data-n="'+cssEsc(a.k)+'"]'), d=null;
-      if(el && el.getBoundingClientRect().height>0) d=el.getBoundingClientRect().top-a.top;
-      else { const sec=document.querySelectorAll('#list > section')[a.si];
-             if(sec && a.stop!==null) d=sec.getBoundingClientRect().top-a.stop; }
+      /* If the tick finished its section, the row is now folded away inside
+         it: hold the section's heading still instead, so the section closes
+         up toward it rather than the page leaping. */
+      if(el && el.getBoundingClientRect().height>0 && !el.closest('.phase.folded')) d=el.getBoundingClientRect().top-a.top;
+      else if(a.sn!==null){
+        const h=[...document.querySelectorAll('#list > section .phead h2')].find(x=>x.textContent===a.sn);
+        const sec=h&&h.closest('section');
+        if(sec && a.stop!==null) d=sec.getBoundingClientRect().top-a.stop;
+      }
       if(d && Math.abs(d)>1) window.scrollTo({top:window.scrollY+d, behavior:'instant'});
     }
   }
@@ -9437,6 +9475,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-a', note:'FINISHED SECTIONS HOLD STILL: ticking a task rebuilt the board, and every folded section replayed its closing animation at once \u2014 the jumping. A rebuilt section now takes its folded state instantly; only the one you just finished animates. NOT TODAY ON UP NEXT: the tile at the top has a Not today button next to Done. It sets the step aside for today (a one-off moves to tomorrow), Up Next moves on to the next thing, and the toast has Undo.'},
   {v:'2026.10.16-f', note:'DRAGGING ON A PHONE, rebuilt. Hold any task (or touch its handle) to pick it up. The row stays put; a copy follows your finger and says where it will land, the day lights up, and holding near the top or bottom of the screen scrolls. Let go to drop it; drop it back on its own day to cancel.'},
   {v:'2026.10.16-e', note:'Fixes. THE PAGE HOLDS STILL: ticking a row no longer jumps the screen — the row you tapped stays where it was while the board updates around it. THE TAB BAR STAYS AT THE BOTTOM after the keyboard closes or the browser’s toolbars resize, and hides while you type. WRAPPING UP lets go: a routine moved to tomorrow is no longer counted as planned for today, so All to tomorrow clears the card. ANY STEP CAN BE OPTIONAL: swipe it and tap Make optional; tap Keep to make it count again. Rinse the Owala is now optional.'},
   {v:'2026.10.16-d', note:'PLAN THE WEEK: from Someday (in Lists, or the card on Sundays), tap an idea and then the day you will do it; each day shows what it already holds. Tap a task on a day to send it back. WRAPPING UP: after 9pm a card lists what you planned for today that is still open — Tomorrow, pick a day, Someday, or all to tomorrow. SOMEDAY CHECK-INS: an idea that has sat six weeks gets a card — keep it, give it a day, or let it go. SET ASIDE A LOT: Streak & history lists anything set aside three or more of the last seven days. Someday also heads Lists › By list. Settings pages fold their long explanations behind How this works, and Monthly cost shows its total on the settings list. The widget has lock-screen sizes now.'},
