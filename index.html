@@ -1765,6 +1765,19 @@ html{overflow-anchor:auto;}
 .dsec.dropon,.drow.dropon{background:rgba(111,183,255,.10);box-shadow:inset 3px 0 0 var(--extra);border-radius:14px;transition:background .15s;}
 body.dragging-list .dock{opacity:0;pointer-events:none;}
 .phase.notrans,.phase.notrans *{transition:none!important;}
+
+/* ---- board dividers ---- */
+.bdiv{display:flex;align-items:center;gap:12px;margin:30px 4px 4px;}
+.bdiv span{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);}
+.bdiv::before,.bdiv::after{content:'';height:1px;background:var(--hair-2);flex:1;}
+.bdiv::before{flex:0 0 14px;}
+/* ---- full names in Lists: wrap instead of cutting off ---- */
+.drow .dtext{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;}
+
+/* the close: a beat to see the check, then an even fold rather than a fast-start one */
+.pcard{transition:grid-template-rows .6s cubic-bezier(.45,0,.2,1),opacity .45s ease;}
+.phase.justfold .pcard{transition-delay:.35s,.45s;}
+.phase.justfold .phead{transition-delay:.35s;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -5067,7 +5080,30 @@ function buildRows(){
   });
 
   wrapCards();
+  boardDividers();
   wireRows();
+}
+/* The board runs protocol, then school, then extras, and from the bottom
+   up they all looked the same: a stack of folded cards. A quiet labelled
+   rule where the kind changes. Only in the tail after the last protocol
+   section -- a routine group anchored between two protocol phases (Training)
+   belongs where it is and gets no divider of its own. */
+function boardDividers(){
+  const secs=[...list.querySelectorAll(':scope > section.phase')];
+  const kind=sec=>{
+    const rows=[...sec.querySelectorAll('.step')];
+    if(rows.some(r=>r.classList.contains('course'))) return 'school';
+    if(rows.length && rows.every(r=>r.classList.contains('extra'))) return 'extras';
+    return 'protocol';
+  };
+  let last=-1; secs.forEach((sec,i)=>{ if(kind(sec)==='protocol') last=i; });
+  let prev='protocol';
+  secs.slice(last+1).forEach(sec=>{
+    const k=kind(sec); if(k===prev) return; prev=k;
+    const d=document.createElement('div'); d.className='bdiv'; d.setAttribute('role','separator');
+    d.innerHTML=`<span>${k==='school'?'School':'Extras'}</span>`;
+    list.insertBefore(d,sec);
+  });
 }
 
 list.addEventListener('click',e=>{
@@ -5589,10 +5625,35 @@ function paintFolds(){
     const born=!sec.dataset.fseen; sec.dataset.fseen='1';
     const justMine=!!(JUST.k && Date.now()-JUST.t<800 && sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]'));
     if(born && !justMine) sec.classList.add('notrans');
+    /* The section this tick finished, when the tick also rebuilt the board, is
+       brand new: setting it folded before it is ever drawn means there is no
+       "open" for the browser to animate from, and it snapped shut. Draw it
+       open first, then fold it a frame later so the close actually plays. */
+    if(sec.dataset.folddefer) return;
+    if(born && justMine && fold){
+      sec.classList.add('complete'); sec.classList.remove('folded');
+      sec.dataset.folddefer='1';
+      const pc0=sec.querySelector('.pcount'); if(pc0) pc0.textContent=req.length?rdone+'/'+req.length:'';
+      void sec.offsetHeight;
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        delete sec.dataset.folddefer;
+        sec.classList.remove('justfold'); void sec.offsetWidth;
+        sec.classList.add('justfold','folded');
+        const ph=sec.querySelector('.phead');
+        if(ph){ ph.setAttribute('role','button'); ph.tabIndex=0; ph.setAttribute('aria-expanded','false'); }
+        setTimeout(()=>sec.classList.remove('justfold'),1600);
+      }));
+      return;
+    }
     if(!complete) POPEN.delete(name);
     /* Only the tick that finished it gets the pause and the flourish. */
     const fresh=fold && !was && paint.ready && JUST.k && Date.now()-JUST.t<800 &&
                 !!sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]');
+    /* The pause has to be in place BEFORE the fold starts: setting it after
+       (with a forced style flush in between) started the close with no delay,
+       and a tall section collapsed in a blink. */
+    if(fresh){ sec.classList.remove('justfold'); void sec.offsetWidth; sec.classList.add('justfold');
+               setTimeout(()=>sec.classList.remove('justfold'),1600); }
     sec.classList.toggle('complete',complete);
     sec.classList.toggle('folded',fold);
     const ph=sec.querySelector('.phead');
@@ -5601,8 +5662,6 @@ function paintFolds(){
       if(complete){ ph.tabIndex=0; ph.setAttribute('aria-expanded',String(!fold)); }
       else { ph.removeAttribute('tabindex'); ph.removeAttribute('aria-expanded'); }
     }
-    if(fresh){ sec.classList.remove('justfold'); void sec.offsetWidth; sec.classList.add('justfold');
-               setTimeout(()=>sec.classList.remove('justfold'),1400); }
     if(born && !justMine){ void sec.offsetHeight; requestAnimationFrame(()=>requestAnimationFrame(()=>sec.classList.remove('notrans'))); }
   });
 }
@@ -9475,6 +9534,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-b', note:'Three touch-ups. DIVIDERS: the board now marks where School and Extras begin, so the end of the protocol is easy to see. FULL NAMES: long task and assignment names in Lists wrap onto a second line instead of being cut off. SMOOTH CLOSE: finishing a section closes it with the animation again \u2014 the last fix had made it snap shut when the tick redrew the board.'},
   {v:'2026.10.17-a', note:'FINISHED SECTIONS HOLD STILL: ticking a task rebuilt the board, and every folded section replayed its closing animation at once \u2014 the jumping. A rebuilt section now takes its folded state instantly; only the one you just finished animates. NOT TODAY ON UP NEXT: the tile at the top has a Not today button next to Done. It sets the step aside for today (a one-off moves to tomorrow), Up Next moves on to the next thing, and the toast has Undo.'},
   {v:'2026.10.16-f', note:'DRAGGING ON A PHONE, rebuilt. Hold any task (or touch its handle) to pick it up. The row stays put; a copy follows your finger and says where it will land, the day lights up, and holding near the top or bottom of the screen scrolls. Let go to drop it; drop it back on its own day to cancel.'},
   {v:'2026.10.16-e', note:'Fixes. THE PAGE HOLDS STILL: ticking a row no longer jumps the screen — the row you tapped stays where it was while the board updates around it. THE TAB BAR STAYS AT THE BOTTOM after the keyboard closes or the browser’s toolbars resize, and hides while you type. WRAPPING UP lets go: a routine moved to tomorrow is no longer counted as planned for today, so All to tomorrow clears the card. ANY STEP CAN BE OPTIONAL: swipe it and tap Make optional; tap Keep to make it count again. Rinse the Owala is now optional.'},
