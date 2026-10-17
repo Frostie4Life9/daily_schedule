@@ -1806,6 +1806,12 @@ a.appi:active{background:rgba(255,255,255,.07);}
 .appi.here{color:var(--dimmer);}
 .appi.here svg{stroke:var(--done);}
 .appi i{margin-left:auto;font-style:normal;font-size:12px;color:var(--done);}
+
+.unbulk{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:46px;margin-top:8px;border:1px solid rgba(94,230,176,.35);
+  border-radius:14px;background:rgba(94,230,176,.07);color:var(--done);font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;
+  transition:transform .16s ease,background .2s;}
+.unbulk span{font-weight:500;font-size:12.5px;color:var(--dim);}
+.unbulk:active{transform:scale(.98);background:rgba(94,230,176,.14);}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -5797,7 +5803,12 @@ function paintUpNext(){
          likely to be deciding about. One-offs move to tomorrow, as elsewhere. */
       ((r.querySelector(':scope > .skiprow [data-nt]') || key.indexOf('c:')===0)?
         `<button class="unnt" type="button" data-upnt="1">Not today</button>`:'')+
-    `</div>`;
+    `</div>`+
+    /* In a block you cannot reach the screen through (the shower), the
+       section's own Finish button is offered right here as well. */
+    (()=>{ const ph=PHASES.find(p=>p.bulk && renderedSteps(p).some(st=>st.id===key)); if(!ph) return '';
+      const ids=bulkTargets(ph).map(st=>st.id), left=ids.filter(id=>S.checked.indexOf(id)===-1).length;
+      return left>1?`<button class="unbulk" type="button" data-upbulk="${esc(ph.name)}">Finish ${esc(bulkLabel(ph).toLowerCase())}<span>${left} left</span></button>`:''; })();
   const changed=key!==UPKEY;
   if(changed || box.dataset.h!==html){ box.innerHTML=html; box.dataset.h=html; }
   box.hidden=false;
@@ -5819,6 +5830,8 @@ setInterval(syncUpTimer,500);
 document.getElementById('upnext').addEventListener('click',e=>{
   const r=UPKEY&&document.querySelector('.step[data-n="'+cssEsc(UPKEY)+'"]'); if(!r) return;
   if(e.target.closest('[data-updone]')){ toggle(r); return; }
+  const ub=e.target.closest('[data-upbulk]');
+  if(ub){ const ph=PHASES.find(x=>x.name===ub.dataset.upbulk); if(ph){ JUST={k:r.dataset.n,t:Date.now()}; bulkPhase(ph); } return; }
   if(e.target.closest('[data-upnt]')){
     const label=(r.querySelector('.label')||{}).textContent||'';
     const snap=asideSnap();
@@ -9623,6 +9636,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-h', note:'FINISH SHOWER ON UP NEXT: when Up Next reaches the shower, the tile offers Finish shower (or bath) under Done \u2014 the same as the button at the foot of the section: it ticks the rest of the block in one tap, and the section folds.'},
   {v:'2026.10.17-g', note:'NEW ICON, take two: a Fraunces P on ink blue with a mint progress ring and check \u2014 the same family as Kitchen, Grocery, Lift and DishLog. The browser tab shows the P on its own, like theirs.'},
   {v:'2026.10.17-f', note:'The new icon now reaches browsers that had the old one cached: the icon files are fetched under new addresses.'},
   {v:'2026.10.17-e', note:'NEW ICON: three bars in the app\u2019s colours \u2014 mint, blue and violet for Daily, Extras and School, the same three the widget and the Today cards use. It replaces the old teal check on the home screen, the browser tab and the install icon.'},
