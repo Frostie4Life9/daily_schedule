@@ -9636,6 +9636,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-i', note:'THE RELOAD BAR ASKS ONCE PER UPDATE: it now compares build numbers and only appears for a newer build. The old check could fire repeatedly for one update \u2014 while GitHub\u2019s servers were still catching up, or when the browser added its own scripts to the page.'},
   {v:'2026.10.17-h', note:'FINISH SHOWER ON UP NEXT: when Up Next reaches the shower, the tile offers Finish shower (or bath) under Done \u2014 the same as the button at the foot of the section: it ticks the rest of the block in one tap, and the section folds.'},
   {v:'2026.10.17-g', note:'NEW ICON, take two: a Fraunces P on ink blue with a mint progress ring and check \u2014 the same family as Kitchen, Grocery, Lift and DishLog. The browser tab shows the P on its own, like theirs.'},
   {v:'2026.10.17-f', note:'The new icon now reaches browsers that had the old one cached: the icon files are fetched under new addresses.'},
@@ -9738,6 +9739,8 @@ try{ document.getElementById('buildid').textContent=
        BUILD+' · '+BUILDPRINT+' · digest v'+DIGEST; }catch(e){}
 
 /* ---------------- is there a newer copy? ---------------- */
+/* 2026.10.17-h -> sortable; a two-letter suffix (after z) still sorts after one */
+function buildKey(v){ const m=/^(\d{4})\.(\d\d)\.(\d\d)-([a-z]+)$/.exec(v||''); return m?m[1]+m[2]+m[3]+String(m[4].length)+m[4]:''; }
 function printOf(html){
   try{
     const doc=new DOMParser().parseFromString(html,'text/html');
@@ -9756,9 +9759,19 @@ async function checkUpdate(force){
     const r=await fetch(location.pathname+'?_='+Date.now(),{cache:'no-store'});
     if(!r.ok) return;
     const html=await r.text();
-    const fp=printOf(html); if(!fp || fp===BUILDPRINT || fp===UPD.dismissed) return;
-    const m=html.match(/v:'(\d{4}\.\d\d\.\d\d-[a-z]+)'/);
-    showUpdate(fp, m?m[1]:null);
+    /* Compare BUILD NUMBERS, newer only. The old check compared a fingerprint
+       of the code, which (a) a browser that injects its own scripts into the
+       page changes on its own, and (b) flapped while GitHub's servers were
+       still handing some requests the previous copy -- so one update could
+       raise the bar three times. A build number only ever goes up. */
+    const m=html.match(/v:'(\d{4}\.\d\d\.\d\d-[a-z]+)'/); if(!m) return;
+    const live=m[1];
+    if(!(buildKey(live)>buildKey(BUILD)) || live===UPD.dismissed) return;
+    /* Just reloaded for this exact build and still got the old copy: GitHub
+       has not caught up yet. Try again quietly in a minute instead of asking. */
+    let tried=null; try{ tried=sessionStorage.getItem('protocol_upd_tried'); }catch(e){}
+    if(tried===live && !force){ setTimeout(()=>checkUpdate(true),60e3); return; }
+    showUpdate(live, live);
   }catch(e){}
 }
 function showUpdate(fp,ver){
@@ -9768,6 +9781,7 @@ function showUpdate(fp,ver){
   requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.add('up')));
 }
 document.getElementById('updgo').addEventListener('click',()=>{
+  try{ sessionStorage.setItem('protocol_upd_tried',UPD.shown||''); }catch(e){}
   /* a query string the cache has never seen gets the live file; the next
      load cleans it off the address again */
   try{ save(S); }catch(e){}
