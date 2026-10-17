@@ -1778,6 +1778,15 @@ body.dragging-list .dock{opacity:0;pointer-events:none;}
 .pcard{transition:grid-template-rows .6s cubic-bezier(.45,0,.2,1),opacity .45s ease;}
 .phase.justfold .pcard{transition-delay:.35s,.45s;}
 .phase.justfold .phead{transition-delay:.35s;}
+
+/* the close */
+.phase.pnotrans .pcard,.phase.pnotrans .pcard *{transition:none!important;}
+.phase.closing .pfcheck{display:grid;}
+.phase.closing .pcard{transition:none!important;}
+.phase.complete.folded .phead{transition:background .3s ease,border-color .3s ease,padding .3s var(--ease),min-height .3s var(--ease);}
+.phase .phead h2{transition:font-size .3s var(--ease),color .3s ease;}
+.phead{-webkit-tap-highlight-color:transparent;}
+.phead:focus:not(:focus-visible){outline:none;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -4139,6 +4148,7 @@ function scheduleTask(c,day){
 /* "Not today" for a one-off: it has no schedule to settle, so it simply goes
    to tomorrow, and today's tick goes with it. */
 function customTomorrow(c){
+  try{ JUST={k:'c:'+c.id,t:Date.now()}; }catch(e){}
   const k=S.checked.indexOf('c:'+c.id); if(k>-1) S.checked.splice(k,1);
   c.date=addDaysISO(today(),1); c.inlist=true;
 }
@@ -5304,6 +5314,7 @@ function setNotToday(id,on){
     return;
   }
   S.notoday[id]=today();
+  JUST={k:id,t:Date.now()};          /* setting a row aside is acting on it */
   /* kept for four weeks, so the history page can say what keeps getting
      set aside */
   S.ntlog=S.ntlog||{};
@@ -5606,64 +5617,89 @@ function sectionRows(sec){
     && !r.classList.contains('off') && !r.classList.contains('notoday')
     && !(S.hideopt&&r.classList.contains('optional')));
 }
+let FOLDNOW=null;               /* a section you tapped shut: close it now, no pause */
+function setPhead(sec,complete,fold){
+  const ph=sec.querySelector('.phead'); if(!ph) return;
+  ph.setAttribute('role',complete?'button':'heading');
+  if(complete){ ph.tabIndex=0; ph.setAttribute('aria-expanded',String(!fold)); }
+  else { ph.removeAttribute('tabindex'); ph.removeAttribute('aria-expanded'); }
+}
 function paintFolds(){
   document.querySelectorAll('#list > section.phase').forEach(sec=>{
     const h=sec.querySelector('.phead h2'); if(!h) return;
     const name=h.textContent, rows=sectionRows(sec);
     const req=rows.filter(r=>!r.classList.contains('optional'));
-    const done=rows.filter(r=>r.classList.contains('done')).length;
     const complete=!sec.classList.contains('collapsed') && req.length>0 && req.every(r=>r.classList.contains('done'));
     /* The section count is what the day counts: kept and required rows. */
     const rdone=req.filter(r=>r.classList.contains('done')).length;
     const pc=sec.querySelector('.pcount'); if(pc) pc.textContent=req.length?rdone+'/'+req.length:'';
     const was=sec.classList.contains('folded');
     const fold=complete && !POPEN.has(name);
-    /* A section just rebuilt is born open and then told to fold; without this
-       every finished section on the board replayed its half-second close on
-       every rebuild -- all of them at once, on every tick. A new section takes
-       its state instantly; only the one you just finished animates. */
+    /* An animated close in flight finishes itself -- unless you changed your
+       mind (unticked, or tapped the heading), in which case it stops and the
+       section stays open. */
+    if(sec.dataset.folding){ if(fold) return; cancelClose(sec); }
+    if(!complete) POPEN.delete(name);
     const born=!sec.dataset.fseen; sec.dataset.fseen='1';
-    const justMine=!!(JUST.k && Date.now()-JUST.t<800 && sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]'));
-    if(born && !justMine) sec.classList.add('notrans');
-    /* The section this tick finished, when the tick also rebuilt the board, is
-       brand new: setting it folded before it is ever drawn means there is no
-       "open" for the browser to animate from, and it snapped shut. Draw it
-       open first, then fold it a frame later so the close actually plays. */
-    if(sec.dataset.folddefer) return;
-    if(born && justMine && fold){
+    /* "Mine": the section holding the row you just acted on -- ticked, set
+       aside, made optional. Only that one animates; every other section takes
+       its state instantly, so a rebuild never replays folds across the board. */
+    const mine=!!(JUST.k && Date.now()-JUST.t<900 && sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]'));
+    const tapped=FOLDNOW===sec;
+    if(fold && (born || !was) && ((mine && paint.ready) || tapped)){
       sec.classList.add('complete'); sec.classList.remove('folded');
-      sec.dataset.folddefer='1';
-      const pc0=sec.querySelector('.pcount'); if(pc0) pc0.textContent=req.length?rdone+'/'+req.length:'';
-      void sec.offsetHeight;
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        delete sec.dataset.folddefer;
-        sec.classList.remove('justfold'); void sec.offsetWidth;
-        sec.classList.add('justfold','folded');
-        const ph=sec.querySelector('.phead');
-        if(ph){ ph.setAttribute('role','button'); ph.tabIndex=0; ph.setAttribute('aria-expanded','false'); }
-        setTimeout(()=>sec.classList.remove('justfold'),1600);
-      }));
+      setPhead(sec,true,true);
+      foldClose(sec, tapped ? 0 : 380);
       return;
     }
-    if(!complete) POPEN.delete(name);
-    /* Only the tick that finished it gets the pause and the flourish. */
-    const fresh=fold && !was && paint.ready && JUST.k && Date.now()-JUST.t<800 &&
-                !!sec.querySelector('.step[data-n="'+cssEsc(JUST.k)+'"]');
-    /* The pause has to be in place BEFORE the fold starts: setting it after
-       (with a forced style flush in between) started the close with no delay,
-       and a tall section collapsed in a blink. */
-    if(fresh){ sec.classList.remove('justfold'); void sec.offsetWidth; sec.classList.add('justfold');
-               setTimeout(()=>sec.classList.remove('justfold'),1600); }
+    if(born) sec.classList.add('notrans');
     sec.classList.toggle('complete',complete);
     sec.classList.toggle('folded',fold);
-    const ph=sec.querySelector('.phead');
-    if(ph){
-      ph.setAttribute('role',complete?'button':'heading');
-      if(complete){ ph.tabIndex=0; ph.setAttribute('aria-expanded',String(!fold)); }
-      else { ph.removeAttribute('tabindex'); ph.removeAttribute('aria-expanded'); }
-    }
-    if(born && !justMine){ void sec.offsetHeight; requestAnimationFrame(()=>requestAnimationFrame(()=>sec.classList.remove('notrans'))); }
+    setPhead(sec,complete,fold);
+    if(born){ void sec.offsetHeight; requestAnimationFrame(()=>requestAnimationFrame(()=>sec.classList.remove('notrans'))); }
   });
+  FOLDNOW=null;
+}
+/* THE CLOSE, as one sequence: the check pops in beside the heading, a beat
+   to see it, then the rows fold up into the heading at an even pace, and
+   only then does the heading settle into its folded-card look. If you were
+   scrolled down inside the section, the page glides up to its heading as it
+   closes rather than leaving you staring at whatever slid up underneath. */
+function cancelClose(sec){
+  clearTimeout(sec._foldT);
+  if(sec._foldA){ try{ sec._foldA.cancel(); }catch(e){} sec._foldA=null; }
+  const card=sec.querySelector('.pcard'); if(card) card.style.overflow='';
+  sec.classList.remove('closing','justfold');
+  delete sec.dataset.folding;
+}
+function foldClose(sec,pause){
+  sec.dataset.folding='1';
+  sec.classList.add('closing');
+  if(pause){ sec.classList.remove('justfold'); void sec.offsetWidth; sec.classList.add('justfold');
+             setTimeout(()=>sec.classList.remove('justfold'),1800); }
+  const finish=()=>{
+    if(!sec.isConnected || !sec.dataset.folding) return;
+    sec._foldA=null;
+    sec.classList.add('pnotrans','folded'); sec.classList.remove('closing');
+    delete sec.dataset.folding;
+    void sec.offsetHeight;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>sec.classList.remove('pnotrans')));
+    try{ paintUpNext(); }catch(e){}
+  };
+  sec._foldT=setTimeout(()=>{
+    if(!sec.isConnected || !sec.dataset.folding){ return; }
+    const card=sec.querySelector('.pcard');
+    if(!card || REDUCED() || !card.animate){ finish(); return; }
+    const H=card.getBoundingClientRect().height;
+    const dur=Math.round(Math.min(640, Math.max(320, 260+H*0.35)));
+    const top=sec.getBoundingClientRect().top;
+    if(top<60) window.scrollTo({top:Math.max(0,window.scrollY+top-96), behavior:'smooth'});
+    card.style.overflow='hidden';
+    const a=card.animate([{height:H+'px',opacity:1},{height:'0px',opacity:0}],
+                         {duration:dur, easing:'cubic-bezier(.4,0,.2,1)', fill:'forwards'});
+    sec._foldA=a;
+    a.onfinish=()=>{ finish(); a.cancel(); card.style.overflow=''; };
+  }, pause);
 }
 function wrapCards(){
   document.querySelectorAll('#list > section.phase').forEach(sec=>{
@@ -5688,8 +5724,9 @@ list.addEventListener('click',e=>{
   const h=e.target.closest('.phead'); if(!h || e.target.closest('button')) return;
   const sec=h.closest('section.phase'); if(!sec || !sec.classList.contains('complete')) return;
   const name=(h.querySelector('h2')||{}).textContent;
-  if(POPEN.has(name)) POPEN.delete(name); else POPEN.add(name);
+  if(POPEN.has(name)){ POPEN.delete(name); FOLDNOW=sec; } else POPEN.add(name);
   JUST={k:null,t:0}; paintFolds();
+  try{ h.blur(); }catch(err){}
 });
 list.addEventListener('keydown',e=>{
   const h=e.target.closest && e.target.closest('.phead[role="button"]');
@@ -9534,6 +9571,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.17-c', note:'THE CLOSE, redone from your video. Finishing a section is now one sequence: the check pops in, a short beat, the rows fold up into the heading at an even pace, then the heading settles into its folded card. Not today counts the same as a tick, so setting the last thing aside closes the section smoothly instead of snapping it shut. If you were scrolled down inside the section, the page glides up to its heading as it closes. Tapping an open finished section shut uses the same close, without the pause. No more white outline on the heading after a tap.'},
   {v:'2026.10.17-b', note:'Three touch-ups. DIVIDERS: the board now marks where School and Extras begin, so the end of the protocol is easy to see. FULL NAMES: long task and assignment names in Lists wrap onto a second line instead of being cut off. SMOOTH CLOSE: finishing a section closes it with the animation again \u2014 the last fix had made it snap shut when the tick redrew the board.'},
   {v:'2026.10.17-a', note:'FINISHED SECTIONS HOLD STILL: ticking a task rebuilt the board, and every folded section replayed its closing animation at once \u2014 the jumping. A rebuilt section now takes its folded state instantly; only the one you just finished animates. NOT TODAY ON UP NEXT: the tile at the top has a Not today button next to Done. It sets the step aside for today (a one-off moves to tomorrow), Up Next moves on to the next thing, and the toast has Undo.'},
   {v:'2026.10.16-f', note:'DRAGGING ON A PHONE, rebuilt. Hold any task (or touch its handle) to pick it up. The row stays put; a copy follows your finger and says where it will land, the day lights up, and holding near the top or bottom of the screen scrolls. Let go to drop it; drop it back on its own day to cancel.'},
