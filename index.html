@@ -1738,6 +1738,13 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
   font-family:'Geist Mono',monospace;font-size:11px;color:var(--dim);}
 .setnote[open] summary{color:var(--ink);}
 .setnote .shelfnote{margin:0;padding:0 14px 12px!important;border:0;}
+
+/* ---- the dock follows the real bottom of the screen ---- */
+.dock{transform:translateY(var(--vvb,0px));}
+body.selecting .dock{transform:translateY(calc(140% + var(--vvb,0px)));}
+.selbar{transform:translateY(var(--vvb,0px));}
+body.typing .dock,body.typing .selbar{opacity:0;pointer-events:none;transform:translateY(140%);}
+html{overflow-anchor:auto;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -2585,8 +2592,11 @@ function rowPhase(r){
    no version bump: an older widget just ignores the flag. */
 function plannedToday(r){
   try{
-    if(S.rplan && S.rplan[r.id]) return true;
-    return plannable(r) && planDate(r)===today() && naturalDate(r)!==today();
+    /* Its day has to BE today. The date-list flag alone used to answer yes on
+       every day, so a routine moved to tomorrow stayed "planned for today" --
+       which kept the evening card up after All to tomorrow. */
+    if(!plannable(r) || planDate(r)!==today()) return false;
+    return !!(S.rplan && S.rplan[r.id]) || naturalDate(r)!==today();
   }catch(e){ return false; }
 }
 function summarize(){
@@ -2764,6 +2774,8 @@ S.rlog=S.rlog||{}; S.sched=S.sched||{}; S.off=S.off||[]; S.links=S.links||{};
 S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
 S.alert=S.alert||{}; S.hand=S.hand||{}; S.tlog=S.tlog||{};
 S.notoday=S.notoday||{};
+/* You asked for Rinse the Owala to be optional; once, so Keep can undo it. */
+if(!S.mkoptSeeded){ S.mkopt=S.mkopt||{}; S.mkopt.bottle_rinse=true; S.mkoptSeeded=true; }
 /* inlist now just means "has been given a day by this build", which is what
    keeps this safe to run again if an older copy syncs the flag away */
 if(!S.somedayMoved){
@@ -4867,7 +4879,7 @@ function buildRows(){
         resched:reschedPanel(key,state.from),
         buttons:linkBtn(r.id)+
                 (r.t?`<button class="timer" data-t="${r.t}"><span>${fmt(r.t)}</span></button>`:'')+
-                asideBtns(key,(r.opt?keepBtn(key):'')+(plannable(r)?planBtn(r.id):''))
+                asideBtns(key,keepBtn(key,!!r.opt)+(plannable(r)?planBtn(r.id):''))
       }));
     });
     return sec;
@@ -4904,7 +4916,7 @@ function buildRows(){
           resched: st.sched?reschedPanel(st.id,ss.from):'',
           buttons: kitchenBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-                   asideBtns(st.id,st.opt?keepBtn(st.id):'')
+                   asideBtns(st.id,keepBtn(st.id,!!st.opt))
         }));
       });
       if(p.bulk && vis.length && !collapsed){
@@ -5199,8 +5211,16 @@ function isKept(key){
   if(!S.keep){ S.keep={}; KEEPSEED.forEach(k=>{ S.keep[k]=true; }); }
   return !!S.keep[key];
 }
-function optionalNow(isOpt,key){ return !!isOpt && !isKept(key); }
-function keepBtn(key){
+/* Made optional by you (S.mkopt), on a step the protocol counts by default.
+   Same outcome as a built-in optional step left un-kept. */
+function optionalNow(isOpt,key){ return (!!isOpt || !!(S.mkopt && S.mkopt[key])) && !isKept(key); }
+function keepBtn(key,base){
+  if(base===false){
+    const m=!!(S.mkopt&&S.mkopt[key]);
+    return `<button class="skip keep${m?'':' on'}" data-mkopt="${esc(key)}" aria-pressed="${!m}" `+
+      `title="${m?'Optional \u2014 tap to make it count toward your day again':'Make this optional \u2014 it stops counting toward your day'}" `+
+      `aria-label="${m?'Keep this step':'Make optional'}">${m?'keep':'make optional'}</button>`;
+  }
   const k=isKept(key);
   return `<button class="skip keep${k?' on':''}" data-keep="${esc(key)}" aria-pressed="${k}" `+
     `title="${k?'Kept \u2014 counts toward your day. Tap to make it optional again':'Keep this \u2014 it will count toward your day'}" `+
@@ -5450,7 +5470,8 @@ document.addEventListener('click',e=>{
   openTriage('setup');
 });
 
-function paint(){
+function paint(){ return keepScroll(paintInner); }
+function paintInner(){
   paintNudge();
   try{ paintCards(); }catch(e){}
   allRows().forEach(r=>{
@@ -7798,6 +7819,18 @@ function wireRows(){
             if(n===2) setTimeout(()=>toast('Tip: hold a row to pick several at once'),300); } }catch(err){}
         return;
       }
+      const mk=e.target.closest('[data-mkopt]');
+      if(mk){
+        e.stopPropagation();
+        const k=mk.dataset.mkopt; S.mkopt=S.mkopt||{};
+        if(S.mkopt[k]) delete S.mkopt[k]; else S.mkopt[k]=true;
+        const now=!!S.mkopt[k];
+        const core=coreIds();
+        if(core.length && core.every(x=>S.checked.includes(x)) && S.last!==today()) bumpStreak();
+        commit({rebuild:true});
+        toast(now?'Optional \u2014 it no longer counts toward your day':'Counts toward your day again');
+        return;
+      }
       const kp=e.target.closest('[data-keep]');
       if(kp){
         e.stopPropagation();
@@ -8740,6 +8773,26 @@ function paintSkips(){
     p.map(x=>`<div class="skiprowx"><b>${esc(x.l.split(' — ')[0])}</b><span>${x.n} of the last 7 days</span></div>`).join('')+
     `<p class="hint">Something you set aside most days is telling you something. If you do it some days, it may want to be optional; if it is just at the wrong time, change its schedule in Full schedule.</p></div>`;
 }
+
+(function(){
+  const vv=window.visualViewport, root=document.documentElement;
+  const typing=()=>{ const a=document.activeElement; return !!a && a.matches && a.matches('input[type=text],input:not([type]),textarea,input[type=number],input[type=search]'); };
+  function pin(){
+    document.body.classList.toggle('typing', typing());
+    if(!vv){ root.style.setProperty('--vvb','0px'); return; }
+    const off=Math.round(vv.height+vv.offsetTop-window.innerHeight);
+    root.style.setProperty('--vvb', (typing()||off>0 ? 0 : off)+'px');
+  }
+  if(vv){ vv.addEventListener('resize',pin); vv.addEventListener('scroll',pin); }
+  window.addEventListener('resize',pin);
+  document.addEventListener('focusin',pin);
+  document.addEventListener('focusout',()=>{ [0,120,350,700].forEach(t=>setTimeout(()=>{
+    pin();
+    /* a zero scroll makes WebKit re-place fixed elements */
+    if(t===350) window.scrollTo(window.scrollX, window.scrollY);
+  },t)); });
+  pin();
+})();
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
   /* The panels live behind the gear now; opening the app should open Today,
@@ -8747,7 +8800,39 @@ function restoreDrawer(){
   applyDrawer(null);
   try{ setMount(); }catch(e){}
 }
-function rebuild(){ reconcileChecked(); computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }
+
+let KS=0;
+function ksAnchor(){
+  if(window.scrollY<8) return null;
+  const j=(typeof JUST!=='undefined' && JUST && Date.now()-JUST.t<2000) ? JUST.k : null;
+  let el=j && document.querySelector('#list .step[data-n="'+cssEsc(j)+'"]');
+  const vis=x=>{ const r=x.getBoundingClientRect(); return r.height>0 && r.bottom>0 && r.top<innerHeight; };
+  if(!el || !vis(el)) el=[...document.querySelectorAll('#list .step')].find(vis);
+  if(!el) return null;
+  const sec=el.closest('section');
+  const secs=[...document.querySelectorAll('#list > section')];
+  return {k:el.dataset.n, top:el.getBoundingClientRect().top,
+          si:secs.indexOf(sec), stop:sec?sec.getBoundingClientRect().top:null};
+}
+function keepScroll(fn){
+  if(KS || document.body.classList.contains('on-lists')){ KS++; try{ return fn(); } finally{ KS--; } }
+  KS++;
+  const a=ksAnchor(), L=document.getElementById('list');
+  if(a && L) L.style.minHeight=L.offsetHeight+'px';
+  try{ return fn(); }
+  finally{
+    KS--;
+    if(L) L.style.minHeight='';
+    if(a){
+      let el=document.querySelector('#list .step[data-n="'+cssEsc(a.k)+'"]'), d=null;
+      if(el && el.getBoundingClientRect().height>0) d=el.getBoundingClientRect().top-a.top;
+      else { const sec=document.querySelectorAll('#list > section')[a.si];
+             if(sec && a.stop!==null) d=sec.getBoundingClientRect().top-a.stop; }
+      if(d && Math.abs(d)>1) window.scrollTo({top:window.scrollY+d, behavior:'instant'});
+    }
+  }
+}
+function rebuild(){ keepScroll(()=>{ reconcileChecked(); computeNums(); buildRows(); paintEffects(); paintGuide(); paintMoney(); paintSchedule(); paint(); paintHist(); paintReview(); paintDrawTabs(); }); }
 
 const optbtn=document.getElementById('optbtn');
 function paintOpt(){
@@ -9264,6 +9349,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.16-e', note:'Fixes. THE PAGE HOLDS STILL: ticking a row no longer jumps the screen — the row you tapped stays where it was while the board updates around it. THE TAB BAR STAYS AT THE BOTTOM after the keyboard closes or the browser’s toolbars resize, and hides while you type. WRAPPING UP lets go: a routine moved to tomorrow is no longer counted as planned for today, so All to tomorrow clears the card. ANY STEP CAN BE OPTIONAL: swipe it and tap Make optional; tap Keep to make it count again. Rinse the Owala is now optional.'},
   {v:'2026.10.16-d', note:'PLAN THE WEEK: from Someday (in Lists, or the card on Sundays), tap an idea and then the day you will do it; each day shows what it already holds. Tap a task on a day to send it back. WRAPPING UP: after 9pm a card lists what you planned for today that is still open — Tomorrow, pick a day, Someday, or all to tomorrow. SOMEDAY CHECK-INS: an idea that has sat six weeks gets a card — keep it, give it a day, or let it go. SET ASIDE A LOT: Streak & history lists anything set aside three or more of the last seven days. Someday also heads Lists › By list. Settings pages fold their long explanations behind How this works, and Monthly cost shows its total on the settings list. The widget has lock-screen sizes now.'},
   {v:'2026.10.16-c', note:'SOMEDAY. A one-off without a day is now an idea, not a commitment: it sits on your Someday list at the bottom of Lists › By date, never goes late, and counts for nothing. Give it a day — drag it onto one, tap its Schedule chip, or swipe right for Today — and it comes onto that day’s board. Drag it back onto Someday (or swipe left › Someday) to take it off the calendar without deleting it. The + on Today adds to Someday unless you pick a date. One-offs you had added on Today and never put on the date list have moved to Someday. EXTRAS COUNT WHAT TODAY IS FOR: routines due today and things you put on today. Anything carried over from an earlier day still shows with its late tag, but no longer counts, so the bar can always be finished.'},
   {v:'2026.10.16-b', note:'Three things. NEW VERSION PROMPT: when a newer copy is on GitHub, a bar slides down — tap Reload. No more hard-refreshing or checking build numbers. ONE AT A TIME: tap the ‘need a start date’ note on Today and answer ‘when did you last do this?’ with one tap per item. Settings › Review has Go through them: did it today, did it on a day, change how often, take it off the board, or Later. A QUIETER TODAY: the chips under Up Next are gone. Add a one-off with the + next to the gear; Optional steps is a switch in Settings; a failing sync shows as a red dot on the gear; hold any row to pick several.'},
