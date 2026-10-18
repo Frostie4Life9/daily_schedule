@@ -935,6 +935,8 @@ header.gh .stat i{font-style:normal;font-size:11px;letter-spacing:0;text-transfo
 .gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:18px;
   transition:opacity .3s ease;}
 .gcard{background:#16181D;border:1px solid var(--hair);border-radius:14px;padding:12px 12px 11px;min-width:0;}
+.gcard[data-jump]{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s var(--ease);}
+.gcard[data-jump]:active{transform:scale(.96);}
 .gcard i{display:block;font-style:normal;font-size:11px;color:var(--dimmer);}
 .gcard b{display:block;font-family:'Geist Mono',ui-monospace,monospace;font-size:19px;font-weight:600;
   margin-top:4px;font-variant-numeric:tabular-nums;color:var(--ink);}
@@ -1858,9 +1860,9 @@ button.dwhen.dsomeday{background:transparent;cursor:pointer;font:inherit;}
     </div>
   </div>
   <div class="gcards" id="gcards">
-    <div class="gcard"><i>Protocol</i><b id="cnum">0/0</b><div class="gbar"><div id="prog"></div></div></div>
-    <div class="gcard gx"><i>Extras</i><b id="xnum">0/0</b><div class="gbar"><div id="xprog"></div></div></div>
-    <div class="gcard gs"><i>School</i><b id="conum">0/0</b><div class="gbar"><div id="coprog"></div></div></div>
+    <div class="gcard" data-jump="protocol" role="button" tabindex="0" title="Jump to the next protocol step"><i>Protocol</i><b id="cnum">0/0</b><div class="gbar"><div id="prog"></div></div></div>
+    <div class="gcard gx" data-jump="extras" role="button" tabindex="0" title="Jump to the next extra"><i>Extras</i><b id="xnum">0/0</b><div class="gbar"><div id="xprog"></div></div></div>
+    <div class="gcard gs" data-jump="school" role="button" tabindex="0" title="Jump to the next piece of schoolwork"><i>School</i><b id="conum">0/0</b><div class="gbar"><div id="coprog"></div></div></div>
   </div>
   <div class="jbar" id="jbar">
     <button class="jb" id="jtop" title="Back to the top">Top</button>
@@ -5046,7 +5048,7 @@ function buildRows(){
   (function(){
     const as=dueAssignments(), soon=soonAssignments();
     if(!as.length && !soon.length) return;
-    const sec=document.createElement('section'); sec.className='phase';
+    const sec=document.createElement('section'); sec.className='phase'; sec.dataset.kind='school';
     /* Count what is still owed. Finished rows stay visible but must not be
        reported as outstanding, or the header contradicts the checkmarks. */
     const openN=as.filter(a=>!a.done).length;
@@ -5112,7 +5114,7 @@ function buildRows(){
   /* one-offs last — what you added to today, not part of the protocol */
   (function(){
     const cs=customToday(); if(!cs.length) return;
-    const sec=document.createElement('section'); sec.className='phase';
+    const sec=document.createElement('section'); sec.className='phase'; sec.dataset.kind='extras';
     const lateN=cs.filter(c=>customState(c).late).length;
     sec.innerHTML=`<div class="phead"><h2>One-offs</h2>`+
       `<em>${cs.length} open${lateN?' \u00b7 '+lateN+' late':''}</em></div>`;
@@ -5154,7 +5156,11 @@ function buildRows(){
    belongs where it is and gets no divider of its own. */
 function boardDividers(){
   const secs=[...list.querySelectorAll(':scope > section.phase')];
+  /* Coursework and one-offs are tagged where they are built. Guessing from
+     the rows failed for coursework that was only Keep in mind -- no ticked
+     rows, so it read as protocol and lost its School divider. */
   const kind=sec=>{
+    if(sec.dataset.kind) return sec.dataset.kind;
     const rows=[...sec.querySelectorAll('.step')];
     if(rows.some(r=>r.classList.contains('course'))) return 'school';
     if(rows.length && rows.every(r=>r.classList.contains('extra'))) return 'extras';
@@ -5163,8 +5169,8 @@ function boardDividers(){
   let last=-1; secs.forEach((sec,i)=>{ if(kind(sec)==='protocol') last=i; });
   let prev='protocol';
   secs.slice(last+1).forEach(sec=>{
-    const k=kind(sec); if(k===prev) return; prev=k;
-    const d=document.createElement('div'); d.className='bdiv'; d.setAttribute('role','separator');
+    const k=kind(sec); sec.dataset.kind=k; if(k===prev) return; prev=k;
+    const d=document.createElement('div'); d.className='bdiv'; d.dataset.kind=k; d.setAttribute('role','separator');
     d.innerHTML=`<span>${k==='school'?'School':'Extras'}</span>`;
     list.insertBefore(d,sec);
   });
@@ -9066,8 +9072,11 @@ function paintSkips(){
 (function(){
   const vv=window.visualViewport, root=document.documentElement;
   const typing=()=>{ const a=document.activeElement; return !!a && a.matches && a.matches('input[type=text],input:not([type]),textarea,input[type=number],input[type=search]'); };
+  /* Hide the dock only while a keyboard is actually up, not merely because a
+     field has focus -- a focused field with no keyboard stranded the dock. */
+  const kbd=()=>!vv || (window.innerHeight - vv.height) > 120;
   function pin(){
-    document.body.classList.toggle('typing', typing());
+    document.body.classList.toggle('typing', typing() && kbd());
     if(!vv){ root.style.setProperty('--vvb','0px'); return; }
     const off=Math.round(vv.height+vv.offsetTop-window.innerHeight);
     root.style.setProperty('--vvb', (typing()||off>0 ? 0 : off)+'px');
@@ -9280,10 +9289,36 @@ document.getElementById('jump').addEventListener('click',()=>{
 document.getElementById('ldockadd').addEventListener('click',()=>{
   if(lview()!=='date'){ setLview('date'); paintLists(); }
   const t=document.getElementById('dtaskt'); if(!t) return;
+  /* Focus inside the tap itself. iOS only raises the keyboard for a focus
+     made during the gesture; the old delayed focus left the field focused
+     with no keyboard, the dock hidden for "typing", and no way to blur. */
+  try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); }
   scrollToRow(t.closest('.ladd')||t);
-  setTimeout(()=>{ try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } },320);
 });
 document.getElementById('gset').addEventListener('click',()=>openSettings());
+/* The three cards are the jump: next unticked row in that bucket. When the
+   bucket is all ticked its card is folded, so go to where it starts instead. */
+function jumpBucket(k){
+  const rows=(k==='school'?courseRows():k==='extras'?extraRows():dailyRows());
+  const open=rows.filter(r=>!r.classList.contains('done') && !r.closest('.phase.folded'));
+  if(open.length){ scrollToRow(open[0]); return; }
+  if(k==='protocol'){
+    if(rows.length){ window.scrollTo({top:0,behavior:'smooth'}); toast('Protocol is all clear'); }
+    else toast('Nothing on the protocol today');
+    return;
+  }
+  const mark=list.querySelector(`.bdiv[data-kind="${k}"]`)||list.querySelector(`section.phase[data-kind="${k}"]`);
+  const name=k==='school'?'Schoolwork':'Extras';
+  if(mark){ scrollToRow(mark); toast(rows.length?name+' is all clear':'Nothing owed today'); }
+  else toast(k==='school'?'No schoolwork today':'No extras today');
+}
+document.getElementById('gcards').addEventListener('click',e=>{
+  const c=e.target.closest('[data-jump]'); if(c) jumpBucket(c.dataset.jump);
+});
+document.getElementById('gcards').addEventListener('keydown',e=>{
+  const c=e.target.closest('[data-jump]');
+  if(c && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); jumpBucket(c.dataset.jump); }
+});
 document.getElementById('jumpx').addEventListener('click',()=>{
   jumpIn(extraRows(),'Extras are all clear','No extras today');
 });
@@ -9724,6 +9759,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.18-b', note:'Three fixes. JUMP FROM THE CARDS: tap Protocol, Extras or School at the top of Today to go straight to the next unticked row in it (or to where that part of the board starts, once it is all done). SCHOOL DIVIDER: coursework now always gets its own School divider like Extras does — it went missing when today’s coursework was only Keep in mind. THE + ON LISTS no longer hides the Today / Lists buttons: it opens the keyboard straight away, and the bar only steps aside while a keyboard is actually up.'},
   {v:'2026.10.18-a', note:'SCHEDULE NO LONGER JUMPS (and the date pickers on the setup and Someday cards now wait for a Set button, for the same reason): tapping schedule on a Someday task (or Day on the evening card) opens a small sheet \u2014 Today, Tomorrow, Saturday, Next Monday, or pick a date and tap Schedule. Before, the iPhone date picker filled in the phone\u2019s date the moment it opened and the task moved on its own (after midnight, the phone\u2019s date is the app\u2019s tomorrow).'},
   {v:'2026.10.17-i', note:'THE RELOAD BAR ASKS ONCE PER UPDATE: it now compares build numbers and only appears for a newer build. The old check could fire repeatedly for one update \u2014 while GitHub\u2019s servers were still catching up, or when the browser added its own scripts to the page.'},
   {v:'2026.10.17-h', note:'FINISH SHOWER ON UP NEXT: when Up Next reaches the shower, the tile offers Finish shower (or bath) under Done \u2014 the same as the button at the foot of the section: it ticks the rest of the block in one tap, and the section folds.'},
