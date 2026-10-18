@@ -1828,6 +1828,65 @@ a.appi:active{background:rgba(255,255,255,.07);}
   padding:0 14px;color-scheme:dark;}
 .schgo{flex:0 0 auto;height:48px;padding:0 18px;border:0;border-radius:14px;background:var(--extra);color:#08121C;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
 .schedsheet .shact{text-transform:none;}
+/* ---- add sheet ---- */
+.addwrap{z-index:113;}
+.addsheet{bottom:var(--kb,0px);max-height:calc(88vh - var(--kb,0px));transition:transform .36s var(--ease),bottom .25s var(--ease);}
+.aqgrab{margin:-10px -22px 4px;padding:10px 0 6px;touch-action:none;cursor:grab;}
+.aqgrab .shgrab{margin-bottom:0;}
+.aqrow{display:flex;gap:10px;align-items:center;}
+.aqrow input{flex:1;min-width:0;height:52px;border:0;border-radius:16px;background:#1B1E24;color:var(--ink);font-family:inherit;
+  font-size:17px;padding:0 16px;outline:none;transition:box-shadow .25s;}
+.aqrow input::placeholder{color:var(--dimmer);}
+.aqrow input:focus{box-shadow:inset 0 0 0 1px rgba(94,230,176,.35);}
+.aqgo{flex:0 0 auto;width:52px;height:52px;border-radius:16px;border:0;background:#22252C;color:var(--dimmer);display:grid;place-items:center;
+  cursor:pointer;transition:background .22s,color .22s,transform .16s var(--ease);}
+.aqgo.ready{background:var(--done);color:#08130E;}
+.aqgo:active{transform:scale(.9);}
+.aqgo svg{width:20px;height:20px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.aqstrip{position:relative;display:flex;gap:6px;margin:14px -22px 0;padding:2px 22px;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;scroll-padding:0 22px;}
+.aqstrip::-webkit-scrollbar{display:none;}
+.aqpill{position:absolute;top:2px;left:0;width:0;height:40px;border-radius:20px;background:rgba(94,230,176,.13);
+  box-shadow:inset 0 0 0 1px rgba(94,230,176,.5);transition:left .34s var(--ease),width .34s var(--ease);pointer-events:none;}
+.aqchip{position:relative;flex:0 0 auto;display:flex;align-items:center;gap:6px;height:40px;padding:0 15px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);background:transparent;color:var(--dim);font-family:inherit;font-size:14px;white-space:nowrap;
+  cursor:pointer;transition:color .25s,border-color .25s,transform .15s var(--ease);}
+.aqchip i{font-style:normal;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--dimmer);transition:color .25s;}
+.aqchip.on{color:var(--done);border-color:transparent;}
+.aqchip.on i{color:var(--done);}
+.aqchip:active{transform:scale(.94);}
+.aqchip svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.aqmore.open{color:var(--ink);border-color:rgba(255,255,255,.22);}
+.aqcal{overflow:hidden;}
+.cal{padding-top:14px;}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.calhead b{font-size:15px;font-weight:600;letter-spacing:-.01em;}
+.calnav{width:40px;height:40px;border-radius:20px;border:0;background:#1B1E24;color:var(--ink);cursor:pointer;display:grid;place-items:center;
+  transition:transform .15s var(--ease),opacity .2s;}
+.calnav:active{transform:scale(.9);}
+.calnav:disabled{opacity:.25;cursor:default;}
+.calnav svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.calgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;}
+.calwk{text-align:center;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--dimmer);padding:6px 0 4px;}
+.cday{height:42px;border:0;border-radius:12px;background:transparent;color:var(--ink);font-family:inherit;font-size:15px;cursor:pointer;
+  transition:background .22s,color .22s,transform .15s var(--ease);}
+.cday:active{transform:scale(.88);}
+.cday.now{box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);}
+.cday.on{background:var(--done);color:#08130E;font-weight:600;}
+.cday:disabled{color:rgba(255,255,255,.16);cursor:default;}
+@media (hover:hover) and (pointer:fine){ .cday:not(:disabled):not(.on):hover{background:#1B1E24;} .aqchip:hover{color:var(--ink);} }
+.aqfeed{display:flex;flex-direction:column;gap:6px;margin-top:14px;}
+.aqfeed:empty{display:none;}
+.aqitem{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:14px;background:#1B1E24;font-size:14px;}
+.aqitem svg{flex:0 0 auto;width:15px;height:15px;stroke:var(--done);stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.aqitem span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.aqitem em{flex:0 0 auto;font-style:normal;font-size:12px;color:var(--dim);}
+button.ladd.aqopen{width:100%;box-sizing:border-box;text-align:left;cursor:pointer;font-family:'Geist',sans-serif;font-size:15px;
+  color:var(--dimmer);transition:transform .15s var(--ease),border-color .2s;}
+button.ladd.aqopen:active{transform:scale(.985);}
+button.ladd.aqopen .aqph{flex:1;}
+.schcal .cal{padding-top:16px;}
+button.dwhen.dbtn{background:transparent;cursor:pointer;font:inherit;}
 button.dwhen.dsomeday{background:transparent;cursor:pointer;font:inherit;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
@@ -2140,6 +2199,10 @@ button.dwhen.dsomeday{background:transparent;cursor:pointer;font:inherit;}
     <button class="selact" id="selnt" type="button">Not today</button>
     <button class="selact prime" id="seldone" type="button">Done</button>
   </div>
+</div>
+<div class="sheetwrap addwrap" id="addwrap" hidden>
+  <div class="sheetback" id="addback"></div>
+  <div class="sheet addsheet" id="addsheet" role="dialog" aria-modal="true" aria-label="Add a task" tabindex="-1"></div>
 </div>
 <div class="sheetwrap schedwrap" id="schedwrap" hidden>
   <div class="sheetback" id="schedback"></div>
@@ -6833,8 +6896,7 @@ function dateRow(r,big,inlist){
        as a pick, which scheduled the task before you had chosen anything
        (and after midnight, the phone's date is the app's tomorrow). */
     whenEl=r.due
-      ? `<label class="dwhen dpick${late?' late':''}" title="Change the day">${esc(late?whenText(r):dayLabel(r.due))}`+
-        `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due)}" min="${today()}" aria-label="Change the day"></label>`
+      ? `<button class="dwhen dpick dbtn${late?' late':''}" type="button" data-csched="${esc(r.cid)}" title="Change the day">${esc(late?whenText(r):dayLabel(r.due))}</button>`
       : `<button class="dwhen dpick dsomeday" type="button" data-csched="${esc(r.cid)}" title="Give it a day">schedule</button>`;
     if(r.due!==today() && !r.done) trayL=`<button class="dact dtodayact" data-ctoday="${esc(r.cid)}" title="Do it today" aria-label="Schedule for today">${SWSUN}<span>Today</span></button>`;
     trayR=topBtn('data-ctop',r.cid)+(r.due?`<button class="dact dhideact" data-csome="${esc(r.cid)}" title="Take it off the calendar — back to Someday" aria-label="Move to Someday">${SWHIDE}<span>Someday</span></button>`:'')+
@@ -6906,9 +6968,7 @@ function somedaySection(rows){
       `<span class="dsomes">${rows.length?rows.length+' to schedule':'Ideas go here until you give them a day'}</span>`+
       (rows.length?`<button class="dsomeplan" data-planweek="1" type="button">Plan the week</button>`:'')+`</div>`+
     `<div class="drows">${dateRowsHTML(rows)}</div>`+
-    `<div class="ladd dsomeadd"><span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`+
-      `<input type="text" id="dsomet" placeholder="Something to do someday" autocomplete="off" maxlength="200">`+
-      `<button data-dsomego="1">Add</button></div>`+
+    `<button class="ladd dtaskadd dsomeadd aqopen" type="button" data-aqopen="someday"><span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="aqph">Something to do someday</span></button>`+
   `</section>`;
 }
 function addSomeday(){
@@ -6950,15 +7010,10 @@ function filterChips(B){
     (all.some(r=>r.task||r.routine)?chip('Tasks','Tasks',TINTHEX.task):'')+`</div>`;
 }
 function addBox(day,label){
-  const keepT=(document.getElementById('dtaskt')||{}).value||'';
-  const keepD=day||(document.getElementById('dtaskd')||{}).value||today();
-  return `<div class="ladd dtaskadd${day?' inday':''}">`+
-    `<span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`+
-    `<input type="text" id="dtaskt" placeholder="${esc(label)}" autocomplete="off" maxlength="200" value="${esc(keepT)}">`+
-    `<label class="ldchip" title="Which day it belongs to"><span id="dtaskdl">${esc(keepD===today()?'Today':dayLabel(keepD).replace(/^./,c=>c.toUpperCase()))}</span>`+
-      `<input type="date" class="ldate" id="dtaskd" value="${esc(keepD)}" min="${today()}" aria-label="Which day it belongs to"></label>`+
-    `<button data-dtaskgo="1">Add</button>`+
-  `</div>`;
+  /* A button now: typing happens in the add sheet, which sits above the
+     list, so adding no longer redraws the field you are typing in. */
+  return `<button class="ladd dtaskadd aqopen${day?' inday':''}" type="button" data-aqopen="${esc(day||'')}">`+
+    `<span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="aqph">${esc(label)}</span></button>`;
 }
 function paintByDate(host){
   const B=listBuckets(), t=today();
@@ -7002,7 +7057,7 @@ function paintByDate(host){
       const iso=addDaysISO(t,i), rows=onDay(iso);
       if(i<7 || rows.length) days+=daySection(iso,rows);
     }
-    h=lviewBar(`<span class="lcount" id="lcount"></span>`)+filterChips(B)+addBox(null,'Add a task to a day')+
+    h=lviewBar(`<span class="lcount" id="lcount"></span>`)+filterChips(B)+addBox(null,'Add a task')+
       `<div class="dweek ${LANIM||''}">`+lateSection(B.late)+days+
         somedaySection(B.someday)+
         dateSection('later','Later',B.later)+dateSection('none','No date',B.none)+dateSection('done','Done',B.done)+
@@ -7081,8 +7136,7 @@ function paintLists(){
   const someCard=`<div class="llist lsome"><div class="lbar lsomebar"><h3>Someday</h3><span class="lnum">${someRows.length}</span>`+
       (someRows.length?`<button class="dsomeplan" data-planweek="1" type="button">Plan the week</button>`:'')+`</div>`+
     `<div class="lbody">${someRows.length?someRows.map(r=>dateRow(r,true,true)).join(''):'<p class="lempty">Ideas go here until you give them a day.</p>'}`+
-    `<div class="ladd dsomeadd"><input type="text" id="dsomet" placeholder="Something to do someday" autocomplete="off" maxlength="200">`+
-    `<button data-dsomego="1">Add</button></div></div></div>`;
+    `<button class="ladd dtaskadd dsomeadd aqopen" type="button" data-aqopen="someday"><span class="dplus" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span><span class="aqph">Something to do someday</span></button></div></div>`;
   if(!S.lists.length){
     host.innerHTML=lviewBar()+someCard+'<p class="lnone">No lists yet. Make one above \u2014 an album queue, things to buy, anything you\u2019ll get to eventually.</p>';
     return;
@@ -9135,8 +9189,7 @@ function openSched(id){
     `<h2 id="schedtitle">${esc(c.l)}</h2>${c.date?`<span class="shprod">Now ${esc(dayWord(c.date))}</span>`:''}</div>`+
     `<button class="shclose" data-sch="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
     `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
-    `<div class="schpick"><input type="date" id="schdate" min="${t}" value="${esc(c.date||'')}" aria-label="Another day">`+
-    `<button class="schgo" data-sch="go" type="button">Schedule</button></div>`+
+    `<div class="schcal" id="schcal">${calHTML((c.date&&c.date>=t?c.date:t).slice(0,7),c.date,t)}</div>`+
     `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">Back to Someday</button>`:''}`+
     `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':'Leave on Someday'}</button></div>`;
   const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
@@ -9160,6 +9213,12 @@ function schedTo(day){
 document.getElementById('schedback').addEventListener('click',closeSched);
 document.getElementById('schedsheet').addEventListener('click',e=>{
   const dd=e.target.closest('[data-schday]'); if(dd){ schedTo(dd.dataset.schday); return; }
+  /* A tap on the grid is a deliberate pick -- unlike the iPhone picker it
+     cannot fire on its own -- so it schedules straight away. */
+  const cd=e.target.closest('[data-cal]'); if(cd && !cd.disabled){ schedTo(cd.dataset.cal); return; }
+  const nv=e.target.closest('[data-calnav]');
+  if(nv && !nv.disabled){ const h=document.getElementById('schcal'), c=(S.custom||[]).find(x=>x.id===SCHED);
+    calNav(h, +nv.dataset.calnav, c&&c.date, today()); return; }
   const a=e.target.closest('[data-sch]'); if(!a) return;
   const v=a.dataset.sch;
   if(v==='close'){ closeSched(); return; }
@@ -9170,6 +9229,200 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getEle
 document.addEventListener('click',e=>{
   const b=e.target.closest && e.target.closest('[data-csched]'); if(!b) return;
   e.preventDefault(); e.stopPropagation(); openSched(b.dataset.csched);
+},true);
+/* =========================================================
+   MONTH GRID. The app's own calendar, so picking a day looks and moves like
+   the rest of the app, and never commits a date just by opening.
+   ========================================================= */
+const CHEVL='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 6 9 12 15 18"/></svg>';
+const CHEVR='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
+function ymShift(ym,n){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-1+n,1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function calHTML(ym,sel,min){
+  const [y,m]=ym.split('-').map(Number);
+  const first=new Date(y,m-1,1), n=new Date(y,m,0).getDate(), lead=first.getDay();
+  const title=first.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  let g=['S','M','T','W','T','F','S'].map(w=>`<span class="calwk">${w}</span>`).join('');
+  for(let i=0;i<lead;i++) g+='<span></span>';
+  const t=today();
+  for(let d=1;d<=n;d++){
+    const iso=ym+'-'+String(d).padStart(2,'0'), off=min&&iso<min;
+    g+=`<button class="cday${iso===sel?' on':''}${iso===t?' now':''}" type="button" data-cal="${iso}"${off?' disabled':''}`+
+       ` aria-label="${esc(dayOf(iso).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))}"${iso===sel?' aria-pressed="true"':''}>${d}</button>`;
+  }
+  return `<div class="cal" data-ym="${ym}"><div class="calhead">`+
+    `<button class="calnav" type="button" data-calnav="-1" aria-label="Previous month"${min&&ym<=min.slice(0,7)?' disabled':''}>${CHEVL}</button>`+
+    `<b>${esc(title)}</b>`+
+    `<button class="calnav" type="button" data-calnav="1" aria-label="Next month">${CHEVR}</button></div>`+
+    `<div class="calgrid">${g}</div></div>`;
+}
+function calNav(host,dir,sel,min){
+  const c=host.querySelector('.cal'); if(!c) return;
+  const ym=ymShift(c.dataset.ym,dir);
+  host.innerHTML=calHTML(ym,sel,min);
+  arrive(host.querySelector('.calgrid'),dir*22,0);
+}
+
+/* =========================================================
+   ADD SHEET. Every + in the app opens this. Type, pick a day from the chips
+   (or More for the month grid), press return; the field clears and stays
+   open for the next one. Starts on Someday -- jot first, commit later --
+   unless it was opened from a particular day.
+   ========================================================= */
+const AQ={day:'someday', cal:false, added:[], pl:null, pw:null};
+const AQSEND='<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>';
+const AQCAL='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
+const AQTICK='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7"/></svg>';
+function aqEls(){ return {w:document.getElementById('addwrap'), sh:document.getElementById('addsheet'),
+  t:document.getElementById('aqt'), go:document.getElementById('aqgo'), st:document.getElementById('aqstrip'),
+  cal:document.getElementById('aqcal'), feed:document.getElementById('aqfeed')}; }
+function aqChipsHTML(){
+  const t=today(), d=n=>addDaysISO(t,n), L=[['someday','Someday','']];
+  L.push([t,'Today',''],[d(1),'Tomorrow','']);
+  for(let i=2;i<7;i++){ const x=dayOf(d(i)); L.push([d(i),x.toLocaleDateString('en-US',{weekday:'short'}),String(x.getDate())]); }
+  if(AQ.day!=='someday' && AQ.day>d(6)){ const x=dayOf(AQ.day); L.push([AQ.day,x.toLocaleDateString('en-US',{month:'short'}),String(x.getDate())]); }
+  return `<span class="aqpill" aria-hidden="true"></span>`+
+    L.map(([v,l,n])=>`<button class="aqchip${v===AQ.day?' on':''}" type="button" data-aqday="${v}" aria-pressed="${v===AQ.day}">${esc(l)}${n?`<i>${n}</i>`:''}</button>`).join('')+
+    `<button class="aqchip aqmore${AQ.cal?' open':''}" type="button" data-aqmore="1" aria-expanded="${AQ.cal}">${AQCAL}<span>More</span></button>`;
+}
+function aqPill(instant){
+  const {st}=aqEls(); if(!st) return;
+  const p=st.querySelector('.aqpill'), on=st.querySelector('.aqchip.on'); if(!p) return;
+  if(!on){ p.style.width='0px'; return; }
+  const smooth=!instant && AQ.pl!==null && !REDUCED();
+  p.style.transition='none';
+  if(smooth){ p.style.left=AQ.pl+'px'; p.style.width=AQ.pw+'px'; }
+  else { p.style.left=on.offsetLeft+'px'; p.style.width=on.offsetWidth+'px'; }
+  void p.offsetWidth; p.style.transition='';
+  p.style.left=on.offsetLeft+'px'; p.style.width=on.offsetWidth+'px';
+  AQ.pl=on.offsetLeft; AQ.pw=on.offsetWidth;
+  const lo=on.offsetLeft-22, hi=on.offsetLeft+on.offsetWidth+22-st.clientWidth;
+  const to=st.scrollLeft>lo?lo:st.scrollLeft<hi?hi:null;
+  if(to!==null){ try{ st.scrollTo({left:to,behavior:instant?'auto':'smooth'}); }catch(e){ st.scrollLeft=to; } }
+}
+function aqSetDay(v){
+  AQ.day=v;
+  const {st}=aqEls();
+  const has=[...st.querySelectorAll('[data-aqday]')].some(b=>b.dataset.aqday===v);
+  if(!has) st.innerHTML=aqChipsHTML();
+  st.querySelectorAll('[data-aqday]').forEach(b=>{ const on=b.dataset.aqday===v; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); });
+  aqPill(false);
+  const {t}=aqEls(); if(t) t.placeholder=aqHint();
+}
+function aqHint(){ return AQ.day==='someday'?'Something to do someday':'Something to do '+(AQ.day===today()?'today':AQ.day===addDaysISO(today(),1)?'tomorrow':'on '+dayWord(AQ.day).replace(/,.*$/,'')); }
+function aqToggleCal(open){
+  const {cal,st,t}=aqEls(); if(!cal) return;
+  if(open===AQ.cal) return;
+  AQ.cal=open;
+  const mb=st.querySelector('[data-aqmore]'); if(mb){ mb.classList.toggle('open',open); mb.setAttribute('aria-expanded',open); }
+  if(open){
+    const base=AQ.day!=='someday'?AQ.day:today();
+    cal.innerHTML=calHTML(base.slice(0,7),AQ.day==='someday'?null:AQ.day,today());
+    cal.hidden=false;
+    /* the grid needs the room the keyboard takes */
+    try{ t.blur(); }catch(e){}
+    expandEl(cal);
+  } else {
+    collapseEl(cal,()=>{ if(!AQ.cal){ cal.hidden=true; cal.style.overflow=''; cal.innerHTML=''; } });
+  }
+}
+function aqFocus(){ const {t}=aqEls(); if(t) try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); } }
+function aqReady(){ const {t,go}=aqEls(); if(go) go.classList.toggle('ready',!!(t&&t.value.trim())); }
+function openAdd(day){
+  const {w,sh}=aqEls(); if(!w) return;
+  try{ closeSched(); }catch(e){}
+  const t0=today();
+  AQ.day=(!day||day==='someday')?'someday':(day<t0?t0:day);
+  AQ.cal=false; AQ.added=[]; AQ.pl=null; AQ.pw=null;
+  sh.innerHTML=`<div class="aqgrab" id="aqgrab"><div class="shgrab"></div></div>`+
+    `<div class="aqrow"><input type="text" id="aqt" placeholder="" autocomplete="off" autocapitalize="sentences" maxlength="200" enterkeyhint="send" aria-label="Task">`+
+    `<button class="aqgo" id="aqgo" type="button" aria-label="Add">${AQSEND}</button></div>`+
+    `<div class="aqstrip" id="aqstrip" role="group" aria-label="Which day">${aqChipsHTML()}</div>`+
+    `<div class="aqcal" id="aqcal" hidden></div>`+
+    `<div class="aqfeed" id="aqfeed" aria-live="polite"></div>`;
+  aqEls().t.placeholder=aqHint();
+  w.hidden=false; document.body.classList.add('sheet-open');
+  sh.style.transform=''; sh.style.transition='';
+  aqKb();
+  /* Focus inside the tap that opened the sheet: iOS only raises the keyboard
+     for a focus made during the gesture. */
+  aqFocus();
+  aqPill(true);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ w.classList.add('up'); aqPill(true); }));
+}
+function closeAdd(){
+  const {w,t}=aqEls(); if(!w || w.hidden) return;
+  try{ t.blur(); }catch(e){}
+  w.classList.remove('up');
+  if(!(typeof SETOPEN!=='undefined'&&SETOPEN) && document.getElementById('planwrap').hidden && document.getElementById('schedwrap').hidden)
+    document.body.classList.remove('sheet-open');
+  const ids=AQ.added.map(a=>a.id); AQ.added=[];
+  setTimeout(()=>{
+    w.hidden=true;
+    /* now that the list is in view again, show where things landed */
+    ids.forEach(id=>document.querySelectorAll('#lists [data-cit="'+cssEsc(id)+'"], #list .step[data-n="c:'+cssEsc(id)+'"]').forEach(el=>{ if(el.getBoundingClientRect().height) glow(el); }));
+  },340);
+}
+function submitAdd(){
+  const {t,feed}=aqEls(); if(!t) return;
+  const v=t.value.trim();
+  if(!v){ toast('Give it a name first'); aqFocus(); return; }
+  const day=AQ.day==='someday'?null:AQ.day;
+  const nc=addCustom(v,day);
+  t.value=''; aqReady(); aqFocus();
+  AQ.added.push({id:nc.id});
+  const it=document.createElement('div'); it.className='aqitem';
+  it.innerHTML=`${AQTICK}<span>${esc(v)}</span><em>${esc(dayWord(day||'someday'))}</em>`;
+  feed.insertBefore(it,feed.firstChild);
+  while(feed.children.length>4) feed.removeChild(feed.lastChild);
+  arrive(it,0,-8);
+  rebuild(); try{ flipPaint(paintLists); }catch(e){ try{ paintLists(); }catch(e2){} }
+}
+/* Keep the sheet sitting on top of the keyboard rather than behind it. */
+function aqKb(){
+  const {w,sh}=aqEls(); if(!sh) return;
+  const vv=window.visualViewport;
+  const kb=(!vv||w.hidden)?0:Math.max(0,Math.round(window.innerHeight-(vv.height+vv.offsetTop)));
+  sh.style.setProperty('--kb',kb+'px');
+}
+if(window.visualViewport){ window.visualViewport.addEventListener('resize',aqKb); window.visualViewport.addEventListener('scroll',aqKb); }
+window.addEventListener('resize',aqKb);
+document.getElementById('addback').addEventListener('click',closeAdd);
+document.getElementById('addsheet').addEventListener('mousedown',e=>{
+  /* keep the keyboard up while picking a chip (desktop and most phones) */
+  if(e.target.closest('[data-aqday],#aqgo')) e.preventDefault();
+});
+document.getElementById('addsheet').addEventListener('click',e=>{
+  if(e.target.closest('#aqgo')){ submitAdd(); return; }
+  const d=e.target.closest('[data-aqday]');
+  if(d){ aqSetDay(d.dataset.aqday); if(AQ.cal) aqToggleCal(false); aqFocus(); return; }
+  if(e.target.closest('[data-aqmore]')){ aqToggleCal(!AQ.cal); if(!AQ.cal) aqFocus(); return; }
+  const cd=e.target.closest('[data-cal]');
+  if(cd && !cd.disabled){ aqSetDay(cd.dataset.cal); aqToggleCal(false); aqFocus(); return; }
+  const nv=e.target.closest('[data-calnav]');
+  if(nv && !nv.disabled){ calNav(aqEls().cal,+nv.dataset.calnav,AQ.day==='someday'?null:AQ.day,today()); return; }
+});
+document.getElementById('addsheet').addEventListener('input',e=>{ if(e.target.id==='aqt') aqReady(); });
+document.getElementById('addsheet').addEventListener('keydown',e=>{
+  if(e.target.id==='aqt' && e.key==='Enter'){ e.preventDefault(); submitAdd(); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('addwrap').hidden) closeAdd(); });
+/* swipe the handle down to close */
+(function(){
+  let y0=null, dy=0, sh=null;
+  document.getElementById('addsheet').addEventListener('pointerdown',e=>{
+    if(!e.target.closest('#aqgrab')) return;
+    sh=document.getElementById('addsheet'); y0=e.clientY; dy=0; sh.style.transition='none';
+    try{ e.target.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  document.addEventListener('pointermove',e=>{ if(y0===null) return; dy=Math.max(0,e.clientY-y0); sh.style.transform='translateY('+dy+'px)'; });
+  const end=()=>{ if(y0===null) return; y0=null; sh.style.transition=''; sh.style.transform='';
+    if(dy>70) closeAdd(); dy=0; };
+  document.addEventListener('pointerup',end); document.addEventListener('pointercancel',end);
+})();
+document.addEventListener('click',e=>{
+  const b=e.target.closest && e.target.closest('[data-aqopen]'); if(!b) return;
+  e.preventDefault(); e.stopPropagation(); openAdd(b.dataset.aqopen||null);
 },true);
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
@@ -9287,13 +9540,8 @@ document.getElementById('jump').addEventListener('click',()=>{
   else jumpIn(extraRows(),'Extras are all clear','No extras today');
 });
 document.getElementById('ldockadd').addEventListener('click',()=>{
-  if(lview()!=='date'){ setLview('date'); paintLists(); }
-  const t=document.getElementById('dtaskt'); if(!t) return;
-  /* Focus inside the tap itself. iOS only raises the keyboard for a focus
-     made during the gesture; the old delayed focus left the field focused
-     with no keyboard, the dock hidden for "typing", and no way to blur. */
-  try{ t.focus({preventScroll:true}); }catch(e){ t.focus(); }
-  scrollToRow(t.closest('.ladd')||t);
+  /* the day you have open, otherwise Someday */
+  openAdd(lview()==='date' && LDAY ? LDAY : null);
 });
 document.getElementById('gset').addEventListener('click',()=>openSettings());
 /* The three cards are the jump: next unticked row in that bucket. When the
@@ -9691,11 +9939,7 @@ document.getElementById('addbtn').addEventListener('click',()=>{
   if(open){ addDate.value=''; addText.value=''; addText.focus(); }
   const g=document.getElementById('gadd'); if(g){ g.classList.toggle('on',open); g.setAttribute('aria-expanded',open); }
 });
-document.getElementById('gadd').addEventListener('click',()=>{
-  if(document.body.classList.contains('on-lists')) showView('today');
-  document.getElementById('addbtn').click();
-  if(addPanel.style.display!=='none') try{ addPanel.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
-});
+document.getElementById('gadd').addEventListener('click',()=>openAdd(null));
 function submitCustom(){
   const v=addText.value.trim();
   if(!v){ toast('Give it a name first'); return; }
@@ -9759,6 +10003,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.18-c', note:'ADDING A TASK, REDONE. Every + (the round one on Lists, the one at the top of Today, and the add rows on the date list and under Someday) now opens one add sheet that slides up with the keyboard already open. Pick the day from a row of chips — Someday, Today, Tomorrow and the next few days — or tap More for a month calendar built into the app instead of the iPhone date picker. Return adds it, clears the box and stays open, so you can add several in a row; each one shows in the sheet as it lands, and glows in its place on the list when you close it. Swipe the handle down or tap outside to close. It starts on Someday, or on the day you have open. The Schedule sheet and the day chip on a dated task use the same calendar now, and a tap on a date schedules it.'},
   {v:'2026.10.18-b', note:'Three fixes. JUMP FROM THE CARDS: tap Protocol, Extras or School at the top of Today to go straight to the next unticked row in it (or to where that part of the board starts, once it is all done). SCHOOL DIVIDER: coursework now always gets its own School divider like Extras does — it went missing when today’s coursework was only Keep in mind. THE + ON LISTS no longer hides the Today / Lists buttons: it opens the keyboard straight away, and the bar only steps aside while a keyboard is actually up.'},
   {v:'2026.10.18-a', note:'SCHEDULE NO LONGER JUMPS (and the date pickers on the setup and Someday cards now wait for a Set button, for the same reason): tapping schedule on a Someday task (or Day on the evening card) opens a small sheet \u2014 Today, Tomorrow, Saturday, Next Monday, or pick a date and tap Schedule. Before, the iPhone date picker filled in the phone\u2019s date the moment it opened and the task moved on its own (after midnight, the phone\u2019s date is the app\u2019s tomorrow).'},
   {v:'2026.10.17-i', note:'THE RELOAD BAR ASKS ONCE PER UPDATE: it now compares build numbers and only appears for a newer build. The old check could fire repeatedly for one update \u2014 while GitHub\u2019s servers were still catching up, or when the browser added its own scripts to the page.'},
