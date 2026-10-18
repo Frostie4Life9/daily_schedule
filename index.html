@@ -1649,6 +1649,8 @@ body.set-open #toast{bottom:calc(24px + env(safe-area-inset-bottom));}
   border-radius:14px;background:#1B1E24;font-size:14px;color:var(--dim);}
 .trdate input{height:36px;border:0;border-radius:10px;background:#0E0F12;color:var(--ink);font-family:inherit;font-size:14px;padding:0 10px;color-scheme:dark;}
 .trisheet .shacts{margin-top:26px;}
+.trdate input{flex:1;min-width:0;}
+.trset{flex:0 0 auto;height:36px;padding:0 14px;border:0;border-radius:10px;background:#2A2F38;color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
 .trisheet .shact{text-transform:none;}
 .trgo{display:block;width:100%;height:48px;margin:12px 0 14px;border:0;border-radius:14px;background:var(--done);color:#08130E;
   font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
@@ -1812,6 +1814,19 @@ a.appi:active{background:rgba(255,255,255,.07);}
   transition:transform .16s ease,background .2s;}
 .unbulk span{font-weight:500;font-size:12.5px;color:var(--dim);}
 .unbulk:active{transform:scale(.98);background:rgba(94,230,176,.14);}
+
+/* ---- give it a day ---- */
+.schedwrap{z-index:112;}
+.schchips{margin-top:18px;}
+.schchips .trchip{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;height:56px;min-width:calc(50% - 4px);
+  flex:1 1 calc(50% - 4px);padding:0 16px;border-radius:16px;text-align:left;}
+.schchips .trchip i{font-style:normal;font-size:12px;font-weight:400;color:var(--dim);}
+.schpick{display:flex;gap:8px;margin-top:12px;}
+.schpick input{flex:1;min-width:0;height:48px;border:0;border-radius:14px;background:#1B1E24;color:var(--ink);font-family:inherit;font-size:15px;
+  padding:0 14px;color-scheme:dark;}
+.schgo{flex:0 0 auto;height:48px;padding:0 18px;border:0;border-radius:14px;background:var(--extra);color:#08121C;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
+.schedsheet .shact{text-transform:none;}
+button.dwhen.dsomeday{background:transparent;cursor:pointer;font:inherit;}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -2123,6 +2138,10 @@ a.appi:active{background:rgba(255,255,255,.07);}
     <button class="selact" id="selnt" type="button">Not today</button>
     <button class="selact prime" id="seldone" type="button">Done</button>
   </div>
+</div>
+<div class="sheetwrap schedwrap" id="schedwrap" hidden>
+  <div class="sheetback" id="schedback"></div>
+  <div class="sheet schedsheet" id="schedsheet" role="dialog" aria-modal="true" aria-labelledby="schedtitle" tabindex="-1"></div>
 </div>
 <div class="sheetwrap planwrap" id="planwrap" hidden>
   <div class="sheetback" id="planback"></div>
@@ -6803,8 +6822,14 @@ function dateRow(r,big,inlist){
   } else if(r.task){
     attrs=`data-cit="${esc(r.cid)}"`;
     grip=`<span class="lgrip dgrip" data-cgrip="${esc(r.cid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`;
-    whenEl=`<label class="dwhen dpick${late?' late':''}${r.due?'':' dsomeday'}" title="${r.due?'Change the day':'Give it a day'}">${esc(r.due?(late?whenText(r):dayLabel(r.due)):'schedule')}`+
-      `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due||'')}" min="${today()}" aria-label="Change the day"></label>`;
+    /* An undated task gets a button, not a date input: iOS fills an EMPTY
+       date input with the phone's date the moment it opens and reports that
+       as a pick, which scheduled the task before you had chosen anything
+       (and after midnight, the phone's date is the app's tomorrow). */
+    whenEl=r.due
+      ? `<label class="dwhen dpick${late?' late':''}" title="Change the day">${esc(late?whenText(r):dayLabel(r.due))}`+
+        `<input type="date" data-cdate="${esc(r.cid)}" value="${esc(r.due)}" min="${today()}" aria-label="Change the day"></label>`
+      : `<button class="dwhen dpick dsomeday" type="button" data-csched="${esc(r.cid)}" title="Give it a day">schedule</button>`;
     if(r.due!==today() && !r.done) trayL=`<button class="dact dtodayact" data-ctoday="${esc(r.cid)}" title="Do it today" aria-label="Schedule for today">${SWSUN}<span>Today</span></button>`;
     trayR=topBtn('data-ctop',r.cid)+(r.due?`<button class="dact dhideact" data-csome="${esc(r.cid)}" title="Take it off the calendar — back to Someday" aria-label="Move to Someday">${SWHIDE}<span>Someday</span></button>`:'')+
       `<button class="dact ddelact" data-cdel="${esc(r.cid)}" aria-label="Delete task">${SWBIN}<span>Delete</span></button>`;
@@ -8764,7 +8789,7 @@ function paintTri(dir){
       `<p class="trq trq2">Or give it a day</p><div class="trchips">`+
         `<button class="trchip" data-trsch="0" type="button">Today</button><button class="trchip" data-trsch="1" type="button">Tomorrow</button>`+
         `<button class="trchip" data-trsch="sat" type="button">This weekend</button></div>`+
-      `<label class="trdate">Pick a day<input type="date" data-trsday min="${today()}"></label>`+
+      `<div class="trdate"><input type="date" data-trsday min="${today()}" aria-label="Pick a day"><button class="trset" data-trset-sday type="button">Set</button></div>`+
       `<div class="shacts"><button class="shact" data-tri="del" type="button">Let it go \u2014 delete</button>`+
       `<button class="shact" data-tri="next" type="button">Later</button></div></div>`;
     return;
@@ -8780,10 +8805,10 @@ function paintTri(dir){
   const body = TRI.mode==='setup'
     ? `<p class="trq">When did you last do this?</p><div class="trchips">`+
         SETUPCHIPS.map(([l,n],k)=>`<button class="trchip" data-trset="${k}" type="button">${l}</button>`).join('')+`</div>`+
-        `<label class="trdate">Pick the day<input type="date" data-trday max="${today()}"></label>`+oftenChips
+        `<div class="trdate"><input type="date" data-trday max="${today()}" aria-label="Pick the day"><button class="trset" data-trset-day type="button">Set</button></div>`+oftenChips
     : `<p class="trq">Did you do it?</p>`+
         `<div class="shbtns"><button class="shdone" data-tri="today" type="button">Did it today</button></div>`+
-        `<label class="trdate">Did it on another day<input type="date" data-trday max="${today()}"></label>`+oftenChips;
+        `<div class="trdate"><input type="date" data-trday max="${today()}" aria-label="Did it on another day"><button class="trset" data-trset-day type="button">Set</button></div>`+oftenChips;
   sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles">`+
     `<span class="sheye">${TRI.mode==='setup'?'SET UP':'REVIEW'} · ${TRI.i+1} OF ${TRI.q.length}</span>`+
     `<h2 id="trititle">${esc(r.l)}</h2>${meta?`<span class="shprod">${meta}</span>`:''}</div>${close}</div>`+
@@ -8839,14 +8864,20 @@ document.getElementById('trisheet').addEventListener('click',e=>{
     TRI.did++; paintTri(); toast('Now '+of.textContent.toLowerCase());
   }
 });
-document.getElementById('trisheet').addEventListener('change',e=>{
-  const r=triCur();
-  const si=e.target.closest('[data-trsday]');
-  if(r && si && /^\d{4}-\d\d-\d\d$/.test(si.value) && si.value>=today()){ scheduleTask(r,si.value); triNext(true); return; }
-  const inp=e.target.closest('[data-trday]');
-  if(!r || !inp || !/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value>today()) return;
-  triLog(r,inp.value); triNext(true);
+document.getElementById('trisheet').addEventListener('click',e=>{
+  const r=triCur(); if(!r) return;
+  const sd=e.target.closest('[data-trset-day]');
+  if(sd){ const inp=document.querySelector('#trisheet [data-trday]');
+    if(!inp || !/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value>today()){ toast('Pick a day first'); return; }
+    triLog(r,inp.value); triNext(true); return; }
+  const ss=e.target.closest('[data-trset-sday]');
+  if(ss){ const inp=document.querySelector('#trisheet [data-trsday]');
+    if(!inp || !/^\d{4}-\d\d-\d\d$/.test(inp.value) || inp.value<today()){ toast('Pick a day first'); return; }
+    scheduleTask(r,inp.value); triNext(true); }
 });
+/* Date inputs here only hold a choice until Set: iOS fills an empty one
+   with the phone's date the moment it opens and reports that as a pick. */
+
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('triwrap').hidden) closeTriage(); });
 document.getElementById('revgo').addEventListener('click',()=>openTriage('review'));
 
@@ -8966,7 +8997,7 @@ function paintCards(){
       `<p class="tcp">Decide again rather than let ${it.length>1?'them':'it'} go late.</p>`+
       `<div class="tclist">`+it.map(i=>`<div class="tcrow"><span class="tcl">${esc(i.l)}</span>`+
         `<button class="tcb" data-card="tmr:${i.kind}:${esc(i.id)}" type="button">Tomorrow</button>`+
-        (i.kind==='c'?`<label class="tcb tcpick">Day<input type="date" data-cardday="${esc(i.id)}" min="${addDaysISO(today(),1)}"></label>`+
+        (i.kind==='c'?`<button class="tcb" type="button" data-csched="${esc(i.id)}">Day</button>`+
           `<button class="tcb" data-card="some:${esc(i.id)}" type="button">Someday</button>`:'')+`</div>`).join('')+`</div>`+
       `<div class="tcbtns"><button class="tcgo" data-card="alltmr" type="button">All to tomorrow</button></div></div>`;
   } else if(k==='plan'){
@@ -9074,6 +9105,63 @@ function paintSkips(){
   /* save before leaving, so a tick made a second ago is not lost on the way out */
   m.addEventListener('click',e=>{ if(e.target.closest('a')) try{ save(S); }catch(err){} });
 })();
+
+/* =========================================================
+   GIVE IT A DAY. One sheet for scheduling a one-off from anywhere. Nothing
+   happens until you choose: quick days are buttons, and a picked date
+   waits for Schedule. (A bare date input on iOS commits itself on open.)
+   ========================================================= */
+let SCHED=null;
+function openSched(id){
+  const c=(S.custom||[]).find(x=>x.id===id); if(!c) return;
+  SCHED=id;
+  const t=today(), d=n=>addDaysISO(t,n);
+  const sat=(()=>{ for(let i=1;i<8;i++){ if(dayOf(d(i)).getDay()===6) return d(i); } return d(1); })();
+  const mon=(()=>{ for(let i=1;i<8;i++){ if(dayOf(d(i)).getDay()===1) return d(i); } return d(1); })();
+  const wk=v=>dayOf(v).toLocaleDateString('en-US',{weekday:'long'});
+  const chips=[['Today',t],['Tomorrow',d(1)]].concat([sat,mon].sort().map(v=>[wk(v),v]))
+    .filter((x,i,a)=>a.findIndex(y=>y[1]===x[1])===i);
+  const sh=document.getElementById('schedsheet');
+  sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">GIVE IT A DAY</span>`+
+    `<h2 id="schedtitle">${esc(c.l)}</h2>${c.date?`<span class="shprod">Now ${esc(dayWord(c.date))}</span>`:''}</div>`+
+    `<button class="shclose" data-sch="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
+    `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
+    `<div class="schpick"><input type="date" id="schdate" min="${t}" value="${esc(c.date||'')}" aria-label="Another day">`+
+    `<button class="schgo" data-sch="go" type="button">Schedule</button></div>`+
+    `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">Back to Someday</button>`:''}`+
+    `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':'Leave on Someday'}</button></div>`;
+  const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+}
+function closeSched(){
+  const w=document.getElementById('schedwrap'); if(w.hidden) return;
+  w.classList.remove('up');
+  if(!(typeof SETOPEN!=='undefined'&&SETOPEN) && document.getElementById('planwrap').hidden) document.body.classList.remove('sheet-open');
+  setTimeout(()=>{ w.hidden=true; },360); SCHED=null;
+}
+function schedTo(day){
+  const c=(S.custom||[]).find(x=>x.id===SCHED); if(!c) return;
+  if(day===null){ scheduleTask(c,null); }
+  else if(!scheduleTask(c,day)){ toast('Pick today or later'); return; }
+  closeSched();
+  after(()=>document.querySelectorAll('#lists [data-cit="'+cssEsc(c.id)+'"]').forEach(glow));
+  commit({rebuild:true}); try{ flipPaint(paintLists); }catch(e){}
+  toast(day===null?'Back on your Someday list':'Scheduled for '+dayWord(day).toLowerCase().replace(/^(mon|tue|wed|thu|fri|sat|sun)/,m=>m[0].toUpperCase()+m.slice(1)));
+}
+document.getElementById('schedback').addEventListener('click',closeSched);
+document.getElementById('schedsheet').addEventListener('click',e=>{
+  const dd=e.target.closest('[data-schday]'); if(dd){ schedTo(dd.dataset.schday); return; }
+  const a=e.target.closest('[data-sch]'); if(!a) return;
+  const v=a.dataset.sch;
+  if(v==='close'){ closeSched(); return; }
+  if(v==='some'){ schedTo(null); return; }
+  if(v==='go'){ const i=document.getElementById('schdate'); if(!i.value){ toast('Pick a day first'); return; } schedTo(i.value); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('schedwrap').hidden) closeSched(); });
+document.addEventListener('click',e=>{
+  const b=e.target.closest && e.target.closest('[data-csched]'); if(!b) return;
+  e.preventDefault(); e.stopPropagation(); openSched(b.dataset.csched);
+},true);
 /* Reopen whatever was open last time. Runs once, after the toggles exist. */
 function restoreDrawer(){
   /* The panels live behind the gear now; opening the app should open Today,
@@ -9636,6 +9724,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.18-a', note:'SCHEDULE NO LONGER JUMPS (and the date pickers on the setup and Someday cards now wait for a Set button, for the same reason): tapping schedule on a Someday task (or Day on the evening card) opens a small sheet \u2014 Today, Tomorrow, Saturday, Next Monday, or pick a date and tap Schedule. Before, the iPhone date picker filled in the phone\u2019s date the moment it opened and the task moved on its own (after midnight, the phone\u2019s date is the app\u2019s tomorrow).'},
   {v:'2026.10.17-i', note:'THE RELOAD BAR ASKS ONCE PER UPDATE: it now compares build numbers and only appears for a newer build. The old check could fire repeatedly for one update \u2014 while GitHub\u2019s servers were still catching up, or when the browser added its own scripts to the page.'},
   {v:'2026.10.17-h', note:'FINISH SHOWER ON UP NEXT: when Up Next reaches the shower, the tile offers Finish shower (or bath) under Done \u2014 the same as the button at the foot of the section: it ticks the rest of the block in one tap, and the section folds.'},
   {v:'2026.10.17-g', note:'NEW ICON, take two: a Fraunces P on ink blue with a mint progress ring and check \u2014 the same family as Kitchen, Grocery, Lift and DishLog. The browser tab shows the P on its own, like theirs.'},
