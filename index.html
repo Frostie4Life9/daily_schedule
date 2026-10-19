@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#0E0F12">
 <meta name="color-scheme" content="dark">
 <title>Daily Protocol</title>
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=20261017p">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=20261019a">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=20261017p">
-<link rel="manifest" href="site.webmanifest?v=20261017p">
+<link rel="manifest" href="site.webmanifest?v=20261019a">
 <meta name="apple-mobile-web-app-title" content="Protocol">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -217,9 +217,9 @@ body.on-lists .hstats,body.on-lists .bar{display:none;}
 .dwhen{font-family:'Geist Mono',ui-monospace,monospace;font-size:9px;color:var(--dimmer);
   white-space:nowrap;flex:0 0 auto;min-width:48px;text-align:right;}
 .dwhen.late{color:var(--live);}
-.t-blue{color:#7fb0e8;} .t-green{color:#8fc46a;} .t-violet{color:#a79ae8;}
-.t-magenta{color:#dd8bb4;} .t-orange{color:#e0a45f;} .t-aqua{color:#6fc3b8;}
-.t-red{color:#e08a8a;} .t-yellow{color:#d6bd63;}
+.t-blue{color:#4DA6FF;} .t-green{color:#A3D95B;} .t-violet{color:#B98CFF;}
+.t-magenta{color:#FF7AD1;} .t-orange{color:#FF9A3D;} .t-aqua{color:#2FD4E0;}
+.t-red{color:#FF5C5C;} .t-yellow{color:#FFD84D;}
 .lbody{padding:4px 0 10px;}
 .llist.shut .lbody{display:none;}
 .litem{display:flex;align-items:flex-start;gap:11px;padding:11px 12px;cursor:pointer;
@@ -7118,9 +7118,27 @@ function listCode(name){
 }
 /* Stable per-list colour so the eye can group rows without reading. */
 const LTINTS=['blue','green','violet','magenta','orange','aqua','red','yellow'];
+/* Every list gets its own colour. Each still asks for the hue its id hashes
+   to, so colours stay put as lists come and go; when that hue is taken, it
+   gets the free one that sits furthest from what is already in use, rather
+   than doubling up the way a bare hash did (three teals in a row). */
+const LTFALL=['blue','orange','green','violet','yellow','magenta','aqua','red'];
+let LTMAP=null, LTSIG='';
 function listTint(id){
-  let h=0; const t=String(id||'');
-  for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0;
+  const ids=(S.lists||[]).map(l=>String(l.id||'')), sig=ids.join('|');
+  if(!LTMAP||sig!==LTSIG){
+    LTMAP={}; LTSIG=sig; const used=new Set();
+    ids.forEach(t=>{
+      let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0;
+      let c=LTINTS[h%LTINTS.length];
+      if(used.has(c)) c=LTFALL.find(x=>!used.has(x))||c;
+      used.add(c); LTMAP[t]=c;
+      if(used.size===LTINTS.length) used.clear();
+    });
+  }
+  const t=String(id||'');
+  if(LTMAP[t]) return LTMAP[t];
+  let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0;
   return LTINTS[h%LTINTS.length];
 }
 
@@ -7208,8 +7226,8 @@ function listBuckets(){
 /* Hoisted, so the board can colour a course before the date view's own
    tables exist. Same hues as the date list's dots. */
 function courseHex(t){
-  return ({blue:'#7FB0E8',green:'#7ED38F',violet:'#A78BFA',magenta:'#E58BB8',orange:'#E9B35E',
-           aqua:'#5EC8D8',red:'#F08A8A',yellow:'#D9C35E'})[t]||'#80868F';
+  return ({blue:'#4DA6FF',green:'#A3D95B',violet:'#B98CFF',magenta:'#FF7AD1',orange:'#FF9A3D',
+           aqua:'#2FD4E0',red:'#FF5C5C',yellow:'#FFD84D'})[t]||'#80868F';
 }
 function lviewBar(extra){
   const d=lview()==='date';
@@ -7231,8 +7249,8 @@ let LDAY=null, LDIR=1, LANIM=null;
 const LFKEY='protocol_lfilter';
 function lfilter(){ try{ return localStorage.getItem(LFKEY)||'all'; }catch(e){ return 'all'; } }
 function setLfilter(v){ try{ localStorage.setItem(LFKEY,v); }catch(e){} }
-const TINTHEX={blue:'#7FB0E8',green:'#7ED38F',violet:'#A78BFA',magenta:'#E58BB8',orange:'#E9B35E',
-               aqua:'#5EC8D8',red:'#F08A8A',yellow:'#D9C35E',task:'#8EA2FF',routine:'#F0798F'};
+const TINTHEX={blue:'#4DA6FF',green:'#A3D95B',violet:'#B98CFF',magenta:'#FF7AD1',orange:'#FF9A3D',
+               aqua:'#2FD4E0',red:'#FF5C5C',yellow:'#FFD84D',task:'#8EA2FF',routine:'#F0798F'};
 function rowKind(r){ return (r.task||r.routine) ? 'task' : 'school'; }
 function rowTint(r){ return r.task?'task':r.routine?'routine':r.tint; }
 function whenText(r){
@@ -10485,6 +10503,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
 const CHANGELOG=[
   {v:'2026.10.19-f', note:'ONE FEEL ACROSS ALL FIVE APPS: Protocol now shares the same motion as Kitchen, Grocery, Lift and DishLog \u2014 a soft press under your finger on buttons, smooth-opening sections, and the same easing everywhere. Controls that already had their own press keep it, and rows you swipe never shrink when you touch them. Fixed: tapping the app grid button while it was closing closed it again instead of reopening it.'},
   {v:'2026.10.19-e', note:'POLISH PASS: switching Today and Lists now eases the old view out before the new one comes in, instead of cutting. The Up Next card folds away when the day is done instead of vanishing. The reschedule panel and the earlier-updates list close as smoothly as they open, and the app grid closes with a fade in every app.'},
+  {v:'2026.10.19-e', note:'CLEARER CLASS COLOURS: each class now gets its own colour \u2014 no two share one any more, where before GCC, IG&R and MB were all teal \u2014 and the set is brighter and further apart. ROUNDED ICON: the app icon has soft rounded corners in the browser tab, the taskbar and when installed, instead of a hard square.'},
   {v:'2026.10.19-d', note:'SMOOTHER OPENING: Protocol now eases in when you open it \u2014 the header settles, each section rises in turn, and the dock slides up last. Moving between your apps cross-fades instead of cutting, with the top bar holding still. The square next to each app\u2019s name is now its real icon.'},
   {v:'2026.10.19-c', note:'REAL ICONS IN THE APP GRID: the grid button now shows each app\u2019s actual home-screen icon \u2014 the K, G, L, D and P \u2014 instead of plain line drawings, so it looks like a mini home screen.'},
   {v:'2026.10.19-b', note:'APP GRID ON PHONES, FULL WIDTH ON COMPUTERS. On a phone the top of every app is now just its name and the grid button \u2014 tap it for all five apps. On a computer the full bar of tabs stays, and the page now uses the whole window: the checklist sections flow into side-by-side columns on wide screens.'},
