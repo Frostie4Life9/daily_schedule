@@ -1687,7 +1687,7 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 
 /* ---- cards on Today ---- */
 #cardmount:empty{display:none;}
-.tcard{margin:0 0 14px;padding:16px 16px 14px;border-radius:20px;background:var(--card);border:1px solid rgba(111,183,255,.22);
+.tcard{margin:18px 0 0;padding:16px 16px 14px;border-radius:20px;background:var(--card);border:1px solid rgba(111,183,255,.22);
   animation:g-rise .35s var(--ease) both;}
 .tch{display:flex;align-items:center;justify-content:space-between;margin:-4px -6px 4px 0;}
 .tce{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;color:var(--extra);}
@@ -1886,8 +1886,11 @@ button.ladd.aqopen{width:100%;box-sizing:border-box;text-align:left;cursor:point
 button.ladd.aqopen:active{transform:scale(.985);}
 button.ladd.aqopen .aqph{flex:1;}
 .schcal .cal{padding-top:16px;}
-button.dwhen.dbtn{background:transparent;cursor:pointer;font:inherit;}
-button.dwhen.dsomeday{background:transparent;cursor:pointer;font:inherit;}
+button.dwhen.dbtn,button.dwhen.dsomeday{-webkit-appearance:none;appearance:none;border:0;background:transparent;cursor:pointer;
+  font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:400;line-height:1.4;letter-spacing:0;color:var(--dimmer);}
+button.dwhen.dbtn.late{color:var(--live);}
+button.dwhen.dsomeday{color:var(--extra);background:rgba(111,183,255,.08);}
+button.dwhen.dbtn:active,button.dwhen.dsomeday:active{transform:scale(.95);}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
@@ -6904,7 +6907,10 @@ function dateRow(r,big,inlist){
   } else {
     const k=esc(r.lid)+'|'+esc(r.iid);
     attrs=`data-lit="${k}"`;
-    whenEl=when&&!inlist?`<span class="dwhen${late?' late':''}">${esc(when)}</span>`:'';
+    /* Tap to give it a date or change it -- same sheet as one-offs. */
+    whenEl=r.due
+      ? `<button class="dwhen dpick dbtn${late?' late':''}" type="button" data-csched="l:${k}" title="Change the date">${esc(when||dayLabel(r.due))}</button>`
+      : `<button class="dwhen dpick dsomeday" type="button" data-csched="l:${k}" title="Give it a date">add date</button>`;
     trayL=`<button class="dact dtodayact${r.pin?' on':''}" data-lpin="${k}" aria-pressed="${!!r.pin}" `+
       `title="${r.pin?'On today’s board — tap to take it off':'Put this on today’s board'}" aria-label="${r.pin?'Not today':'Put this on today’s board'}">${SWSUN}<span>${r.pin?'Not today':'Today'}</span></button>`;
     trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+
@@ -9175,8 +9181,16 @@ function paintSkips(){
    waits for Schedule. (A bare date input on iOS commits itself on open.)
    ========================================================= */
 let SCHED=null;
+function schedTarget(id){
+  if(String(id||'').indexOf('l:')===0){
+    const [lid,iid]=id.slice(2).split('|'), l=listById(lid);
+    const it=l&&(l.items||[]).find(x=>x.id===iid); if(!it) return null;
+    return {list:true, l:it.text, date:it.due||null, set(d){ it.due=d||undefined; }, lst:l, key:lid+'|'+iid};
+  }
+  const c=(S.custom||[]).find(x=>x.id===id); return c?{list:false, l:c.l, date:c.date, c}:null;
+}
 function openSched(id){
-  const c=(S.custom||[]).find(x=>x.id===id); if(!c) return;
+  const c=schedTarget(id); if(!c) return;
   SCHED=id;
   const t=today(), d=n=>addDaysISO(t,n);
   const sat=(()=>{ for(let i=1;i<8;i++){ if(dayOf(d(i)).getDay()===6) return d(i); } return d(1); })();
@@ -9190,8 +9204,8 @@ function openSched(id){
     `<button class="shclose" data-sch="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
     `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
     `<div class="schcal" id="schcal">${calHTML((c.date&&c.date>=t?c.date:t).slice(0,7),c.date,t)}</div>`+
-    `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">Back to Someday</button>`:''}`+
-    `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':'Leave on Someday'}</button></div>`;
+    `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">${c.list?'Remove date':'Back to Someday'}</button>`:''}`+
+    `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':c.list?'Leave undated':'Leave on Someday'}</button></div>`;
   const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
   requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
 }
@@ -9202,7 +9216,17 @@ function closeSched(){
   setTimeout(()=>{ w.hidden=true; },360); SCHED=null;
 }
 function schedTo(day){
-  const c=(S.custom||[]).find(x=>x.id===SCHED); if(!c) return;
+  const tg=schedTarget(SCHED); if(!tg) return;
+  if(tg.list){
+    if(day!==null && (!/^\d{4}-\d\d-\d\d$/.test(day||'') || day<today())){ toast('Pick today or later'); return; }
+    tg.set(day); closeSched(); save(S);
+    after(()=>document.querySelectorAll('#lists [data-lit="'+cssEsc(tg.key)+'"]').forEach(glow));
+    try{ flipPaint(paintLists); }catch(e){ paintLists(); }
+    if(listOnBoard(tg.lst)) rebuild();
+    toast(day===null?'Date removed':'Due '+dayWord(day).toLowerCase().replace(/^(mon|tue|wed|thu|fri|sat|sun)/,m=>m[0].toUpperCase()+m.slice(1)));
+    return;
+  }
+  const c=tg.c;
   if(day===null){ scheduleTask(c,null); }
   else if(!scheduleTask(c,day)){ toast('Pick today or later'); return; }
   closeSched();
@@ -9218,7 +9242,7 @@ document.getElementById('schedsheet').addEventListener('click',e=>{
   const cd=e.target.closest('[data-cal]'); if(cd && !cd.disabled){ schedTo(cd.dataset.cal); return; }
   const nv=e.target.closest('[data-calnav]');
   if(nv && !nv.disabled){ const h=document.getElementById('schcal'), c=(S.custom||[]).find(x=>x.id===SCHED);
-    calNav(h, +nv.dataset.calnav, c&&c.date, today()); return; }
+    calNav(h, +nv.dataset.calnav, (schedTarget(SCHED)||{}).date, today()); return; }
   const a=e.target.closest('[data-sch]'); if(!a) return;
   const v=a.dataset.sch;
   if(v==='close'){ closeSched(); return; }
@@ -10003,6 +10027,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.18-d', note:'Touch-ups. DAY BUTTONS in Lists (today, tomorrow, schedule) lose the heavy outlined box and read like the other day labels — still tappable to change the day. ADD A DATE TO LIST ITEMS: anything on a list now has a date pill — add date on undated items, or tap the date to change or remove it. THE SUNDAY CARD (and the other Today cards) now sits a proper gap below Protocol / Extras / School instead of touching them.'},
   {v:'2026.10.18-c', note:'ADDING A TASK, REDONE. Every + (the round one on Lists, the one at the top of Today, and the add rows on the date list and under Someday) now opens one add sheet that slides up with the keyboard already open. Pick the day from a row of chips — Someday, Today, Tomorrow and the next few days — or tap More for a month calendar built into the app instead of the iPhone date picker. Return adds it, clears the box and stays open, so you can add several in a row; each one shows in the sheet as it lands, and glows in its place on the list when you close it. Swipe the handle down or tap outside to close. It starts on Someday, or on the day you have open. The Schedule sheet and the day chip on a dated task use the same calendar now, and a tap on a date schedules it.'},
   {v:'2026.10.18-b', note:'Three fixes. JUMP FROM THE CARDS: tap Protocol, Extras or School at the top of Today to go straight to the next unticked row in it (or to where that part of the board starts, once it is all done). SCHOOL DIVIDER: coursework now always gets its own School divider like Extras does — it went missing when today’s coursework was only Keep in mind. THE + ON LISTS no longer hides the Today / Lists buttons: it opens the keyboard straight away, and the bar only steps aside while a keyboard is actually up.'},
   {v:'2026.10.18-a', note:'SCHEDULE NO LONGER JUMPS (and the date pickers on the setup and Someday cards now wait for a Set button, for the same reason): tapping schedule on a Someday task (or Day on the evening card) opens a small sheet \u2014 Today, Tomorrow, Saturday, Next Monday, or pick a date and tap Schedule. Before, the iPhone date picker filled in the phone\u2019s date the moment it opened and the task moved on its own (after midnight, the phone\u2019s date is the app\u2019s tomorrow).'},
