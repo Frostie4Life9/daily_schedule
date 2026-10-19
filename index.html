@@ -1908,7 +1908,7 @@ button.dwhen.dsomeday{color:var(--extra);background:rgba(111,183,255,.08);}
 button.dwhen.dbtn:active,button.dwhen.dsomeday:active{transform:scale(.95);}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
-<!-- suite:css v1 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
+<!-- suite:css v2 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
 <style id="suite-css">
 /* App colors come from each app's home-screen icon, so the bar, the icon and
    the page all agree. The tab for every app carries its own color, so the
@@ -1927,35 +1927,58 @@ button.dwhen.dbtn:active,button.dwhen.dsomeday:active{transform:scale(.95);}
   --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0;
   --sx-on:#15120E;
 }
-/* layout tokens every app's own layout lines up with */
-:root{ --sx-max:1280px; --sx-gut:clamp(16px,2.4vw,32px); --sx-barh:56px; }
+/* layout tokens every app's own layout lines up with. No width cap: on a
+   computer the apps use the whole window; each app decides how many columns. */
+:root{ --sx-max:100000px; --sx-gut:clamp(16px,2vw,40px); --sx-barh:56px; }
 
 .sx-bar{position:relative;z-index:40;background:var(--sx-paper);border-bottom:1px solid var(--sx-line);
   font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;color:var(--sx-ink)}
-.sx-in{max-width:var(--sx-max);margin:0 auto;box-sizing:border-box;min-height:var(--sx-barh);
+.sx-in{max-width:var(--sx-max);margin:0 auto;box-sizing:border-box;min-height:52px;
   padding:calc(8px + env(safe-area-inset-top,0px)) var(--sx-gut) 8px;display:flex;align-items:center;gap:18px}
-.sx-id{display:none;align-items:center;gap:10px;flex:0 0 auto;min-width:0}
+.sx-id{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0}
 .sx-tile{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--app);color:var(--sx-on);flex:0 0 auto}
 .sx-tile svg{width:17px;height:17px}
 .sx-name{font-family:'Fraunces',Georgia,serif;font-style:italic;font-weight:600;font-size:21px;letter-spacing:-.01em;line-height:1;color:var(--sx-ink);white-space:nowrap}
-.sx-tabs{display:flex;gap:6px;flex:1 1 auto;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 calc(var(--sx-gut) * -1);padding:0 var(--sx-gut)}
-.sx-tabs::-webkit-scrollbar{display:none}
+.sx-tile svg,.sx-t svg,.sx-cell svg,.sx-gbtn svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* phone: app name on the left, the grid button on the right */
+.sx-gbtn{margin-left:auto;flex:0 0 auto;width:40px;height:40px;border-radius:12px;border:1px solid var(--sx-line);background:transparent;
+  color:var(--sx-dim);display:grid;place-items:center;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+.sx-gbtn svg{width:19px;height:19px}
+.sx-gbtn[aria-expanded="true"]{background:var(--sx-hover);color:var(--sx-ink)}
+.sx-menu{position:fixed;inset:0;z-index:300}
+.sx-menu[hidden]{display:none}
+.sx-pop{position:absolute;top:calc(56px + env(safe-area-inset-top,0px));right:var(--sx-gut);width:min(300px,calc(100vw - 2 * var(--sx-gut)));
+  box-sizing:border-box;padding:10px;border-radius:22px;background:var(--sx-paper);border:1px solid var(--sx-line);
+  box-shadow:0 24px 60px -18px rgba(0,0,0,.45);display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  transform-origin:top right;animation:sx-pop .2s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes sx-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.sx-cell{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 4px 10px;border-radius:16px;text-decoration:none;
+  color:var(--sx-ink);font:700 12px/1.1 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+.sx-cell i{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--c);color:var(--sx-on)}
+.sx-cell svg{width:24px;height:24px}
+.sx-cell:active{background:var(--sx-hover)}
+.sx-cell[aria-current="page"]{background:var(--sx-hover)}
+.sx-cell[aria-current="page"] b{color:var(--sx-dim);font-weight:700}
+.sx-cell b{font-weight:700}
+.sx-tabs{display:none}
+@media (prefers-reduced-motion:reduce){.sx-pop{animation:none}}
+
+/* computer and tablet: the full bar of tabs */
 .sx-t{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px 0 11px;box-sizing:border-box;
-  border-radius:999px;border:1px solid var(--sx-line);background:transparent;color:var(--sx-dim);text-decoration:none;
+  border-radius:999px;border:1px solid transparent;background:transparent;color:var(--sx-dim);text-decoration:none;
   font:700 12.5px/1 'Manrope',system-ui,sans-serif;letter-spacing:.02em;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
-.sx-t svg,.sx-tile svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .sx-t svg{width:16px;height:16px;color:var(--c);flex:0 0 auto}
 .sx-t:hover{background:var(--sx-hover);color:var(--sx-ink)}
-.sx-t:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.sx-t:focus-visible,.sx-gbtn:focus-visible,.sx-cell:focus-visible{outline:2px solid var(--app);outline-offset:2px}
 .sx-t[aria-current="page"]{background:var(--c);border-color:var(--c);color:var(--sx-on)}
 .sx-t[aria-current="page"] svg{color:inherit}
 @media (min-width:900px){
   .sx-bar{position:sticky;top:0;z-index:70;background:color-mix(in srgb,var(--sx-paper) 88%,transparent);
     -webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
-  .sx-id{display:flex}
-  .sx-tabs{flex:0 1 auto;margin:0 0 0 auto;padding:0}
-  .sx-t{border-color:transparent}
-  .sx-t[aria-current="page"]{border-color:var(--c)}
+  .sx-in{min-height:var(--sx-barh)}
+  .sx-tabs{display:flex;gap:6px;margin-left:auto;flex:0 1 auto;min-width:0}
+  .sx-gbtn,.sx-menu{display:none!important}
 }
 @media print{.sx-bar{display:none}}
 </style>
@@ -1964,7 +1987,7 @@ button.dwhen.dbtn:active,button.dwhen.dsomeday:active{transform:scale(.95);}
 <body>
 <!-- suite:bar -->
 <nav class="sx-bar sx-dark" style="--app:var(--sx-protocol)" aria-label="Your apps"><div class="sx-in">
-  <div class="sx-id" aria-hidden="true"><span class="sx-tile"><svg viewBox="0 0 24 24"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg></span><span class="sx-name">Protocol</span></div>
+  <div class="sx-id"><span class="sx-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg></span><span class="sx-name">Protocol</span></div>
   <div class="sx-tabs">
     <a class="sx-t" style="--c:var(--sx-kitchen)" href="https://frostie4life9.github.io/kitchen/index.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h13v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M17 12.5h3M8 4.5c0 1.5 1.5 1.5 1.5 3M12 4.5c0 1.5 1.5 1.5 1.5 3"/></svg>Kitchen</a>
     <a class="sx-t" style="--c:var(--sx-grocery)" href="https://frostie4life9.github.io/kitchen/grocery.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.2l2.2 11h10.4l2-7.5H6.4"/><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="16.5" cy="19.5" r="1.4"/></svg>Grocery</a>
@@ -1972,7 +1995,27 @@ button.dwhen.dbtn:active,button.dwhen.dsomeday:active{transform:scale(.95);}
     <a class="sx-t" style="--c:var(--sx-dishlog)" href="https://frostie4life9.github.io/kitchen/dishlog.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11M17 21V3c-2 0-3.5 2.5-3.5 6s1.5 4 3.5 4"/></svg>DishLog</a>
     <a class="sx-t" style="--c:var(--sx-protocol)" href="./" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg>Protocol</a>
   </div>
-</div></nav>
+  <button class="sx-gbtn" id="sx-gbtn" type="button" aria-label="Your apps" aria-haspopup="true" aria-expanded="false" aria-controls="sx-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></button>
+</div>
+<div class="sx-menu" id="sx-menu" hidden><div class="sx-pop">
+    <a class="sx-cell" style="--c:var(--sx-kitchen)" href="https://frostie4life9.github.io/kitchen/index.html"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11h13v4a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M17 12.5h3M8 4.5c0 1.5 1.5 1.5 1.5 3M12 4.5c0 1.5 1.5 1.5 1.5 3"/></svg></i><b>Kitchen</b></a>
+    <a class="sx-cell" style="--c:var(--sx-grocery)" href="https://frostie4life9.github.io/kitchen/grocery.html"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.2l2.2 11h10.4l2-7.5H6.4"/><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="16.5" cy="19.5" r="1.4"/></svg></i><b>Grocery</b></a>
+    <a class="sx-cell" style="--c:var(--sx-lift)" href="https://frostie4life9.github.io/kitchen/workout.html"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M4 9.5v5M20 9.5v5M6.5 12h11"/></svg></i><b>Lift</b></a>
+    <a class="sx-cell" style="--c:var(--sx-dishlog)" href="https://frostie4life9.github.io/kitchen/dishlog.html"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11M17 21V3c-2 0-3.5 2.5-3.5 6s1.5 4 3.5 4"/></svg></i><b>DishLog</b></a>
+    <a class="sx-cell" style="--c:var(--sx-protocol)" href="./" aria-current="page"><i><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg></i><b>Protocol</b></a>
+</div></div>
+</nav>
+<script>
+(function(){ /* suite: open/close the app grid on phones */
+  var b=document.getElementById('sx-gbtn'), m=document.getElementById('sx-menu'); if(!b||!m) return;
+  function set(o){ m.hidden=!o; b.setAttribute('aria-expanded',o?'true':'false');
+    if(o){ var f=m.querySelector('.sx-cell'); if(f) f.focus({preventScroll:true}); } }
+  b.addEventListener('click',function(e){ e.stopPropagation(); set(m.hidden); });
+  m.addEventListener('click',function(e){ if(!e.target.closest('.sx-cell')||e.target.closest('[aria-current]')) set(false); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!m.hidden){ set(false); b.focus(); } });
+  window.addEventListener('pageshow',function(){ set(false); });
+})();
+</script>
 <!-- /suite:bar -->
 
 
@@ -10157,6 +10200,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.19-b', note:'APP GRID ON PHONES, FULL WIDTH ON COMPUTERS. On a phone the top of every app is now just its name and the grid button \u2014 tap it for all five apps. On a computer the full bar of tabs stays, and the page now uses the whole window: the checklist sections flow into side-by-side columns on wide screens.'},
   {v:'2026.10.19-a', note:'LOOK BEFORE YOU SCHEDULE: in Give it a day (Schedule on Someday, or a date pill in Lists), tapping a day now shows what that day already holds \u2014 assignments, one-offs and the recurring extras landing on it \u2014 so you can see whether it fits. Tap Schedule to commit, the arrows to check the day before or after, or Pick another day to go back to the calendar.'},
   {v:'2026.10.18-e', note:'ONE SYSTEM WITH THE OTHER APPS. The app bar at the top is now the same one Kitchen, Grocery, Lift and DishLog use, color-coded per app (Protocol is mint) — it replaces the old grid button. The Today title matches the other apps. ON A COMPUTER OR TABLET the page no longer stays a phone-width column: the day at a glance (cards, counts) pins on the left with Today/Lists and the jump button under it, the checklist fills the right, and sheets open centered.'},
   {v:'2026.10.18-d', note:'Touch-ups. DAY BUTTONS in Lists (today, tomorrow, schedule) lose the heavy outlined box and read like the other day labels — still tappable to change the day. ADD A DATE TO LIST ITEMS: anything on a list now has a date pill — add date on undated items, or tap the date to change or remove it. THE SUNDAY CARD (and the other Today cards) now sits a proper gap below Protocol / Extras / School instead of touching them.'},
@@ -10362,6 +10406,12 @@ header.gh .title{ font-family:'Fraunces',Georgia,serif; font-style:italic; font-
   /* Today / Lists switch and the jump button sit at the bottom of the left panel */
   .dock{ left:var(--p-left); right:auto; width:calc(var(--p-side) - 36px); bottom:22px; padding:0 !important; }
   .dockin{ max-width:none; }
+}
+@media (min-width:1400px){
+  main#list{ columns:520px; column-gap:24px; }
+  main#list > section.phase{ break-inside:avoid; display:block; }
+}
+@media (min-width:900px){
   /* sheets open as centered panels */
   .sheet{ top:50%; bottom:auto; max-width:600px; border-radius:24px; border:1px solid rgba(255,255,255,.08);
     padding-bottom:26px; transform:translateY(-44%) scale(.97); opacity:0; transition:transform .3s var(--ease),opacity .22s; }
