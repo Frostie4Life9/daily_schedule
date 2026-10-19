@@ -1937,6 +1937,14 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   setTimeout(function(){ h.classList.remove('g-open'); },1400);
 })();
 </script>
+<style id="g-press">
+/* The shared suite gives every button a soft press (scale .96). These
+   controls already have their own, tuned press, so the shared one stands
+   down here instead of stacking on top of it. Rows you can swipe (steps,
+   list rows) never shrink: a press there is often the start of a drag. */
+.step:active,.drow:active,.step [role=button]:active,.drow [role=button]:active{scale:1}
+:is(.aqchip,.aqgo,.calnav,.cday,.ctl,.dchip,.dhead.dopen,.dock .tab,.dockgo,.gcard[data-jump],.gset,.lback,.lfchip,.plitem,.selact:not(:disabled),.selx,.shact,.shclose,.shdone,.shtimer,.tcb,.tcgo,.trchip,.trgo,.unbulk,.undone,.unnt,.untimer,button.dwhen.dbtn,button.dwhen.dsomeday,button.ladd.aqopen):active{scale:1}
+</style>
 <!-- suite:css v5 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
 <style id="suite-css">
 /* App colors come from each app's home-screen icon, so the bar, the icon and
@@ -1972,7 +1980,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 
 /* phone: app name on the left, the grid button on the right */
 .sx-gbtn{margin-left:auto;flex:0 0 auto;width:40px;height:40px;border-radius:12px;border:1px solid var(--sx-line);background:transparent;
-  color:var(--sx-dim);display:grid;place-items:center;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+  color:var(--sx-dim);display:grid;place-items:center;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s,scale .22s var(--sx-spring)}
 .sx-gbtn svg{width:19px;height:19px}
 .sx-gbtn[aria-expanded="true"]{background:var(--sx-hover);color:var(--sx-ink)}
 .sx-menu{position:fixed;inset:0;z-index:300}
@@ -1982,8 +1990,6 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   box-shadow:0 24px 60px -18px rgba(0,0,0,.45);display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
   transform-origin:top right;animation:sx-pop .2s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes sx-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
-.sx-menu.sx-out .sx-pop{animation:sx-unpop .15s cubic-bezier(.4,0,1,1) both}
-@keyframes sx-unpop{to{opacity:0;transform:scale(.94)}}
 .sx-cell{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 4px 10px;border-radius:16px;text-decoration:none;
   color:var(--sx-ink);font:700 12px/1.1 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
 .sx-cell img{width:54px;height:54px;border-radius:12.5px;display:block;background:var(--c);
@@ -1993,12 +1999,12 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 .sx-cell[aria-current="page"] b{color:var(--sx-dim);font-weight:700}
 .sx-cell b{font-weight:700}
 .sx-tabs{display:none}
-@media (prefers-reduced-motion:reduce){.sx-pop,.sx-menu.sx-out .sx-pop{animation:none}}
+@media (prefers-reduced-motion:reduce){.sx-pop{animation:none}}
 
 /* computer and tablet: the full bar of tabs */
 .sx-t{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px 0 11px;box-sizing:border-box;
   border-radius:999px;border:1px solid transparent;background:transparent;color:var(--sx-dim);text-decoration:none;
-  font:700 12.5px/1 'Manrope',system-ui,sans-serif;letter-spacing:.02em;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+  font:700 12.5px/1 'Manrope',system-ui,sans-serif;letter-spacing:.02em;white-space:nowrap;transition:background .15s,color .15s,border-color .15s,scale .22s var(--sx-spring)}
 .sx-t svg{width:16px;height:16px;color:var(--c);flex:0 0 auto}
 .sx-t:hover{background:var(--sx-hover);color:var(--sx-ink)}
 .sx-t:focus-visible,.sx-gbtn:focus-visible,.sx-cell:focus-visible{outline:2px solid var(--app);outline-offset:2px}
@@ -2028,6 +2034,28 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 @media (prefers-reduced-motion:reduce){
   ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
 }
+
+/* ---- motion: one feel across every app ----
+   Shared curves, a soft press under the finger on anything tappable, and
+   colors that ease instead of flipping. Everything here has zero
+   specificity (:where), so any app rule that says otherwise wins. The press
+   uses the separate `scale` property, so it stacks with whatever transform
+   an element already has instead of fighting it. */
+:root{ --sx-ease:cubic-bezier(.2,.8,.2,1); --sx-ease-in:cubic-bezier(.4,0,.9,.5); --sx-spring:cubic-bezier(.3,1.35,.5,1); }
+:where(button,[role=button],[role=tab],[role=checkbox],summary,select,a.sx-t,.sx-cell,.sx-gbtn){
+  transition:background-color .18s var(--sx-ease),color .18s var(--sx-ease),border-color .18s var(--sx-ease),
+             box-shadow .22s var(--sx-ease),opacity .2s var(--sx-ease),scale .22s var(--sx-spring)}
+:where(button:not(:disabled),[role=button],[role=tab],summary,a.sx-t,.sx-cell,.sx-gbtn):active{scale:.96;transition-duration:.06s}
+:where(input,textarea,select){transition:border-color .18s var(--sx-ease),background-color .18s var(--sx-ease),box-shadow .2s var(--sx-ease)}
+/* the sliding highlight behind segmented controls and tab rows (SX.pill) */
+.sx-pill{position:absolute;left:0;top:0;z-index:0;pointer-events:none;border-radius:10px;will-change:transform,width}
+.sx-pilled > :not(.sx-pill){position:relative;z-index:1}
+.sx-menu.sx-out .sx-pop{animation:sx-pop-out .14s var(--sx-ease-in) both}
+@keyframes sx-pop-out{to{opacity:0;transform:scale(.94)}}
+@media (prefers-reduced-motion:reduce){
+  :where(*){scale:none!important}
+  .sx-menu.sx-out .sx-pop{animation:none}
+}
 </style>
 <!-- /suite:css -->
 </head>
@@ -2055,23 +2083,171 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 <script>
 (function(){ /* suite: open/close the app grid on phones */
   var b=document.getElementById('sx-gbtn'), m=document.getElementById('sx-menu'); if(!b||!m) return;
-  var p=m.querySelector('.sx-pop'), t=0, rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)');
-  function isOpen(){ return !m.hidden && !m.classList.contains('sx-out'); }
-  function set(o){
-    clearTimeout(t); b.setAttribute('aria-expanded',o?'true':'false');
-    if(o){ if(p) p.dispatchEvent(new Event('sx-cancel')); m.classList.remove('sx-out'); m.hidden=false;
-      var f=m.querySelector('.sx-cell'); if(f) f.focus({preventScroll:true}); return; }
+  var t=null;
+  function set(o){ b.setAttribute('aria-expanded',o?'true':'false'); clearTimeout(t); m.classList.remove('sx-out');
+    if(o){ m.hidden=false; var f=m.querySelector('.sx-cell'); if(f) f.focus({preventScroll:true}); return; }
     if(m.hidden) return;
-    if(rm&&rm.matches){ m.hidden=true; return; }
-    m.classList.add('sx-out');   /* ease the grid away, then hide it */
-    var done=function(){ clearTimeout(t); p.removeEventListener('animationend',done);
-      if(m.classList.contains('sx-out')){ m.hidden=true; m.classList.remove('sx-out'); } };
-    p.addEventListener('animationend',done); t=setTimeout(done,400);
-  }
-  b.addEventListener('click',function(e){ e.stopPropagation(); set(!isOpen()); });
+    /* let the grid shrink away instead of vanishing */
+    if(window.SX && !SX.still()){ m.classList.add('sx-out'); t=setTimeout(function(){ m.hidden=true; m.classList.remove('sx-out'); },140); }
+    else m.hidden=true; }
+  /* a grid that is on its way out counts as closed, so tapping the button
+     again mid-close reopens it rather than closing it a second time */
+  function shut(){ return m.hidden || m.classList.contains('sx-out'); }
+  b.addEventListener('click',function(e){ e.stopPropagation(); set(shut()); });
   m.addEventListener('click',function(e){ if(!e.target.closest('.sx-cell')||e.target.closest('[aria-current]')) set(false); });
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isOpen()){ set(false); b.focus(); } });
-  window.addEventListener('pageshow',function(){ clearTimeout(t); m.hidden=true; m.classList.remove('sx-out'); b.setAttribute('aria-expanded','false'); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!shut()){ set(false); b.focus(); } });
+  window.addEventListener('pageshow',function(){ clearTimeout(t); m.classList.remove('sx-out'); m.hidden=true; b.setAttribute('aria-expanded','false'); });
+})();
+</script>
+<script>
+/* suite motion helpers (window.SX), shared by every app. Each one is a
+   no-op extra: if the browser can't animate or you've asked for reduced
+   motion, the change just happens, exactly as it did before.
+     SX.flip(root, sel, change)  redraw a list and let the items that stay
+                                 glide to their new spots; new ones fade in
+     SX.enter(root, sel, dir)    play a short staggered entrance on fresh content
+     SX.pill(row, activeSel)     slide a highlight to the selected tab/chip
+     SX.expand(el, open, apply)  open or close a block by its height
+     SX.morph(root, sel, prop, change)  bars and meters ease to their new size
+     SX.bump(el)                 a small pop for a value that just changed */
+(function(){
+  if(window.SX) return;
+  var mq=window.matchMedia?matchMedia('(prefers-reduced-motion: reduce)'):null;
+  var E='cubic-bezier(.2,.8,.2,1)', SPRING='cubic-bezier(.3,1.25,.5,1)';
+  function still(){ return !!(mq&&mq.matches) || typeof Element.prototype.animate!=='function'; }
+  function q(x){ return typeof x==='string'?document.querySelector(x):x; }
+  function keyOf(el,kf){ return kf?kf(el):(el.getAttribute('data-sx-key')||el.getAttribute('data-id')||el.getAttribute('data-k')||el.id||null); }
+  function quietCss(el){ /* a redraw should not replay an entrance the item already did */
+    try{ el.getAnimations({subtree:true}).forEach(function(a){ if(a.animationName) a.cancel(); }); }catch(e){} }
+
+  function flip(root,sel,change,o){
+    o=o||{}; root=q(root);
+    if(!root || still()){ change(); return; }
+    var before={}, vh=window.innerHeight;
+    root.querySelectorAll(sel).forEach(function(el){
+      var k=keyOf(el,o.key); if(k==null || before[k]) return;
+      var r=el.getBoundingClientRect(); if(!r.width && !r.height) return;
+      before[k]=r;
+    });
+    change();
+    var seen={}, n=0;
+    root.querySelectorAll(sel).forEach(function(el){
+      var k=keyOf(el,o.key); if(k==null || seen[k]) return; seen[k]=1;
+      var b=before[k], r=el.getBoundingClientRect();
+      if(!r.width && !r.height) return;
+      if(r.bottom<-40 || r.top>vh+40){ if(b) quietCss(el); return; }
+      if(b){
+        quietCss(el);
+        var dx=b.left-r.left, dy=b.top-r.top;
+        if(Math.abs(dx)<1 && Math.abs(dy)<1) return;
+        if(Math.abs(dy)>vh) dy=dy>0?vh*.5:-vh*.5;
+        el.animate([{translate:dx+'px '+dy+'px'},{translate:'0 0'}],{duration:o.dur||340,easing:E});
+      } else if(o.enter!==false){
+        quietCss(el);
+        el.animate([{opacity:0,translate:'0 6px',scale:.985},{opacity:1,translate:'0 0',scale:1}],
+                   {duration:260,delay:Math.min(n++,8)*24,easing:E,fill:'backwards'});
+      }
+    });
+  }
+
+  function enter(root,sel,dir,o){
+    o=o||{}; root=q(root); if(!root || still()) return;
+    var els=sel?root.querySelectorAll(sel):root.children, vh=window.innerHeight, i=0;
+    var from=dir==='left'?'-18px 0':dir==='right'?'18px 0':dir==='none'?'0 0':'0 8px';
+    Array.prototype.forEach.call(els,function(el){
+      if(el.classList && el.classList.contains('sx-pill')) return;
+      var r=el.getBoundingClientRect(); if(r.bottom<0 || r.top>vh || !r.height) return;
+      quietCss(el);
+      el.animate([{opacity:0,translate:from},{opacity:1,translate:'0 0'}],
+                 {duration:o.dur||300,delay:Math.min(i++,10)*(o.step==null?30:o.step),easing:E,fill:'backwards'});
+    });
+  }
+
+  var rows=[];
+  function pill(row,activeSel,o){
+    row=q(row); if(!row) return;
+    var rec=null; rows.forEach(function(x){ if(x.row===row) rec=x; });
+    if(!rec){ rec={row:row, sel:activeSel, last:null, o:o||{}}; rows.push(rec); watch(rec); }
+    rec.sel=activeSel||rec.sel; place(rec,true);
+  }
+  function place(rec,animate){
+    var row=rec.row, p=row.querySelector(':scope > .sx-pill');
+    if(!p){ p=document.createElement('span'); p.className='sx-pill'+(rec.o.cls?' '+rec.o.cls:''); p.setAttribute('aria-hidden','true'); row.insertBefore(p,row.firstChild); }
+    if(!row.classList.contains('sx-pilled')){ row.classList.add('sx-pilled');
+      if(getComputedStyle(row).position==='static') row.style.position='relative'; }
+    var a=row.querySelector(rec.sel);
+    if(!a || !a.offsetWidth){ p.style.opacity='0'; rec.last=null; return; }
+    var now={x:a.offsetLeft, y:a.offsetTop, w:a.offsetWidth, h:a.offsetHeight}, last=rec.last;
+    rec.last=now;
+    p.style.opacity='1'; p.style.width=now.w+'px'; p.style.height=now.h+'px';
+    p.style.transform='translate('+now.x+'px,'+now.y+'px)';
+    if(animate && last && !still() && (last.x!==now.x || last.y!==now.y || last.w!==now.w)){
+      p.animate([{transform:'translate('+last.x+'px,'+last.y+'px)',width:last.w+'px',height:last.h+'px'},
+                 {transform:'translate('+now.x+'px,'+now.y+'px)',width:now.w+'px',height:now.h+'px'}],
+                {duration:360,easing:SPRING});
+    }
+  }
+  function watch(rec){ if(window.ResizeObserver){ new ResizeObserver(function(){ place(rec,false); }).observe(rec.row); } }
+  window.addEventListener('resize',function(){ rows.forEach(function(r){ place(r,false); }); });
+
+  function expand(el,open,apply){
+    el=q(el); if(!el){ apply(open); return; }
+    if(el._sx){ el._sx.cancel(); el._sx=null; }
+    if(still()){ apply(open); return; }
+    var cs, h, f, a;
+    if(open){
+      apply(true); cs=getComputedStyle(el); h=el.offsetHeight; if(!h) return;
+      f={height:h+'px',paddingTop:cs.paddingTop,paddingBottom:cs.paddingBottom,marginTop:cs.marginTop,marginBottom:cs.marginBottom,opacity:1};
+      el.style.overflow='hidden';
+      a=el.animate([{height:'0px',paddingTop:'0px',paddingBottom:'0px',marginTop:'0px',marginBottom:'0px',opacity:0},f],{duration:300,easing:E});
+    } else {
+      cs=getComputedStyle(el); h=el.offsetHeight; if(!h){ apply(false); return; }
+      f={height:h+'px',paddingTop:cs.paddingTop,paddingBottom:cs.paddingBottom,marginTop:cs.marginTop,marginBottom:cs.marginBottom,opacity:1};
+      el.style.overflow='hidden';
+      a=el.animate([f,{height:'0px',paddingTop:'0px',paddingBottom:'0px',marginTop:'0px',marginBottom:'0px',opacity:0}],{duration:240,easing:E});
+    }
+    el._sx=a;
+    a.onfinish=function(){ el._sx=null; el.style.overflow=''; if(!open) apply(false); };
+    a.oncancel=function(){ el.style.overflow=''; };
+  }
+
+  /* redraw something whose bars or meters are set inline (width:40%), and
+     let each one ease from where it was instead of snapping */
+  function morph(host,sel,prop,change){
+    host=q(host); if(!host){ change(); return; }
+    var old=Array.prototype.map.call(host.querySelectorAll(sel),function(e){ return e.style[prop]; });
+    change();
+    if(still()) return;
+    var now=host.querySelectorAll(sel), to=Array.prototype.map.call(now,function(e){ return e.style[prop]; });
+    Array.prototype.forEach.call(now,function(e,i){ if(old[i]===to[i]) return; e.style.transition='none'; e.style[prop]=old[i]!=null&&old[i]!==''?old[i]:'0'; });
+    void host.offsetWidth;
+    Array.prototype.forEach.call(now,function(e,i){ e.style.transition=''; e.style[prop]=to[i]; });
+  }
+
+  function bump(el){
+    el=q(el); if(!el || still()) return;
+    el.animate([{scale:1},{scale:1.08},{scale:1}],{duration:320,easing:SPRING});
+  }
+
+  /* <details> sections open and close by height instead of snapping.
+     The toggle still happens for real, so anything listening for it works. */
+  document.addEventListener('click',function(e){
+    var sm=e.target.closest && e.target.closest('summary'); if(!sm || e.defaultPrevented) return;
+    var d=sm.parentElement; if(!d || d.tagName!=='DETAILS' || d.hasAttribute('data-sx-still') || still()) return;
+    e.preventDefault();
+    if(d._sx){ d._sx.cancel(); d._sx=null; }
+    var from=d.offsetHeight, opening=!d.open, to;
+    d.style.overflow='hidden';
+    if(opening){ d.open=true; to=d.offsetHeight; }
+    else { d.open=false; to=d.offsetHeight; d.open=true; }
+    var a=d.animate([{height:from+'px'},{height:to+'px'}],{duration:opening?320:240,easing:E});
+    d._sx=a;
+    a.onfinish=function(){ d._sx=null; d.style.overflow=''; if(!opening) d.open=false; };
+    a.oncancel=function(){ d.style.overflow=''; };
+    if(opening){ Array.prototype.forEach.call(d.children,function(c){ if(c!==sm) c.animate([{opacity:0},{opacity:1}],{duration:260,delay:60,easing:E,fill:'backwards'}); }); }
+  });
+
+  window.SX={still:still, flip:flip, enter:enter, pill:pill, expand:expand, morph:morph, bump:bump};
 })();
 </script>
 <!-- /suite:bar -->
@@ -10307,6 +10483,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.19-f', note:'ONE FEEL ACROSS ALL FIVE APPS: Protocol now shares the same motion as Kitchen, Grocery, Lift and DishLog \u2014 a soft press under your finger on buttons, smooth-opening sections, and the same easing everywhere. Controls that already had their own press keep it, and rows you swipe never shrink when you touch them. Fixed: tapping the app grid button while it was closing closed it again instead of reopening it.'},
   {v:'2026.10.19-e', note:'POLISH PASS: switching Today and Lists now eases the old view out before the new one comes in, instead of cutting. The Up Next card folds away when the day is done instead of vanishing. The reschedule panel and the earlier-updates list close as smoothly as they open, and the app grid closes with a fade in every app.'},
   {v:'2026.10.19-d', note:'SMOOTHER OPENING: Protocol now eases in when you open it \u2014 the header settles, each section rises in turn, and the dock slides up last. Moving between your apps cross-fades instead of cutting, with the top bar holding still. The square next to each app\u2019s name is now its real icon.'},
   {v:'2026.10.19-c', note:'REAL ICONS IN THE APP GRID: the grid button now shows each app\u2019s actual home-screen icon \u2014 the K, G, L, D and P \u2014 instead of plain line drawings, so it looks like a mini home screen.'},
