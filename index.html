@@ -957,6 +957,8 @@ body.on-lists .gcards,body.on-lists header.gh .hstats{display:none;}
 .dock .tabs::before{content:'';position:absolute;top:5px;bottom:5px;left:5px;width:calc(50% - 7px);
   border-radius:23px;background:#EEF0F3;transition:transform .38s var(--ease);}
 body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
+.dock.to-lists .tabs::before{transform:translateX(calc(100% + 4px))!important;}
+.dock.to-today .tabs::before{transform:none!important;}
 .dock .tab{flex:1;min-height:0;height:100%;background:transparent!important;border:0!important;border-radius:23px;
   color:#A3A9B3;font-family:'Geist',sans-serif;font-size:14px;font-weight:500;letter-spacing:0;
   text-transform:none;padding:0;display:flex;align-items:center;justify-content:center;gap:6px;
@@ -1935,7 +1937,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   setTimeout(function(){ h.classList.remove('g-open'); },1400);
 })();
 </script>
-<!-- suite:css v4 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
+<!-- suite:css v5 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
 <style id="suite-css">
 /* App colors come from each app's home-screen icon, so the bar, the icon and
    the page all agree. The tab for every app carries its own color, so the
@@ -1980,6 +1982,8 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   box-shadow:0 24px 60px -18px rgba(0,0,0,.45);display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
   transform-origin:top right;animation:sx-pop .2s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes sx-pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.sx-menu.sx-out .sx-pop{animation:sx-unpop .15s cubic-bezier(.4,0,1,1) both}
+@keyframes sx-unpop{to{opacity:0;transform:scale(.94)}}
 .sx-cell{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 4px 10px;border-radius:16px;text-decoration:none;
   color:var(--sx-ink);font:700 12px/1.1 'Manrope',system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
 .sx-cell img{width:54px;height:54px;border-radius:12.5px;display:block;background:var(--c);
@@ -1989,7 +1993,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 .sx-cell[aria-current="page"] b{color:var(--sx-dim);font-weight:700}
 .sx-cell b{font-weight:700}
 .sx-tabs{display:none}
-@media (prefers-reduced-motion:reduce){.sx-pop{animation:none}}
+@media (prefers-reduced-motion:reduce){.sx-pop,.sx-menu.sx-out .sx-pop{animation:none}}
 
 /* computer and tablet: the full bar of tabs */
 .sx-t{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px 0 11px;box-sizing:border-box;
@@ -2051,12 +2055,23 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 <script>
 (function(){ /* suite: open/close the app grid on phones */
   var b=document.getElementById('sx-gbtn'), m=document.getElementById('sx-menu'); if(!b||!m) return;
-  function set(o){ m.hidden=!o; b.setAttribute('aria-expanded',o?'true':'false');
-    if(o){ var f=m.querySelector('.sx-cell'); if(f) f.focus({preventScroll:true}); } }
-  b.addEventListener('click',function(e){ e.stopPropagation(); set(m.hidden); });
+  var p=m.querySelector('.sx-pop'), t=0, rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)');
+  function isOpen(){ return !m.hidden && !m.classList.contains('sx-out'); }
+  function set(o){
+    clearTimeout(t); b.setAttribute('aria-expanded',o?'true':'false');
+    if(o){ if(p) p.dispatchEvent(new Event('sx-cancel')); m.classList.remove('sx-out'); m.hidden=false;
+      var f=m.querySelector('.sx-cell'); if(f) f.focus({preventScroll:true}); return; }
+    if(m.hidden) return;
+    if(rm&&rm.matches){ m.hidden=true; return; }
+    m.classList.add('sx-out');   /* ease the grid away, then hide it */
+    var done=function(){ clearTimeout(t); p.removeEventListener('animationend',done);
+      if(m.classList.contains('sx-out')){ m.hidden=true; m.classList.remove('sx-out'); } };
+    p.addEventListener('animationend',done); t=setTimeout(done,400);
+  }
+  b.addEventListener('click',function(e){ e.stopPropagation(); set(!isOpen()); });
   m.addEventListener('click',function(e){ if(!e.target.closest('.sx-cell')||e.target.closest('[aria-current]')) set(false); });
-  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!m.hidden){ set(false); b.focus(); } });
-  window.addEventListener('pageshow',function(){ set(false); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&isOpen()){ set(false); b.focus(); } });
+  window.addEventListener('pageshow',function(){ clearTimeout(t); m.hidden=true; m.classList.remove('sx-out'); b.setAttribute('aria-expanded','false'); });
 })();
 </script>
 <!-- /suite:bar -->
@@ -5412,10 +5427,13 @@ list.addEventListener('click',e=>{
   const lb=e.target.closest('[data-late]');
   if(lb){
     const pan=lb.closest('.step').querySelector('.resched');
-    if(pan){ pan.hidden=!pan.hidden; if(!pan.hidden) pan.querySelector('.rdate').focus(); }
+    if(pan){
+      if(pan.hidden || pan._shut){ unshut(pan); pan.hidden=false; pan.querySelector('.rdate').focus(); }
+      else shutEl(pan,()=>{ pan.hidden=true; });
+    }
     return;
   }
-  if(e.target.closest('[data-rcancel]')){ e.target.closest('.resched').hidden=true; return; }
+  if(e.target.closest('[data-rcancel]')){ const pan=e.target.closest('.resched'); shutEl(pan,()=>{ pan.hidden=true; }); return; }
   const mv=e.target.closest('[data-move]');
   if(mv){
     const key=mv.dataset.move, v=mv.closest('.resched').querySelector('.rdate').value;
@@ -6039,7 +6057,12 @@ function paintUpNext(){
   const box=document.getElementById('upnext'); if(!box) return;
   allRows().forEach(r=>r.classList.remove('cur'));
   const r=upNextRow();
-  if(!r){ box.hidden=true; UPKEY=null; return; }
+  if(!r){
+    if(!box.hidden && paint.ready && !box._shut) shutEl(box,()=>{ box.hidden=true; });
+    else if(!box._shut) box.hidden=true;
+    UPKEY=null; return;
+  }
+  unshut(box);
   r.classList.add('cur');
   const key=r.dataset.n;
   const lab=r.querySelector('.label').cloneNode(true);
@@ -6136,6 +6159,21 @@ function expandEl(el){
   const a=anim(el,[{height:'0px',opacity:0},{height:h+'px',opacity:1}],{duration:340});
   if(a) a.onfinish=()=>{ el.style.overflow=''; }; else el.style.overflow='';
 }
+/* Close something smoothly, then hide it. fill:forwards holds it shut until
+   the callback has hidden it, so there is no one-frame flash at the end, and
+   anything that reopens it mid-way cancels the close (see unshut). */
+function shutEl(el,then){
+  if(!el){ return; }
+  unshut(el);
+  const h=el.offsetHeight;
+  if(!h || !el.animate || REDUCED()){ then&&then(); return; }
+  el.style.overflow='hidden';
+  const a=el.animate([{height:h+'px',opacity:1},{height:'0px',opacity:0,marginTop:'0px',marginBottom:'0px',paddingTop:'0px',paddingBottom:'0px'}],
+                     {duration:260,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'});
+  el._shut=a;
+  a.onfinish=()=>{ if(el._shut!==a) return; el._shut=null; then&&then(); a.cancel(); el.style.overflow=''; };
+}
+function unshut(el){ if(el&&el._shut){ const a=el._shut; el._shut=null; a.cancel(); el.style.overflow=''; } }
 let PENDING=null;
 function after(fn){ PENDING={fn:fn,t:Date.now()}; }
 function runPending(){
@@ -7461,7 +7499,32 @@ function addListItem(lid,text,due){
 }
 
 /* ---------------- tabs ---------------- */
+/* Switching tabs: the tab pill moves at once, the view you are leaving eases
+   out for a beat (with the header stats if they are about to go), then the
+   new view eases in. Taps during the beat simply win; the last one counts. */
+let VIEWT=0;
 function showView(which){
+  const tok=++VIEWT, lists=which==='lists';
+  const out=document.getElementById(lists?'view-today':'view-lists');
+  const dock=document.getElementById('dock');
+  if(!paint.ready || !out || out.hidden || REDUCED() || !out.animate || document.body.classList.contains('on-lists')===lists){
+    if(dock) dock.classList.remove('to-lists','to-today');
+    return showViewNow(which);
+  }
+  if(dock){ dock.classList.toggle('to-lists',lists); dock.classList.toggle('to-today',!lists); }
+  const tt=document.getElementById('tab-today'), tl=document.getElementById('tab-lists');
+  if(tt) tt.setAttribute('aria-selected',String(!lists));
+  if(tl) tl.setAttribute('aria-selected',String(lists));
+  const leaving=[out].concat(lists?[...document.querySelectorAll('#gcards, header.gh .hstats, #jbar')]:[]);
+  const opts={duration:140,easing:'cubic-bezier(.4,0,1,1)',fill:'forwards'};
+  const anims=leaving.map(el=>el.animate([{opacity:1,transform:'none'},
+    {opacity:0,transform:el===out?`translateX(${lists?-18:18}px)`:'translateY(-4px)'}],opts));
+  anims[0].onfinish=()=>{
+    if(tok===VIEWT){ if(dock) dock.classList.remove('to-lists','to-today'); showViewNow(which); }
+    anims.forEach(a=>a.cancel());
+  };
+}
+function showViewNow(which){
   const lists = which==='lists';
   const vt=document.getElementById('view-today'), vl=document.getElementById('view-lists');
   if(vt) vt.hidden=lists;
@@ -7482,6 +7545,7 @@ function showView(which){
   if(paint.ready){
     arrive(lists?vl:vt, lists?26:-26, 0);
     arrive(document.getElementById('gtitle'),0,6);
+    if(!lists) document.querySelectorAll('#gcards, header.gh .hstats').forEach(el=>arrive(el,0,6));
   }
 }
 document.getElementById('tab-today').addEventListener('click',()=>{
@@ -10243,6 +10307,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.19-e', note:'POLISH PASS: switching Today and Lists now eases the old view out before the new one comes in, instead of cutting. The Up Next card folds away when the day is done instead of vanishing. The reschedule panel and the earlier-updates list close as smoothly as they open, and the app grid closes with a fade in every app.'},
   {v:'2026.10.19-d', note:'SMOOTHER OPENING: Protocol now eases in when you open it \u2014 the header settles, each section rises in turn, and the dock slides up last. Moving between your apps cross-fades instead of cutting, with the top bar holding still. The square next to each app\u2019s name is now its real icon.'},
   {v:'2026.10.19-c', note:'REAL ICONS IN THE APP GRID: the grid button now shows each app\u2019s actual home-screen icon \u2014 the K, G, L, D and P \u2014 instead of plain line drawings, so it looks like a mini home screen.'},
   {v:'2026.10.19-b', note:'APP GRID ON PHONES, FULL WIDTH ON COMPUTERS. On a phone the top of every app is now just its name and the grid button \u2014 tap it for all five apps. On a computer the full bar of tabs stays, and the page now uses the whole window: the checklist sections flow into side-by-side columns on wide screens.'},
@@ -10417,9 +10482,11 @@ try{
     '<li><code>'+esc(c.v)+'</code>'+esc(c.note)+'</li>').join('');
   if(CHANGELOG.length<2){ hb.hidden=true; }
   hb.addEventListener('click',()=>{
-    hl.hidden=!hl.hidden;
-    hb.setAttribute('aria-expanded',String(!hl.hidden));
-    hb.textContent=hl.hidden?'earlier':'hide';
+    const opening=hl.hidden || !!hl._shut;
+    if(opening){ unshut(hl); hl.hidden=false; expandEl(hl); }
+    else shutEl(hl,()=>{ hl.hidden=true; });
+    hb.setAttribute('aria-expanded',String(opening));
+    hb.textContent=opening?'hide':'earlier';
   });
 }catch(e){}
 
