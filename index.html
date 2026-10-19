@@ -1828,6 +1828,21 @@ a.appi:active{background:rgba(255,255,255,.07);}
   padding:0 14px;color-scheme:dark;}
 .schgo{flex:0 0 auto;height:48px;padding:0 18px;border:0;border-radius:14px;background:var(--extra);color:#08121C;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
 .schedsheet .shact{text-transform:none;}
+.spv{animation:g-rise .28s var(--ease) both;}
+.spvhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;}
+.spvday{flex:1;text-align:center;display:flex;flex-direction:column;gap:2px;}
+.spvday b{font-size:19px;font-weight:600;letter-spacing:-.015em;}
+.spvday span{font-size:12.5px;color:var(--dimmer);}
+.spvcount{margin:16px 0 6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);}
+.spvlist{border-top:1px solid var(--hair);max-height:42vh;overflow:auto;}
+.spvrow{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--hair);}
+.spvrow i{flex:0 0 auto;width:7px;height:7px;border-radius:50%;}
+.spvl{flex:1;min-width:0;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.spvt{flex:0 0 auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--dimmer);}
+.spvreps{margin:12px 2px 0;font-size:13px;color:var(--dim);line-height:1.45;}
+.spvreps b{color:var(--ink);font-weight:600;margin-right:4px;}
+.spvfree{margin:6px 2px 0;font-size:14px;color:var(--dim);}
+.spvbtns{margin-top:18px;}
 /* ---- add sheet ---- */
 .addwrap{z-index:113;}
 .addsheet{bottom:var(--kb,0px);max-height:calc(88vh - var(--kb,0px));transition:transform .36s var(--ease),bottom .25s var(--ease);}
@@ -9257,22 +9272,67 @@ function schedTarget(id){
 function openSched(id){
   const c=schedTarget(id); if(!c) return;
   SCHED=id;
+  const sh=document.getElementById('schedsheet');
+  sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">GIVE IT A DAY</span>`+
+    `<h2 id="schedtitle">${esc(c.l)}</h2>${c.date?`<span class="shprod">Now ${esc(dayWord(c.date))}</span>`:''}</div>`+
+    `<button class="shclose" data-sch="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
+    `<div id="schbody">${schedPickHTML(c)}</div>`;
+  const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+}
+function schedPickHTML(c,ym){
   const t=today(), d=n=>addDaysISO(t,n);
   const sat=(()=>{ for(let i=1;i<8;i++){ if(dayOf(d(i)).getDay()===6) return d(i); } return d(1); })();
   const mon=(()=>{ for(let i=1;i<8;i++){ if(dayOf(d(i)).getDay()===1) return d(i); } return d(1); })();
   const wk=v=>dayOf(v).toLocaleDateString('en-US',{weekday:'long'});
   const chips=[['Today',t],['Tomorrow',d(1)]].concat([sat,mon].sort().map(v=>[wk(v),v]))
     .filter((x,i,a)=>a.findIndex(y=>y[1]===x[1])===i);
-  const sh=document.getElementById('schedsheet');
-  sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">GIVE IT A DAY</span>`+
-    `<h2 id="schedtitle">${esc(c.l)}</h2>${c.date?`<span class="shprod">Now ${esc(dayWord(c.date))}</span>`:''}</div>`+
-    `<button class="shclose" data-sch="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
-    `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
-    `<div class="schcal" id="schcal">${calHTML((c.date&&c.date>=t?c.date:t).slice(0,7),c.date,t)}</div>`+
+  return `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
+    `<div class="schcal" id="schcal">${calHTML(ym||(c.date&&c.date>=t?c.date:t).slice(0,7),c.date,t)}</div>`+
     `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">${c.list?'Remove date':'Back to Someday'}</button>`:''}`+
     `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':c.list?'Leave undated':'Leave on Someday'}</button></div>`;
-  const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+}
+/* LOOK BEFORE YOU COMMIT. Tapping a day no longer schedules straight away:
+   it shows what that day already holds -- assignments, one-offs, and the
+   recurring extras landing on it -- so you can see whether it fits. Confirm
+   to schedule, step a day either way, or go back to the calendar. */
+function schedDayLoad(iso,skip){
+  const rows=[];
+  try{
+    const B=listBuckets();
+    [].concat(B.today,B.tomorrow,B.week,B.fortnight,B.later).forEach(r=>{
+      if(r.due!==iso || r.routine) return;
+      if(skip && ((r.task&&r.cid===skip) || (!r.task&&('l:'+r.lid+'|'+r.iid)===skip))) return;
+      rows.push(r);
+    });
+  }catch(e){}
+  let reps=[];
+  try{ reps=ROUTINES.filter(r=>plannable(r) && planDate(r)===iso).map(r=>r.l); }catch(e){}
+  return {rows,reps};
+}
+function schedPreview(iso){
+  const c=schedTarget(SCHED); if(!c) return;
+  const t=today(), L=schedDayLoad(iso,SCHED), open=L.rows.filter(r=>!r.done);
+  const long=dayOf(iso).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const rel=iso===t?'Today':iso===addDaysISO(t,1)?'Tomorrow':dayOf(iso).toLocaleDateString('en-US',{weekday:'long'});
+  const sub=(iso===t||iso===addDaysISO(t,1))?long:dayOf(iso).toLocaleDateString('en-US',{month:'long',day:'numeric'});
+  const tag=r=>r.task?'Task':r.code||r.list||'';
+  const dot=r=>r.task?'var(--extra)':courseHex(r.tint);
+  const when=r=>r.inclass?'class':r.at?prettyTime(r.at).replace(' ','').toLowerCase():'';
+  const n=open.length+L.reps.length;
+  const body=(open.length?`<div class="spvlist">`+open.map(r=>
+      `<div class="spvrow"><i style="background:${dot(r)}"></i><span class="spvl">${esc(r.text)}</span>`+
+      `<span class="spvt">${esc(when(r)||tag(r))}</span></div>`).join('')+`</div>`:'')+
+    (L.reps.length?`<p class="spvreps"><b>${L.reps.length} recurring</b> ${esc(L.reps.slice(0,4).join(' \u00b7 '))}${L.reps.length>4?' +'+(L.reps.length-4):''}</p>`:'')+
+    (!n?`<p class="spvfree">Nothing on it yet \u2014 a free day.</p>`:'');
+  document.getElementById('schbody').innerHTML=
+    `<div class="spv" data-spv="${iso}">`+
+    `<div class="spvhead"><button class="calnav" type="button" data-spvstep="-1" aria-label="Previous day"${iso<=t?' disabled':''}>${CHEVL}</button>`+
+    `<div class="spvday"><b>${esc(rel)}</b><span>${esc(sub)}</span></div>`+
+    `<button class="calnav" type="button" data-spvstep="1" aria-label="Next day">${CHEVR}</button></div>`+
+    `<p class="spvcount">${n?`Already ${n} thing${n>1?'s':''} on this day`:'Already on this day'}</p>`+body+
+    `<div class="tcbtns spvbtns"><button class="tcgo" data-sch="confirm" type="button">${c.list?'Due':'Schedule for'} ${esc(rel)}</button></div>`+
+    `<div class="shacts"><button class="shact" data-sch="back" type="button">Pick another day</button></div></div>`;
 }
 function closeSched(){
   const w=document.getElementById('schedwrap'); if(w.hidden) return;
@@ -9301,10 +9361,12 @@ function schedTo(day){
 }
 document.getElementById('schedback').addEventListener('click',closeSched);
 document.getElementById('schedsheet').addEventListener('click',e=>{
-  const dd=e.target.closest('[data-schday]'); if(dd){ schedTo(dd.dataset.schday); return; }
-  /* A tap on the grid is a deliberate pick -- unlike the iPhone picker it
-     cannot fire on its own -- so it schedules straight away. */
-  const cd=e.target.closest('[data-cal]'); if(cd && !cd.disabled){ schedTo(cd.dataset.cal); return; }
+  const dd=e.target.closest('[data-schday]'); if(dd){ schedPreview(dd.dataset.schday); return; }
+  /* A tap on a day opens its preview; Confirm there is what schedules. */
+  const cd=e.target.closest('[data-cal]'); if(cd && !cd.disabled){ schedPreview(cd.dataset.cal); return; }
+  const sp=e.target.closest('[data-spvstep]');
+  if(sp && !sp.disabled){ const cur=document.querySelector('#schbody [data-spv]');
+    if(cur) schedPreview(addDaysISO(cur.dataset.spv, +sp.dataset.spvstep)); return; }
   const nv=e.target.closest('[data-calnav]');
   if(nv && !nv.disabled){ const h=document.getElementById('schcal'), c=(S.custom||[]).find(x=>x.id===SCHED);
     calNav(h, +nv.dataset.calnav, (schedTarget(SCHED)||{}).date, today()); return; }
@@ -9312,6 +9374,9 @@ document.getElementById('schedsheet').addEventListener('click',e=>{
   const v=a.dataset.sch;
   if(v==='close'){ closeSched(); return; }
   if(v==='some'){ schedTo(null); return; }
+  if(v==='confirm'){ const cur=document.querySelector('#schbody [data-spv]'); if(cur) schedTo(cur.dataset.spv); return; }
+  if(v==='back'){ const cur=document.querySelector('#schbody [data-spv]'), c=schedTarget(SCHED);
+    if(c) document.getElementById('schbody').innerHTML=schedPickHTML(c, cur&&cur.dataset.spv.slice(0,7)); return; }
   if(v==='go'){ const i=document.getElementById('schdate'); if(!i.value){ toast('Pick a day first'); return; } schedTo(i.value); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('schedwrap').hidden) closeSched(); });
@@ -10092,6 +10157,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.19-a', note:'LOOK BEFORE YOU SCHEDULE: in Give it a day (Schedule on Someday, or a date pill in Lists), tapping a day now shows what that day already holds \u2014 assignments, one-offs and the recurring extras landing on it \u2014 so you can see whether it fits. Tap Schedule to commit, the arrows to check the day before or after, or Pick another day to go back to the calendar.'},
   {v:'2026.10.18-e', note:'ONE SYSTEM WITH THE OTHER APPS. The app bar at the top is now the same one Kitchen, Grocery, Lift and DishLog use, color-coded per app (Protocol is mint) — it replaces the old grid button. The Today title matches the other apps. ON A COMPUTER OR TABLET the page no longer stays a phone-width column: the day at a glance (cards, counts) pins on the left with Today/Lists and the jump button under it, the checklist fills the right, and sheets open centered.'},
   {v:'2026.10.18-d', note:'Touch-ups. DAY BUTTONS in Lists (today, tomorrow, schedule) lose the heavy outlined box and read like the other day labels — still tappable to change the day. ADD A DATE TO LIST ITEMS: anything on a list now has a date pill — add date on undated items, or tap the date to change or remove it. THE SUNDAY CARD (and the other Today cards) now sits a proper gap below Protocol / Extras / School instead of touching them.'},
   {v:'2026.10.18-c', note:'ADDING A TASK, REDONE. Every + (the round one on Lists, the one at the top of Today, and the add rows on the date list and under Someday) now opens one add sheet that slides up with the keyboard already open. Pick the day from a row of chips — Someday, Today, Tomorrow and the next few days — or tap More for a month calendar built into the app instead of the iPhone date picker. Return adds it, clears the box and stays open, so you can add several in a row; each one shows in the sheet as it lands, and glows in its place on the list when you close it. Swipe the handle down or tap outside to close. It starts on Someday, or on the day you have open. The Schedule sheet and the day chip on a dated task use the same calendar now, and a tap on a date schedules it.'},
