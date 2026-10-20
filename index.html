@@ -1945,23 +1945,23 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 .step:active,.drow:active,.step [role=button]:active,.drow [role=button]:active{scale:1}
 :is(.aqchip,.aqgo,.calnav,.cday,.ctl,.dchip,.dhead.dopen,.dock .tab,.dockgo,.gcard[data-jump],.gset,.lback,.lfchip,.plitem,.selact:not(:disabled),.selx,.shact,.shclose,.shdone,.shtimer,.tcb,.tcgo,.trchip,.trgo,.unbulk,.undone,.unnt,.untimer,button.dwhen.dbtn,button.dwhen.dsomeday,button.ladd.aqopen):active{scale:1}
 </style>
-<!-- suite:css v5 · shared by Kitchen, Grocery, Lift, DishLog, Protocol — edit tools/suite.py in the kitchen repo, not here -->
+<!-- suite:css v6 · shared by Kitchen, Grocery, Lift, DishLog, Protocol, Rail — edit tools/suite.py in the kitchen repo, not here -->
 <style id="suite-css">
 /* App colors come from each app's home-screen icon, so the bar, the icon and
    the page all agree. The tab for every app carries its own color, so the
    whole set reads as one color-coded system wherever you are in it. */
 .sx-bar{
-  --sx-kitchen:#7A2E1E; --sx-grocery:#2D5840; --sx-lift:#A8522B; --sx-dishlog:#6A2347; --sx-protocol:#1E3550;
+  --sx-kitchen:#7A2E1E; --sx-grocery:#2D5840; --sx-lift:#A8522B; --sx-dishlog:#6A2347; --sx-protocol:#1E3550; --sx-rail:#3A2A63;
   --sx-on:#FFF8EF;
   --sx-paper:#FAF6F0; --sx-ink:#1F1A14; --sx-dim:#7D7262; --sx-line:#DDD3C2; --sx-hover:#EFE7DA;
 }
 @media (prefers-color-scheme:dark){ .sx-bar:not(.sx-light){
-  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0;
+  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2;
   --sx-on:#15120E;
   --sx-paper:#17140F; --sx-ink:#F1EADF; --sx-dim:#A0947F; --sx-line:#3B342B; --sx-hover:#2A251E;
 }}
 .sx-bar.sx-dark{
-  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0;
+  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2;
   --sx-on:#15120E;
 }
 /* layout tokens every app's own layout lines up with. No width cap: on a
@@ -2069,6 +2069,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <a class="sx-t" style="--c:var(--sx-lift)" href="https://frostie4life9.github.io/kitchen/workout.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M4 9.5v5M20 9.5v5M6.5 12h11"/></svg>Lift</a>
     <a class="sx-t" style="--c:var(--sx-dishlog)" href="https://frostie4life9.github.io/kitchen/dishlog.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11M17 21V3c-2 0-3.5 2.5-3.5 6s1.5 4 3.5 4"/></svg>DishLog</a>
     <a class="sx-t" style="--c:var(--sx-protocol)" href="./" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg>Protocol</a>
+    <a class="sx-t" style="--c:var(--sx-rail)" href="https://frostie4life9.github.io/the-rail/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2V7.4c0-.5.3-.9.8-1.1.6-.3 1.2-.7 1.2-1.6a2 2 0 0 0-4 0"/><path d="M12 8.2 3.6 14.4c-.9.7-.5 2.1.7 2.1h15.4c1.2 0 1.6-1.4.7-2.1z"/><path d="M8 16.5v3.5h8v-3.5"/></svg>Rail</a>
   </div>
   <button class="sx-gbtn" id="sx-gbtn" type="button" aria-label="Your apps" aria-haspopup="true" aria-expanded="false" aria-controls="sx-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></button>
 </div>
@@ -2078,6 +2079,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <a class="sx-cell" style="--c:var(--sx-lift)" href="https://frostie4life9.github.io/kitchen/workout.html"><img src="https://frostie4life9.github.io/kitchen/icons/lift-180.png" alt="" width="54" height="54" decoding="async"><b>Lift</b></a>
     <a class="sx-cell" style="--c:var(--sx-dishlog)" href="https://frostie4life9.github.io/kitchen/dishlog.html"><img src="https://frostie4life9.github.io/kitchen/icons/dishlog-180.png" alt="" width="54" height="54" decoding="async"><b>DishLog</b></a>
     <a class="sx-cell" style="--c:var(--sx-protocol)" href="./" aria-current="page"><img src="apple-touch-icon.png?v=20261017p" alt="" width="54" height="54" decoding="async"><b>Protocol</b></a>
+    <a class="sx-cell" style="--c:var(--sx-rail)" href="https://frostie4life9.github.io/the-rail/"><img src="https://frostie4life9.github.io/the-rail/icons/rail-180.png?v=1" alt="" width="54" height="54" decoding="async"><b>Rail</b></a>
 </div></div>
 </nav>
 <script>
@@ -2544,6 +2546,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <a class="appi" href="https://frostie4life9.github.io/kitchen/grocery.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.2l2.2 11h10.4l2-7.5H6.4"/><circle cx="9.5" cy="19.5" r="1.4"/><circle cx="16.5" cy="19.5" r="1.4"/></svg><span>Grocery</span></a>
     <a class="appi" href="https://frostie4life9.github.io/kitchen/workout.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 7v10M17.5 7v10M4 9.5v5M20 9.5v5M6.5 12h11"/></svg><span>Lift</span></a>
     <a class="appi" href="https://frostie4life9.github.io/kitchen/dishlog.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5a2 2 0 0 0 4 0V3M7 10v11M17 21V3c-2 0-3.5 2.5-3.5 6s1.5 4 3.5 4"/></svg><span>DishLog</span></a>
+    <a class="appi" href="https://frostie4life9.github.io/the-rail/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2V7.4c0-.5.3-.9.8-1.1.6-.3 1.2-.7 1.2-1.6a2 2 0 0 0-4 0"/><path d="M12 8.2 3.6 14.4c-.9.7-.5 2.1.7 2.1h15.4c1.2 0 1.6-1.4.7-2.1z"/><path d="M8 16.5v3.5h8v-3.5"/></svg><span>Rail</span></a>
     <span class="appi here" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg><span>Protocol</span><i>here</i></span>
   </nav>
 </div>
@@ -10501,6 +10504,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.20-a', note:'THE RAIL JOINS THE SUITE: your wardrobe app now sits in the top bar and the app grid next to Kitchen, Grocery, Lift and DishLog, with its own violet tile and icon. It\u2019s in the dock\u2019s app menu too.'},
   {v:'2026.10.19-f', note:'ONE FEEL ACROSS ALL FIVE APPS: Protocol now shares the same motion as Kitchen, Grocery, Lift and DishLog \u2014 a soft press under your finger on buttons, smooth-opening sections, and the same easing everywhere. Controls that already had their own press keep it, and rows you swipe never shrink when you touch them. Fixed: tapping the app grid button while it was closing closed it again instead of reopening it.'},
   {v:'2026.10.19-e', note:'POLISH PASS: switching Today and Lists now eases the old view out before the new one comes in, instead of cutting. The Up Next card folds away when the day is done instead of vanishing. The reschedule panel and the earlier-updates list close as smoothly as they open, and the app grid closes with a fade in every app.'},
   {v:'2026.10.19-e', note:'CLEARER CLASS COLOURS: each class now gets its own colour \u2014 no two share one any more, where before GCC, IG&R and MB were all teal \u2014 and the set is brighter and further apart. ROUNDED ICON: the app icon has soft rounded corners in the browser tab, the taskbar and when installed, instead of a hard square.'},
