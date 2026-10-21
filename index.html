@@ -1945,23 +1945,23 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 .step:active,.drow:active,.step [role=button]:active,.drow [role=button]:active{scale:1}
 :is(.aqchip,.aqgo,.calnav,.cday,.ctl,.dchip,.dhead.dopen,.dock .tab,.dockgo,.gcard[data-jump],.gset,.lback,.lfchip,.plitem,.selact:not(:disabled),.selx,.shact,.shclose,.shdone,.shtimer,.tcb,.tcgo,.trchip,.trgo,.unbulk,.undone,.unnt,.untimer,button.dwhen.dbtn,button.dwhen.dsomeday,button.ladd.aqopen):active{scale:1}
 </style>
-<!-- suite:css v8 · shared by Kitchen, Grocery, Lift, DishLog, Protocol, Rail, Game Log — edit tools/suite.py in the kitchen repo, not here -->
+<!-- suite:css v9 · shared by Kitchen, Grocery, Lift, DishLog, Protocol, Rail, Game Log, Playback — edit tools/suite.py in the kitchen repo, not here -->
 <style id="suite-css">
 /* App colors come from each app's home-screen icon, so the bar, the icon and
    the page all agree. The tab for every app carries its own color, so the
    whole set reads as one color-coded system wherever you are in it. */
 .sx-bar{
-  --sx-kitchen:#7A2E1E; --sx-grocery:#2D5840; --sx-lift:#A8522B; --sx-dishlog:#6A2347; --sx-protocol:#1E3550; --sx-rail:#3A2A63; --sx-gamelog:#242B5C;
+  --sx-kitchen:#7A2E1E; --sx-grocery:#2D5840; --sx-lift:#A8522B; --sx-dishlog:#6A2347; --sx-protocol:#1E3550; --sx-rail:#3A2A63; --sx-gamelog:#242B5C; --sx-playback:#124C50;
   --sx-on:#FFF8EF;
   --sx-paper:#FAF6F0; --sx-ink:#1F1A14; --sx-dim:#7D7262; --sx-line:#DDD3C2; --sx-hover:#EFE7DA;
 }
 @media (prefers-color-scheme:dark){ .sx-bar:not(.sx-light){
-  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2; --sx-gamelog:#F5B63F;
+  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2; --sx-gamelog:#F5B63F; --sx-playback:#6FD3C6;
   --sx-on:#15120E;
   --sx-paper:#17140F; --sx-ink:#F1EADF; --sx-dim:#A0947F; --sx-line:#3B342B; --sx-hover:#2A251E;
 }}
 .sx-bar.sx-dark{
-  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2; --sx-gamelog:#F5B63F;
+  --sx-kitchen:#E8987C; --sx-grocery:#7CC39A; --sx-lift:#EE9C66; --sx-dishlog:#DD8DB2; --sx-protocol:#5FE6B0; --sx-rail:#B9A6F2; --sx-gamelog:#F5B63F; --sx-playback:#6FD3C6;
   --sx-on:#15120E;
 }
 /* layout tokens every app's own layout lines up with. No width cap: on a
@@ -2071,6 +2071,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <a class="sx-t" style="--c:var(--sx-protocol)" href="./" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H16M14.5 15.5H16"/></svg>Protocol</a>
     <a class="sx-t" style="--c:var(--sx-rail)" href="https://frostie4life9.github.io/the-rail/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2V7.4c0-.5.3-.9.8-1.1.6-.3 1.2-.7 1.2-1.6a2 2 0 0 0-4 0"/><path d="M12 8.2 3.6 14.4c-.9.7-.5 2.1.7 2.1h15.4c1.2 0 1.6-1.4.7-2.1z"/><path d="M8 16.5v3.5h8v-3.5"/></svg>Rail</a>
     <a class="sx-t" style="--c:var(--sx-gamelog)" href="https://frostie4life9.github.io/gamelog/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7.5h9a4.5 4.5 0 0 1 4.5 4.5v2.6a2.9 2.9 0 0 1-5.3 1.6l-1-1.7h-5.4l-1 1.7A2.9 2.9 0 0 1 3 14.6V12a4.5 4.5 0 0 1 4.5-4.5z"/><path d="M7.5 10.5v3M6 12h3M15.5 11h.01M17.5 13h.01"/></svg>Game Log</a>
+    <a class="sx-t" style="--c:var(--sx-playback)" href="https://frostie4life9.github.io/playback/"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><circle cx="8.5" cy="11" r="1.7"/><circle cx="15.5" cy="11" r="1.7"/><path d="M10.2 11h3.6M7.2 18.5l1.3-3h7l1.3 3"/></svg>Playback</a>
   </div>
   <button class="sx-gbtn" id="sx-gbtn" type="button" aria-label="Your apps" aria-haspopup="true" aria-expanded="false" aria-controls="sx-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></button>
 </div>
@@ -2082,6 +2083,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <a class="sx-cell" style="--c:var(--sx-protocol)" href="./" aria-current="page"><img src="apple-touch-icon.png?v=20261017p" alt="" width="54" height="54" decoding="async"><b>Protocol</b></a>
     <a class="sx-cell" style="--c:var(--sx-rail)" href="https://frostie4life9.github.io/the-rail/"><img src="https://frostie4life9.github.io/the-rail/icons/rail-180.png?v=1" alt="" width="54" height="54" decoding="async"><b>Rail</b></a>
     <a class="sx-cell" style="--c:var(--sx-gamelog)" href="https://frostie4life9.github.io/gamelog/"><img src="https://frostie4life9.github.io/gamelog/apple-touch-icon.png?v=20261021a" alt="" width="54" height="54" decoding="async"><b>Game Log</b></a>
+    <a class="sx-cell" style="--c:var(--sx-playback)" href="https://frostie4life9.github.io/playback/"><img src="https://frostie4life9.github.io/playback/apple-touch-icon.png?v=20261021a" alt="" width="54" height="54" decoding="async"><b>Playback</b></a>
 </div></div>
 </nav>
 <script>
@@ -10508,6 +10510,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.21-d', note:'PLAYBACK JOINS THE SUITE: your music and TV/film log now sits in the top bar and the app grid, with its teal cassette icon. On a computer it is the last tab across the top; on a phone it is in the grid.'},
   {v:'2026.10.21-c', note:'NEW LIFT ICON: Lift\u2019s tile in the app grid is redrawn so the L reads as an L \u2014 a kettlebell sits beside it instead of a plate covering its foot. Its tab in the top bar now shows a kettlebell too.'},
   {v:'2026.10.21-b', note:'GAME LOG JOINS THE SUITE: your game completion app now sits in the top bar and the app grid with its gold-on-navy G icon, and in the dock\u2019s app menu. The app grid is four across now, so seven apps fit in two rows.'},
   {v:'2026.10.21-a', note:'COLOGNE MOVED UP: it now sits right after Deodorant, so you do both in one stop before the shirt. The scented-deodorant alert is gone; instead the step carries two bold notes \u2014 where to spray, and to pick a cologne that pairs with your deodorant. Get dressed now just says the shirt goes on last.'},
