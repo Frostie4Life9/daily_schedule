@@ -2783,6 +2783,10 @@ const PHASES = [
   {id:'am_lotion', l:"Body lotion", slot:'bodylotion', hideIf:'noBodyLotion'},
   {id:'handcream', l:"Hand cream", opt:1, note:"DO YOU NEED ONE? Run the test rather than assuming. If your hands feel tight for a minute after washing, if the skin over your knuckles looks dull or lined when you make a fist, or if you get splits at the fingertips or knuckle creases in winter, the barrier is losing and this is worth doing. If they feel normal after washing, skip it \u2014 this is an optional row on purpose.\n\nPROVO IS ITS OWN CASE even without a job that wrecks your hands. Low humidity at 4,500 feet plus water around 290 ppm is a combination that strips lipids faster than the skin replaces them, and it gets worse from November through March. Winter is when to expect the answer to flip to yes.\n\nUse it before bed, when it has hours to sit undisturbed. Applications right before you wash again mostly go down the drain. Look for an ointment or thick cream rather than a lotion \u2014 lotion is mostly water and evaporates off."},
   {id:'deo', l:"Deodorant", slot:'deodorant', setOf:'deodorant'},
+  {id:'cologne', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', pin:[
+    "Where: two sprays, chest and base of the neck, about six inches out. Don't rub it in.",
+    "Pick a cologne that pairs with your deodorant \u2014 the two sit inches apart under your shirt, so their scents should work together, not fight."
+  ]},
   {id:'footpowder', l:"Foot powder / antifungal", opt:1, note:"DO YOU NEED IT? Two different products and two different answers, and both are now symptom-triggered rather than assumed. PLAIN POWDER (talc, cornstarch, baking-soda types) is prevention, and the trigger is environmental: socks damp when you take them off, shoes that smell before the week is out, or feet that stay clammy. Long days in closed non-breathable shoes made that near-automatic; ordinary shoes and a normal day do not, so check the signals instead of running it by default. Training in the same pair daily is the case most likely to bring it back. ANTIFUNGAL POWDER (miconazole, tolnaftate, clotrimazole on the label) is treatment, and you only need it if you have symptoms: itching or burning between the toes, skin that's white and soggy or peeling in the webbing, flaking along the sides and sole, or nails going thick and yellow. Don't run an antifungal continuously as a preventative \u2014 use it while there's something to treat, keep going two weeks past when it looks better because that's when it comes back, and if a nail is involved see someone, because topical powder does not reach a nail bed. Either one goes on dry feet, between every toe, and a little into the shoe as well as onto the foot. If you're getting symptoms repeatedly, rotating two pairs of shoes so each dries a full day does more than the powder does."}
  ]},
  {name:"Hair styling",
@@ -2801,10 +2805,7 @@ const PHASES = [
   {id:'neck', l:"Neck strays", note:"Two different necklines, two different rules.\n\nTHE BACK (the barber's line). Fuzz grows in below it within a week or two. You can clean that up, and the single rule is DO NOT RAISE THE LINE \u2014 only remove hair below where the barber left it. Every time you tidy it slightly higher than last time, the line creeps up your neck, and after a month of that the haircut sits wrong and nobody can tell you why. Trimmer with no guard, held flat rather than dug in, working upward from the bottom and stopping short of the existing edge. Use your phone's camera or a second mirror; doing this blind is exactly how the line climbs. If you're on a four-week cut cycle, leaving it entirely and letting the barber reset it is a completely defensible choice and it's the one that never goes wrong.\n\nTHE FRONT (under the jaw). The neckline should sit roughly one to one and a half finger-widths above your Adam's apple, then curve upward in a shallow U to meet the back of your jaw just below each ear. Everything below that curve gets cleared. The two errors are setting it at the jawbone itself, which reads as a strip of beard floating on your chin, and letting it drift down the throat until it's neck hair with no line at all. Find the curve with your head level and looking straight ahead \u2014 tilting your chin up stretches the skin and you'll cut the line too high.\n\nSIDES: where the sideburn meets the jaw, keep it in line with the front edge of your ear. Check the two sides against each other straight-on before you finish, because they drift apart faster than you'd think."},
   {id:'am_lips', l:"Lip balm", slot:'lipbalm'},
   {id:'eyedrops', l:"Eye drops", opt:1, note:"If the dry air is getting you."},
-  {id:'dressed', l:"Get dressed", pin:"Shirt goes on last \u2014 after the cologne, once the deodorant has set.", pinElse:{when:'noCologne', text:"Shirt goes on last, once the deodorant has set."}, note:"Everything except your shirt \u2014 cologne goes on before that, not over it."},
-  {id:'cologne', l:"Cologne", opt:1, slot:'cologne', hideIf:'noCologne', warns:[
-    {when:'scented', text:"Your deodorant is scented. That's two fragrances arguing under your shirt six inches apart. Switch to unscented or drop the cologne — the deodorant wins regardless, it's closer to your nose all day."}
-  ]},
+  {id:'dressed', l:"Get dressed", pin:"Shirt goes on last \u2014 once the deodorant has set and the cologne has dried down.", pinElse:{when:'noCologne', text:"Shirt goes on last, once the deodorant has set."}, note:"Everything except your shirt."},
   {id:'mirror', l:"Mirror check", note:"Collar, teeth, fly."}
  ]},
  {name:"Through the day", steps:[
@@ -5132,7 +5133,7 @@ function stepData(st){
       if(c.dwellNote) note = note ? note+'\n\n'+c.dwellNote : c.dwellNote;
     }
   }
-  return {hidden,label,note,timer,warns,needsSetup,mine,pin:resolveRefs(pin),autoTimer};
+  return {hidden,label,note,timer,warns,needsSetup,mine,pin:[].concat(pin||[]).map(resolveRefs).join('\n'),autoTimer};
 }
 
 /* =========================================================
@@ -5363,7 +5364,7 @@ function rowHTML(o){
         (o.late ? lateChip(o.key, o.from) : '')+
         noteToggle(o)+
       `</div>`+
-      (o.pin ? `<div class="pinnote">${esc(o.pin)}</div>` : '')+
+      (o.pin ? String(o.pin).split('\n').map(p=>`<div class="pinnote">${esc(p)}</div>`).join('') : '')+
       (meta.length ? `<div class="meta">${meta.join('')}</div>` : '')+
       noteBlock(o)+
       (o.extra || '')+
@@ -10504,6 +10505,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.21-a', note:'COLOGNE MOVED UP: it now sits right after Deodorant, so you do both in one stop before the shirt. The scented-deodorant alert is gone; instead the step carries two bold notes \u2014 where to spray, and to pick a cologne that pairs with your deodorant. Get dressed now just says the shirt goes on last.'},
   {v:'2026.10.20-a', note:'THE RAIL JOINS THE SUITE: your wardrobe app now sits in the top bar and the app grid next to Kitchen, Grocery, Lift and DishLog, with its own violet tile and icon. It\u2019s in the dock\u2019s app menu too.'},
   {v:'2026.10.19-f', note:'ONE FEEL ACROSS ALL FIVE APPS: Protocol now shares the same motion as Kitchen, Grocery, Lift and DishLog \u2014 a soft press under your finger on buttons, smooth-opening sections, and the same easing everywhere. Controls that already had their own press keep it, and rows you swipe never shrink when you touch them. Fixed: tapping the app grid button while it was closing closed it again instead of reopening it.'},
   {v:'2026.10.19-e', note:'POLISH PASS: switching Today and Lists now eases the old view out before the new one comes in, instead of cutting. The Up Next card folds away when the day is done instead of vanishing. The reschedule panel and the earlier-updates list close as smoothly as they open, and the app grid closes with a fade in every app.'},
