@@ -2211,6 +2211,26 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     return ['## '+LABEL].concat(rows.map(function(x){ return '- '+x.text; })).join(String.fromCharCode(10));
   }
 
+  /* ---- one-time starter ideas for Protocol, gathered from earlier chats. Ids are fixed, so a deleted one stays deleted. ---- */
+  var SEED1=[
+    'Assignments sync on their own: read the private Canvas calendar link through the sync Worker so school lists fill automatically (check if Learning Suite has a similar link)',
+    'Add to Someday without opening the app: a Siri / share-sheet Shortcut that sends the idea to the Someday list through the Worker',
+    'Morning notification from the Reminders shortcut: "Today: 3 assignments, 2 extras, Exam 2 Wednesday"',
+    'Weekly look-back on Sundays next to Plan the week: days the protocol was finished, what got set aside most, Someday ideas done vs. still waiting',
+    'Skip patterns in Streak & history, like "Floss set aside 5 of the last 7 days", to show what to make optional or reschedule',
+    'Lock screen widget: next step and streak only, so the app rarely needs opening',
+    'Swap the last native date pickers (routine start dates, late-task move panel) for the in-app calendar grid',
+    'Fold the long explanations on the Products and Monthly cost settings pages behind a small info button so controls come first',
+    'Back Tap shortcut to open the app straight from the widget (the Scriptable app always opens first on a widget tap)'
+  ];
+  (function(){
+    if(APP!=='protocol') return;
+    var FLAG=KEY+'_seed1'; try{ if(localStorage.getItem(FLAG)) return; }catch(e){}
+    var a=load(), have={}, n=Date.now(); a.forEach(function(x){ have[x.id]=1; });
+    SEED1.forEach(function(t,i){ var id='seed1-'+i; if(!have[id]) a.push({id:id,text:t,done:0,deleted:0,t:n-i,u:n-i}); });
+    put(a); try{ localStorage.setItem(FLAG,'1'); }catch(e){}
+  })();
+
   /* ---- sync: saved here first, then sent in the background. Failing is fine; it tries again on the next change. ---- */
   var busy=false, again=false, timer=null;
   function say(s){ stat.textContent=s; }
@@ -10706,6 +10726,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.24-b', note:'IDEAS: filled the new Ideas list with nine feature ideas from recent chats (assignment auto-sync, add to Someday by voice, morning notification, weekly look-back, skip patterns, lock screen widget, remaining date pickers, shorter settings pages, Back Tap shortcut). Tick off or delete any you do not want.'},
   {v:'2026.10.24-a', note:'IDEAS BUTTON: a lightbulb in the top bar opens a list for writing down features you want in this app. Tick them off or delete them. They save on this device and sync in the background, so Claude can read them. On a narrow computer window the tabs other than the current app show just their icons so the button fits.'},
   {v:'2026.10.21-d', note:'PLAYBACK JOINS THE SUITE: your music and TV/film log now sits in the top bar and the app grid, with its teal cassette icon. On a computer it is the last tab across the top; on a phone it is in the grid.'},
   {v:'2026.10.21-c', note:'NEW LIFT ICON: Lift\u2019s tile in the app grid is redrawn so the L reads as an L \u2014 a kettlebell sits beside it instead of a plate covering its foot. Its tab in the top bar now shows a kettlebell too.'},
