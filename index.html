@@ -10726,6 +10726,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.27-b', note:'UPDATES STICK, PART TWO: arriving through Reload now also refreshes the stored copy of the plain address on load, so the switch to this build is the last time an old version comes back, even though the Reload that brought you here ran the old code.'},
   {v:'2026.10.27-a', note:'UPDATES STICK: tapping Reload used to fetch the new build under a one-off address, so the copy your phone keeps for the plain address stayed old, and the next cold open (a widget tap, or the app being closed in the background) brought the old build back. Reload now replaces that stored copy before reloading, and when a newer build is found it is refreshed in the background even if you never tap. After this build loads once, the old version should stop coming back.'},
   {v:'2026.10.24-b', note:'IDEAS: filled the new Ideas list with nine feature ideas from recent chats (assignment auto-sync, add to Someday by voice, morning notification, weekly look-back, skip patterns, lock screen widget, remaining date pickers, shorter settings pages, Back Tap shortcut). Tick off or delete any you do not want.'},
   {v:'2026.10.24-a', note:'IDEAS BUTTON: a lightbulb in the top bar opens a list for writing down features you want in this app. Tick them off or delete them. They save on this device and sync in the background, so Claude can read them. On a narrow computer window the tabs other than the current app show just their icons so the button fits.'},
@@ -10912,7 +10913,7 @@ document.getElementById('updx').addEventListener('click',()=>{
   UPD.dismissed=UPD.shown;
   const b=document.getElementById('updbar'); b.classList.remove('up'); setTimeout(()=>{ b.hidden=true; },320);
 });
-if(/[?&]v=\d+/.test(location.search)) try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){}
+if(/[?&]v=\d+/.test(location.search)){ refreshCached(); try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){} }
 setTimeout(()=>checkUpdate(true),2500);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false); });
 try{
