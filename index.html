@@ -10726,6 +10726,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.27-a', note:'UPDATES STICK: tapping Reload used to fetch the new build under a one-off address, so the copy your phone keeps for the plain address stayed old, and the next cold open (a widget tap, or the app being closed in the background) brought the old build back. Reload now replaces that stored copy before reloading, and when a newer build is found it is refreshed in the background even if you never tap. After this build loads once, the old version should stop coming back.'},
   {v:'2026.10.24-b', note:'IDEAS: filled the new Ideas list with nine feature ideas from recent chats (assignment auto-sync, add to Someday by voice, morning notification, weekly look-back, skip patterns, lock screen widget, remaining date pickers, shorter settings pages, Back Tap shortcut). Tick off or delete any you do not want.'},
   {v:'2026.10.24-a', note:'IDEAS BUTTON: a lightbulb in the top bar opens a list for writing down features you want in this app. Tick them off or delete them. They save on this device and sync in the background, so Claude can read them. On a narrow computer window the tabs other than the current app show just their icons so the button fits.'},
   {v:'2026.10.21-d', note:'PLAYBACK JOINS THE SUITE: your music and TV/film log now sits in the top bar and the app grid, with its teal cassette icon. On a computer it is the last tab across the top; on a phone it is in the grid.'},
@@ -10880,8 +10881,16 @@ async function checkUpdate(force){
        has not caught up yet. Try again quietly in a minute instead of asking. */
     let tried=null; try{ tried=sessionStorage.getItem('protocol_upd_tried'); }catch(e){}
     if(tried===live && !force){ setTimeout(()=>checkUpdate(true),60e3); return; }
+    refreshCached();
     showUpdate(live, live);
   }catch(e){}
+}
+/* Replace the copy the phone keeps for the plain address. Reload used to fetch
+   ?v=<time> only, which left the plain address's cached copy on the old build,
+   so every cold start (widget tap, app killed in the background) came back old. */
+function refreshCached(){
+  try{ return fetch(location.pathname,{cache:'reload'}).then(r=>r.text()).catch(()=>{}); }
+  catch(e){ return Promise.resolve(); }
 }
 function showUpdate(fp,ver){
   UPD.shown=fp;
@@ -10894,7 +10903,10 @@ document.getElementById('updgo').addEventListener('click',()=>{
   /* a query string the cache has never seen gets the live file; the next
      load cleans it off the address again */
   try{ save(S); }catch(e){}
-  location.replace(location.pathname+'?v='+Date.now());
+  const go=()=>location.replace(location.pathname+'?v='+Date.now());
+  /* refresh the plain address first so the next cold open is current too;
+     never wait more than 4s on it */
+  Promise.race([refreshCached(), new Promise(r=>setTimeout(r,4000))]).then(go,go);
 });
 document.getElementById('updx').addEventListener('click',()=>{
   UPD.dismissed=UPD.shown;
