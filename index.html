@@ -3825,13 +3825,13 @@ function planEditor(r){
       const unit = sc.mode==='everyDays' ? 'days' : 'months';
       const f    = sc.mode==='everyDays' ? 'everyDays' : 'everyMonths';
       ctrl+=`<div class="nrow">Every <input type="number" min="1" step="1" data-rid="${r.id}" data-sf="${f}" value="${sc[f]}"> ${unit}</div>`+
-            `<div class="nrow">Starting <input type="date" class="dt" data-rid="${r.id}" data-sf="anchor" value="${sc.anchor||''}">`+
+            `<div class="nrow">Starting ${ipickHTML({id:'a-'+r.id, value:sc.anchor||'', empty:'Pick a day', ev:'input', attrs:`data-rid="${esc(r.id)}" data-sf="anchor"`})}`+
             (sc.anchor
               ? `<button data-rclear="${r.id}">Clear date</button>`
               : `<button data-rtoday="${r.id}">Today</button><button data-rreset="${r.id}">Reset clock</button>`)+
-            `</div>`+
-            (sc.anchor?'':`<div class="nrow">Last done <input type="date" class="dt" data-rid="${r.id}" data-lastdone="1" max="${today()}" value="${lastDone(r.id)?dayKeyOf(lastDone(r.id)):''}">`+
-              (lastDone(r.id)?`<button data-rclearlog="${r.id}">Clear</button>`:'')+`</div>`)+
+            `</div>`+ipcalHost('a-'+r.id)+
+            (sc.anchor?'':`<div class="nrow">Last done ${ipickHTML({id:'l-'+r.id, value:lastDone(r.id)?dayKeyOf(lastDone(r.id)):'', max:today(), empty:'Pick a day', ev:'change', attrs:`data-rid="${esc(r.id)}" data-lastdone="1"`})}`+
+              (lastDone(r.id)?`<button data-rclearlog="${r.id}">Clear</button>`:'')+`</div>`+ipcalHost('l-'+r.id))+
             (sc.anchor?'':`<div class="hint">${unstarted(r)
               ? 'This one has never been logged, so it cannot say when it is next due \u2014 that is why it is sitting in Set up rather than on the board. Put in roughly when you last did it and the clock starts from there. A guess within a few days is fine; it self-corrects the first time you check it off.'
               : 'No start date \u2014 the clock runs from whenever you last checked it off. Set a date to pin it to a predictable cycle instead.'}</div>`)+
@@ -4199,6 +4199,24 @@ function costRow(slot,c){
   `</div>`;
 }
 
+/* Each group's explanation sits behind a small i next to its heading, so the
+   prices come first. Open state lives here, not in the markup, because
+   paintMoney redraws on every keystroke in a price field. */
+var MONEYINFO={};
+var INFOI='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>';
+function moneyBlurb(k,txt){
+  const on=!!MONEYINFO[k];
+  return `<button class="minfo" type="button" data-minfo="${k}" aria-expanded="${on}" aria-label="What this group means">${INFOI}</button>`+
+    `<p class="mblurb"${on?'':' hidden'}>${txt}</p>`;
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest && e.target.closest('[data-minfo]'); if(!b) return;
+  e.stopPropagation();
+  const k=b.dataset.minfo, p=b.parentNode.querySelector('.mblurb'); if(!p) return;
+  MONEYINFO[k]=!MONEYINFO[k]; b.setAttribute('aria-expanded',MONEYINFO[k]);
+  if(MONEYINFO[k]){ unshut(p); p.hidden=false; expandEl(p); } else shutEl(p,()=>{ p.hidden=true; });
+});
+document.addEventListener('toggle',e=>{ if(e.target.classList&&e.target.classList.contains('mxread')) MONEYINFO.mx=e.target.open; },true);
 function paintMoney(){
   const el=document.getElementById('tierlist');
   const mode=(S.moneyMode||'value');
@@ -4216,7 +4234,7 @@ function paintMoney(){
       grand+=sub; cume+=sub;
       html+=`<div class="tier"><div class="tierhead"><h3>${TIERS[t].name}</h3>`+
         `<div class="tsum">$${sub.toFixed(2)}/mo <span>· running total $${cume.toFixed(2)}/mo</span></div>`+
-        `<p>${TIERS[t].why}</p></div>`+
+        moneyBlurb('t'+t,TIERS[t].why)+`</div>`+
         items.map(k=>costRow(k,all[k])).join('')+`</div>`;
     });
   } else {
@@ -4235,7 +4253,7 @@ function paintMoney(){
       html+=`<div class="tier"><div class="tierhead"><h3>${VKIND[kind].label}</h3>`+
         `<div class="tsum">$${sub.toFixed(2)}/mo`+
         (waste>0.5?` <span class="over">· ~$${waste.toFixed(2)}/mo above where performance stops</span>`:'')+
-        `</div><p>${VKIND[kind].blurb}</p></div>`+
+        `</div>`+moneyBlurb('v'+kind,VKIND[kind].blurb)+`</div>`+
         items.map(k=>costRow(k,all[k])).join('')+`</div>`;
     });
   }
@@ -4253,7 +4271,11 @@ function paintMoney(){
     .reduce((a,k)=>a+all[k].price/all[k].lasts,0);
 
   document.getElementById('swaps').innerHTML=
-    `<h3>The maximizer read</h3>`+
+    (wlist.length
+      ? `<p class="mxline">About <b>$${waste.toFixed(2)}/mo</b> sits above where more money stops buying more performance — biggest: `+
+        wlist.slice(0,3).map(w=>`<b>${w[0]}</b> (+$${w[1].toFixed(2)})`).join(', ')+`.</p>`
+      : `<p class="mxline">Nothing you own is priced above where performance plateaus.</p>`)+
+    `<details class="setnote mxread"${MONEYINFO.mx?' open':''}><summary>The maximizer read</summary>`+
     `<p>Cutting steps isn\u2019t your lever \u2014 you want all of them. The lever is knowing which categories <b>reward</b> spending. In a commodity category the best-performing product and the cheapest product are the same molecule, so buying premium there isn\u2019t maximizing, it\u2019s just paying more for the identical outcome.</p>`+
     (wlist.length
       ? `<p>Right now about <b>$${waste.toFixed(2)}/mo</b> of your spend sits above the point where more money stops buying more performance. Biggest gaps: `+
@@ -4261,7 +4283,7 @@ function paintMoney(){
         `. Reclaiming that costs you nothing in results.</p>`
       : `<p>Nothing you own is priced above the point where performance plateaus. That\u2019s the efficient configuration.</p>`)+
     `<p>Where to deliberately overspend: <b>SPF</b>. It\u2019s the only category where cosmetic feel decides daily adherence, and adherence is the entire benefit. Everywhere else, buy on active ingredient and size.</p>`+
-    `<p>Two structural savings that beat any single swap: <b>buy the largest size you\u2019ll finish</b> (per-ounce cost usually drops 30\u201350%), and <b>buy store-brand for anything whose active you can name</b>. Tier 1 as configured runs <b>$${t1.toFixed(2)}/mo</b> \u2014 that\u2019s the floor and it\u2019s cheap.</p>`;
+    `<p>Two structural savings that beat any single swap: <b>buy the largest size you\u2019ll finish</b> (per-ounce cost usually drops 30\u201350%), and <b>buy store-brand for anything whose active you can name</b>. Tier 1 as configured runs <b>$${t1.toFixed(2)}/mo</b> \u2014 that\u2019s the floor and it\u2019s cheap.</p></details>`;
 }
 
 document.addEventListener('click',e=>{
@@ -4874,9 +4896,9 @@ function lateChip(key,from){
 }
 function reschedPanel(key,from,startAt){
   return `<div class="resched" hidden>`+
-    `<input type="date" class="rdate" value="${esc(startAt||today())}">`+
+    ipickHTML({id:'m-'+key, value:startAt||today(), empty:'Pick a day', ev:'', attrs:'class="rdate"'})+
     `<button class="rgo" data-move="${esc(key)}">Move</button>`+
-    `<button class="rgo" data-rcancel="1">Cancel</button></div>`;
+    `<button class="rgo" data-rcancel="1">Cancel</button>`+ipcalHost('m-'+key)+`</div>`;
 }
 
 /* ---------------- steps ---------------- */
@@ -5829,7 +5851,7 @@ list.addEventListener('click',e=>{
   if(lb){
     const pan=lb.closest('.step').querySelector('.resched');
     if(pan){
-      if(pan.hidden || pan._shut){ unshut(pan); pan.hidden=false; pan.querySelector('.rdate').focus(); }
+      if(pan.hidden || pan._shut){ unshut(pan); pan.hidden=false; const ib=pan.querySelector('[data-ipick]'); if(ib) ipOpen(ib.dataset.ipick); }
       else shutEl(pan,()=>{ pan.hidden=true; });
     }
     return;
@@ -9961,7 +9983,7 @@ const CHEVL='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 6 
 const CHEVR='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
 function ymShift(ym,n){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-1+n,1);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
-function calHTML(ym,sel,min){
+function calHTML(ym,sel,min,max){
   const [y,m]=ym.split('-').map(Number);
   const first=new Date(y,m-1,1), n=new Date(y,m,0).getDate(), lead=first.getDay();
   const title=first.toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -9969,22 +9991,77 @@ function calHTML(ym,sel,min){
   for(let i=0;i<lead;i++) g+='<span></span>';
   const t=today();
   for(let d=1;d<=n;d++){
-    const iso=ym+'-'+String(d).padStart(2,'0'), off=min&&iso<min;
+    const iso=ym+'-'+String(d).padStart(2,'0'), off=(min&&iso<min)||(max&&iso>max);
     g+=`<button class="cday${iso===sel?' on':''}${iso===t?' now':''}" type="button" data-cal="${iso}"${off?' disabled':''}`+
        ` aria-label="${esc(dayOf(iso).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))}"${iso===sel?' aria-pressed="true"':''}>${d}</button>`;
   }
   return `<div class="cal" data-ym="${ym}"><div class="calhead">`+
     `<button class="calnav" type="button" data-calnav="-1" aria-label="Previous month"${min&&ym<=min.slice(0,7)?' disabled':''}>${CHEVL}</button>`+
     `<b>${esc(title)}</b>`+
-    `<button class="calnav" type="button" data-calnav="1" aria-label="Next month">${CHEVR}</button></div>`+
+    `<button class="calnav" type="button" data-calnav="1" aria-label="Next month"${max&&ym>=max.slice(0,7)?' disabled':''}>${CHEVR}</button></div>`+
     `<div class="calgrid">${g}</div></div>`;
 }
-function calNav(host,dir,sel,min){
+function calNav(host,dir,sel,min,max){
   const c=host.querySelector('.cal'); if(!c) return;
   const ym=ymShift(c.dataset.ym,dir);
-  host.innerHTML=calHTML(ym,sel,min);
+  host.innerHTML=calHTML(ym,sel,min,max);
   arrive(host.querySelector('.calgrid'),dir*22,0);
 }
+
+/* =========================================================
+   INLINE DATE FIELD. Same month grid, for the spots that were still the
+   phone's own date wheel (routine start / last done, the late-task Move
+   panel). A button shows the day; tapping it unfolds the grid underneath;
+   a tap on a day fills a hidden input and fires the same input/change event
+   the old date field did, so the code that saves it is unchanged.
+   ========================================================= */
+var IPCAL='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
+function ipLabel(v){ return v ? dayOf(v).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : ''; }
+function ipickHTML(o){
+  const v=o.value||'';
+  return `<button type="button" class="ipbtn${v?'':' empty'}" data-ipick="${esc(o.id)}" data-ipempty="${esc(o.empty||'Pick a day')}" aria-expanded="false">`+
+    `${IPCAL}<span>${esc(v?ipLabel(v):(o.empty||'Pick a day'))}</span></button>`+
+    `<input type="hidden" ${o.attrs||''} data-ipid="${esc(o.id)}" data-ipev="${o.ev||''}"`+
+    `${o.min?` data-ipmin="${o.min}"`:''}${o.max?` data-ipmax="${o.max}"`:''} value="${esc(v)}">`;
+}
+function ipcalHost(id){ return `<div class="ipcal" data-ipcal="${esc(id)}" hidden></div>`; }
+function ipParts(id){
+  const q=CSS&&CSS.escape?CSS.escape(id):id.replace(/"/g,'\\"');
+  return { b:document.querySelector(`[data-ipick="${q}"]`), i:document.querySelector(`input[data-ipid="${q}"]`),
+           h:document.querySelector(`[data-ipcal="${q}"]`) };
+}
+function ipOpen(id){
+  const {b,i,h}=ipParts(id); if(!b||!i||!h) return;
+  const v=i.value||'', mn=i.dataset.ipmin||null, mx=i.dataset.ipmax||null;
+  const base=v||(mx&&today()>mx?mx:today());
+  unshut(h); h.innerHTML=calHTML(base.slice(0,7),v||null,mn,mx); h.hidden=false;
+  b.setAttribute('aria-expanded','true'); expandEl(h);
+}
+function ipClose(id){
+  const {b,h}=ipParts(id); if(!h||h.hidden) return;
+  if(b) b.setAttribute('aria-expanded','false');
+  shutEl(h,()=>{ h.hidden=true; h.innerHTML=''; });
+}
+document.addEventListener('click',e=>{
+  const t=e.target; if(!t||!t.closest) return;
+  const b=t.closest('[data-ipick]');
+  if(b){
+    e.preventDefault(); e.stopPropagation();
+    const {h}=ipParts(b.dataset.ipick);
+    (h&&!h.hidden&&!h._shut)?ipClose(b.dataset.ipick):ipOpen(b.dataset.ipick);
+    return;
+  }
+  const h=t.closest('[data-ipcal]'); if(!h) return;
+  e.preventDefault(); e.stopPropagation();          /* keep the sheet / row handlers out of it */
+  const id=h.dataset.ipcal, {b:btn,i}=ipParts(id); if(!i) return;
+  const nv=t.closest('[data-calnav]');
+  if(nv && !nv.disabled){ calNav(h,+nv.dataset.calnav,i.value||null,i.dataset.ipmin||null,i.dataset.ipmax||null); return; }
+  const cd=t.closest('[data-cal]'); if(!cd || cd.disabled) return;
+  i.value=cd.dataset.cal;
+  if(btn){ btn.classList.remove('empty'); btn.querySelector('span').textContent=ipLabel(i.value); }
+  ipClose(id);
+  if(i.dataset.ipev) i.dispatchEvent(new Event(i.dataset.ipev,{bubbles:true}));
+},true);
 
 /* =========================================================
    ADD SHEET. Every + in the app opens this. Type, pick a day from the chips
@@ -10726,6 +10803,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.27-c', note:'CALENDAR EVERYWHERE: the last places that opened the phone\u2019s date wheel \u2014 a routine\u2019s Starting and Last done dates in the schedule, and the Move panel on a late task \u2014 now use the app\u2019s own month grid. Tap the date to unfold it, tap a day to set it. MONTHLY COST, CONTROLS FIRST: each group\u2019s explanation sits behind a small i next to its heading, and The maximizer read folds away, leaving one line with what you are overpaying, if anything.'},
   {v:'2026.10.27-b', note:'UPDATES STICK, PART TWO: arriving through Reload now also refreshes the stored copy of the plain address on load, so the switch to this build is the last time an old version comes back, even though the Reload that brought you here ran the old code.'},
   {v:'2026.10.27-a', note:'UPDATES STICK: tapping Reload used to fetch the new build under a one-off address, so the copy your phone keeps for the plain address stayed old, and the next cold open (a widget tap, or the app being closed in the background) brought the old build back. Reload now replaces that stored copy before reloading, and when a newer build is found it is refreshed in the background even if you never tap. After this build loads once, the old version should stop coming back.'},
   {v:'2026.10.24-b', note:'IDEAS: filled the new Ideas list with nine feature ideas from recent chats (assignment auto-sync, add to Someday by voice, morning notification, weekly look-back, skip patterns, lock screen widget, remaining date pickers, shorter settings pages, Back Tap shortcut). Tick off or delete any you do not want.'},
@@ -10937,6 +11015,28 @@ paint.ready=true;
 setTimeout(()=>swHint(document.body.classList.contains('on-lists')?'#lists .drow':'#list .step'),400);
 </script>
 <style id="protocol-suite">
+/* 2026.10.27-c: inline date field + Monthly cost info buttons */
+button.ipbtn,.nrow button.ipbtn{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:6px 11px;
+  font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;letter-spacing:0;text-transform:none;
+  background:var(--ground);border:1px solid var(--hair-2,var(--line));border-radius:10px;color:var(--ink);cursor:pointer;
+  transition:border-color .2s,transform .15s var(--ease);}
+button.ipbtn:active{transform:scale(.96);}
+button.ipbtn.empty{color:var(--dim);}
+button.ipbtn[aria-expanded="true"]{border-color:var(--done);}
+button.ipbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.75;}
+.ipcal{max-width:340px;}
+.ipcal .cal{padding-top:8px;}
+.resched .ipcal{flex-basis:100%;}
+.tierhead{position:relative;}
+.tierhead h3{padding-right:40px;}
+.minfo{position:absolute;top:-4px;right:-4px;width:34px;height:34px;border:0;border-radius:17px;background:transparent;
+  color:var(--dimmer);display:grid;place-items:center;cursor:pointer;transition:color .2s,background .2s,transform .15s var(--ease);}
+.minfo:active{transform:scale(.88);}
+.minfo[aria-expanded="true"]{color:var(--ink);background:#1B1E24;}
+.minfo svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;}
+.mblurb[hidden]{display:none;}
+.mxline{margin-bottom:8px;}
+
 /* Protocol in the suite: its own graphite-and-mint look stays (it's always dark),
    but the app bar, page title and wide-screen layout match the other apps. */
 .sx-bar.sx-dark{ --sx-paper:#0E0F12; --sx-ink:#EEF0F3; --sx-dim:#A3A9B3; --sx-line:#24272E; --sx-hover:#1B1E24; }
