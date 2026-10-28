@@ -1874,6 +1874,20 @@ a.appi:active{background:rgba(255,255,255,.07);}
 .aqchip:active{transform:scale(.94);}
 .aqchip svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .aqmore.open{color:var(--ink);border-color:rgba(255,255,255,.22);}
+/* Repeat row in the add sheet: pick weekdays and the task recurs instead of
+   landing on one day. While any day is picked the day strip steps back. */
+.aqrep{display:flex;align-items:center;gap:5px;margin-top:10px;}
+.aqrepl{flex:0 0 auto;margin-right:4px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dimmer);}
+.aqdow{flex:1 1 0;min-width:0;height:36px;padding:0;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:transparent;
+  color:var(--dim);font-family:inherit;font-size:13px;cursor:pointer;transition:color .25s,background .25s,border-color .25s,transform .15s var(--ease);}
+.aqdow.on{color:#F0798F;background:rgba(240,121,143,.13);border-color:rgba(240,121,143,.5);}
+.aqdow:active{transform:scale(.92);}
+.aqstrip{transition:opacity .25s;}
+.aqstrip.muted{opacity:.3;pointer-events:none;}
+/* Later times of a repeat on the date list: a preview of the schedule, not
+   something to tick yet. The next time keeps the normal row. */
+#lists .drow.drep .dtext,#lists .drow.drep .dmeta{opacity:.55;}
+#lists .drow.drep .lbox{opacity:.35;}
 .aqcal{overflow:hidden;}
 .cal{padding-top:14px;}
 .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
@@ -3902,6 +3916,7 @@ function planRow(r){
     /* Reachable even on days it is not due, which is the whole point:
        the board only shows today's. */
     (plannable(r)?`<div class="nrow">Date list ${planBtn(r.id)}</div>`:'')+
+    (r.user?`<div class="nrow"><button class="addlink" data-udel="${esc(r.id)}">Delete this repeat</button></div>`:'')+
     `</div></div>`;
 }
 
@@ -3917,6 +3932,7 @@ function gridLabels(all){
 }
 
 function paintSchedule(){
+  syncUserRoutines();
   const all=SCHEDALL();
   const t0=today();
   const GL=gridLabels(all);
@@ -4043,6 +4059,14 @@ planhead.addEventListener('click',()=>toggleP());
 planhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleP();}});
 
 document.addEventListener('click',e=>{
+  const udb=e.target.closest && e.target.closest('[data-udel]');
+  if(udb){
+    const d=deleteRepeat(udb.dataset.udel); if(!d) return;
+    try{ planOpen.delete(d.u.id); }catch(err){}
+    save(S); rebuild(); paintLists();
+    toast('Repeat deleted',()=>{ undoDeleteRepeat(d); rebuild(); paintLists(); });
+    return;
+  }
   const rpb=e.target.closest && e.target.closest('[data-rplan]');
   if(rpb){
     const id=rpb.dataset.rplan;
@@ -4822,10 +4846,10 @@ function shiftRoutine(r,day){
   } else if(!nat || day>nat){
     S.defer[id]=day;
   }
-  if(day!==t){ const k=S.checked.indexOf('r:'+id); if(k>-1) S.checked.splice(k,1); }
+  if(day!==t){ const k=S.checked.indexOf(rkey(r)); if(k>-1) S.checked.splice(k,1); }
 }
 function moveRoutine(id,day){
-  const r=ROUTINES.find(x=>x.id===id);
+  const r=schedItem(id);
   if(!plannable(r)) return false;
   if(!/^\d{4}-\d\d-\d\d$/.test(day||'') || day<today()) return false;
   if(day===planDate(r)) return false;
@@ -5006,7 +5030,8 @@ const GROUPS={
  'School':                  {after:null},
  'Car':                     {after:null},
  'Money':                   {after:null},
- 'Admin':                   {after:null}
+ 'Admin':                   {after:null},
+ 'Your repeats':            {after:null}
 };
 
 const ROUTINES=[
@@ -5148,6 +5173,77 @@ const ROUTINES=[
  {id:'gr_razor',   group:'Grooming \u2014 non-daily', l:'Replace razor cartridge', sched:{everyDays:14},
   note:"Five to ten shaves is the usual life; the interval here assumes roughly every other day. Irritation, tug and razor burn are dull-blade symptoms far more often than technique ones \u2014 people press harder to compensate, which is exactly wrong.\n\nRinse and shake dry after every use and store it out of the shower stream. Blades die from oxidation between shaves, not from cutting hair."}
 ];
+
+/* =========================================================
+   YOUR REPEATS — recurring tasks you add yourself from the + sheet
+   ("Shave", every Thu and Sun). Kept in S.urout so they sync with
+   everything else, and merged into ROUTINES so the board, Full
+   schedule, the widget and the date list all treat them exactly like
+   the built-in ones. Changing the days later goes through S.sched in
+   Full schedule, same as any other routine.
+   ========================================================= */
+const UGROUP='Your repeats';
+function syncUserRoutines(){
+  const want=(typeof S!=='undefined' && S && Array.isArray(S.urout))?S.urout:[];
+  const ids=new Set(want.map(u=>u.id));
+  for(let i=ROUTINES.length-1;i>=0;i--) if(ROUTINES[i].user && !ids.has(ROUTINES[i].id)) ROUTINES.splice(i,1);
+  want.forEach(u=>{
+    const r=ROUTINES.find(x=>x.id===u.id);
+    if(!r) ROUTINES.push({id:u.id, user:1, group:UGROUP, l:u.l, sched:{dow:(u.dow||[]).slice()}});
+    else if(r.user){ r.l=u.l; r.sched={dow:(u.dow||[]).slice()}; }
+  });
+}
+syncUserRoutines();
+function addRepeat(label,dow){
+  S.urout=S.urout||[];
+  const id='u_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  S.urout.push({id:id, l:label, dow:dow.slice().sort((a,b)=>a-b), made:today()});
+  /* the point of adding one: it shows on the date list, every time it lands */
+  S.rplan=S.rplan||{}; S.rplan[id]=true;
+  syncUserRoutines(); save(S);
+  return id;
+}
+function deleteRepeat(id){
+  const at=(S.urout||[]).findIndex(u=>u.id===id); if(at<0) return null;
+  const u=S.urout.splice(at,1)[0];
+  const kept={};
+  ['rplan','rtop','sched','rlog','rgap','rprev','defer','pull','skip','alert'].forEach(k=>{
+    if(S[k] && typeof S[k]==='object' && id in S[k]){ kept[k]=S[k][id]; delete S[k][id]; } });
+  const k=S.checked.indexOf('r:'+id); if(k>-1) S.checked.splice(k,1);
+  syncUserRoutines();
+  return {u:u, at:at, kept:kept, was:k>-1};
+}
+function undoDeleteRepeat(d){
+  S.urout=S.urout||[]; S.urout.splice(Math.min(d.at,S.urout.length),0,d.u);
+  Object.keys(d.kept).forEach(k=>{ S[k]=S[k]||{}; S[k][d.u.id]=d.kept[k]; });
+  if(d.was && S.checked.indexOf('r:'+d.u.id)===-1) S.checked.push('r:'+d.u.id);
+  syncUserRoutines(); save(S);
+}
+const dowWords=dow=>dow.slice().sort((a,b)=>a-b).map(d=>DOW[d]).join(' · ');
+/* Board key for a schedulable row: routines are 'r:<id>', scheduled steps
+   use the bare id (see routineState). */
+function rkey(r){ return ROUTINES.indexOf(r)>-1 ? 'r:'+r.id : r.id; }
+/* Every LATER time a planned repeat lands inside the date list's two-week
+   window. planDate() only ever answers "the next one", which put Thursday's
+   shave on the calendar but never Sunday's. These rows are a preview: the
+   next time is the one you tick or move, and the rest follow from the
+   schedule. Daily items are left out -- a row on every day says nothing. */
+function repeatDates(r,first,until){
+  const out=[];
+  if(!first || !plannable(r)) return out;
+  const sc=schedOf(r), t=today();
+  const from=first<t?t:first;
+  if(sc.mode==='dow'){
+    if(!sc.dow.length || sc.dow.length>=7) return out;
+    const sk=skipOf(r.id);
+    for(let d=addDaysISO(from,1); d<=until; d=addDaysISO(d,1))
+      if(sc.dow.indexOf(dayOf(d).getDay())>-1 && d!==sk) out.push(d);
+  } else if(sc.mode==='everyDays'){
+    const n=Math.max(1,+sc.everyDays); if(n<2) return out;
+    for(let d=addDaysISO(from,n); d<=until; d=addDaysISO(d,n)) out.push(d);
+  }
+  return out;
+}
 
 /* =========================================================
    VALUE — does spending more buy you more in this category?
@@ -5629,6 +5725,7 @@ function makeRow(o){
 }
 
 function buildRows(){
+  syncUserRoutines();
   const picked=(typeof SEL!=='undefined' && SEL.on)?[...list.querySelectorAll('.step.sel')].map(r=>r.dataset.n):[];
   if(picked.length) after(()=>selReapply(picked));
   list.innerHTML='';
@@ -5690,7 +5787,7 @@ function buildRows(){
           resched: st.sched?reschedPanel(st.id,ss.from):'',
           buttons: kitchenBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-                   asideBtns(st.id,keepBtn(st.id,!!st.opt))
+                   asideBtns(st.id,keepBtn(st.id,!!st.opt)+(st.sched&&plannable(st)?planBtn(st.id):''))
         }));
       });
       if(p.bulk && vis.length && !collapsed){
@@ -7394,6 +7491,7 @@ function listTint(id){
    bottom, because an album queue quietly vanishing is worse than a row
    you scroll past. */
 function listBuckets(){
+  syncUserRoutines();
   const t=today(), tm=addDaysISO(t,1), wk=addDaysISO(t,7), fn=addDaysISO(t,14);
   const B={late:[],today:[],tomorrow:[],week:[],fortnight:[],later:[],none:[],done:[],someday:[]};
   (S.lists||[]).forEach(l=>{
@@ -7447,18 +7545,22 @@ function listBuckets(){
      Ticked, it stays until the day ends and then the occurrence after it takes
      its place -- a recurring task is never "done" for good, so it has no
      Done fold here. */
-  ROUTINES.filter(r=>S.rplan && S.rplan[r.id] && plannable(r)).forEach(r=>{
-    const d=planDate(r);
-    const row={routine:true, rid:r.id, text:r.l, due:d, at:null,
-               done:doneOn(r.id)===t && d===t, top:!!(S.rtop&&S.rtop[r.id]),
-               code:'ROUTINE', list:'Recurring'};
+  /* Scheduled steps too (shaving lives inside the morning, not in ROUTINES),
+     and every time each one lands in the window, not just the next. */
+  const put=row=>{ const d=row.due;
     if(!d) B.none.push(row);
     else if(d<t) B.late.push(row);
     else if(d===t) B.today.push(row);
     else if(d===tm) B.tomorrow.push(row);
     else if(d<=wk) B.week.push(row);
     else if(d<=fn) B.fortnight.push(row);
-    else B.later.push(row);
+    else B.later.push(row); };
+  SCHEDALL().filter(r=>S.rplan && S.rplan[r.id] && plannable(r)).forEach(r=>{
+    const d=planDate(r);
+    const base={routine:true, rid:r.id, text:r.l, at:null, top:!!(S.rtop&&S.rtop[r.id]),
+                code:'ROUTINE', list:'Recurring', user:!!r.user};
+    put(Object.assign({},base,{due:d, done:doneOn(r.id)===t && d===t}));
+    repeatDates(r,d,fn).forEach(x=>put(Object.assign({},base,{due:x, done:false, rep:true})));
   });
   const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
@@ -7529,13 +7631,18 @@ function dateRow(r,big,inlist){
   let id, attrs, trayL='', trayR='', grip='', whenEl;
   const topBtn=(attr,val)=>`<button class="dact dpinact${r.top?' on':''}" ${attr}="${esc(val)}" aria-pressed="${!!r.top}" `+
       `title="${r.top?'Pinned to the top — tap to release':'Keep this at the top of its day'}" aria-label="${r.top?'Unpin':'Pin to top'}">${SWPIN}<span>${r.top?'Unpin':'Pin'}</span></button>`;
-  if(r.routine){
+  const udel=r.user?`<button class="dact ddelact" data-udel="${esc(r.rid)}" aria-label="Delete this repeat">${SWBIN}<span>Delete</span></button>`:'';
+  if(r.routine && r.rep){
+    attrs=`data-rrep="${esc(r.rid)}"`;
+    whenEl=`<span class="dwhen">${esc(dayLabel(r.due))}</span>`;
+    trayR=`<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list — the routine itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`+udel;
+  } else if(r.routine){
     attrs=`data-rit="${esc(r.rid)}"`;
     grip=`<span class="lgrip dgrip" data-rgrip="${esc(r.rid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`;
     whenEl=`<label class="dwhen dpick${late?' late':''}" title="Move this time to another day">${esc(r.due?(late?whenText(r):dayLabel(r.due)):'no day')}`+
       `<input type="date" data-rdate="${esc(r.rid)}" value="${esc(r.due||'')}" min="${today()}" aria-label="Move this time to another day"></label>`;
     trayR=topBtn('data-rtop',r.rid)+
-      `<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list — the routine itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`;
+      `<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list — the routine itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`+udel;
   } else if(r.task){
     attrs=`data-cit="${esc(r.cid)}"`;
     grip=`<span class="lgrip dgrip" data-cgrip="${esc(r.cid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`;
@@ -7567,7 +7674,7 @@ function dateRow(r,big,inlist){
   const chips=(r.inclass&&inlist?`<span class="lclasschip">in class</span>`:'')+
     (opensChip(r.opens)?`<span class="lopen">${esc(opensChip(r.opens))}</span>`:'');
   const onToday=r.pin&&!r.task&&!r.routine&&r.due!==today();
-  return `<div class="drow${r.task?' dtask':''}${r.routine?' dtask droutine':''}${r.done?' done':''}${late?' overdue':''}${r.top?' ptop':''}${big?' big':''}" ${attrs} `+
+  return `<div class="drow${r.task?' dtask':''}${r.routine?' dtask droutine':''}${r.rep?' drep':''}${r.done?' done':''}${late?' overdue':''}${r.top?' ptop':''}${big?' big':''}" ${attrs} `+
       `data-due="${esc(r.due||'')}" data-code="${esc(r.task||r.routine?'Tasks':r.code)}" data-kind="${kind==='school'&&r.inclass?'inclass':kind}" `+
       `role="checkbox" aria-checked="${r.done}" tabindex="0">`+
     (trayL?`<div class="dtrayL">${trayL}</div>`:'')+
@@ -7734,7 +7841,7 @@ function lfApply(instant){
       r.classList.toggle('lfout',!ok);
       r.setAttribute('aria-hidden',ok?'false':'true');
       if(ok){ n[r.dataset.kind in n ? r.dataset.kind : 'school']++;
-              if(!r.classList.contains('done') && !sec.classList.contains('dfold')) open++; }
+              if(!r.classList.contains('done') && !r.classList.contains('drep') && !sec.classList.contains('dfold')) open++; }
     });
     const vs=n.school+n.inclass, vt=n.task, groups=DGROUPS.filter(([g])=>n[g]).length;
     /* A divider marks where one run starts after another; a heading (one-day
@@ -8212,11 +8319,13 @@ listsRoot.addEventListener('click',e=>{
     if(S.rtop[id]) delete S.rtop[id]; else S.rtop[id]=true;
     save(S); flipPaint(paintLists); toast(S.rtop[id]?'Pinned to the top':'Released'); return;
   }
+  const rrp=e.target.closest('[data-rrep]');
+  if(rrp && !e.target.closest('button, a, input, label')){ toast('A later time \u2014 tick the next one, or this one on its day'); return; }
   const rit=e.target.closest('[data-rit]');
   if(rit && !e.target.closest('button, a, input, label, .dgrip')){
-    const id=rit.dataset.rit, r=ROUTINES.find(x=>x.id===id); if(!plannable(r)) return;
+    const id=rit.dataset.rit, r=schedItem(id); if(!plannable(r)) return;
     JUST={k:'R:'+id,t:Date.now()};
-    const t=today(), key='r:'+id;
+    const t=today(), key=rkey(r);
     if(doneOn(id)===t && planDate(r)===t){
       unlogDone(id);
       const k=S.checked.indexOf(key); if(k>-1) S.checked.splice(k,1);
@@ -10069,7 +10178,7 @@ document.addEventListener('click',e=>{
    open for the next one. Starts on Someday -- jot first, commit later --
    unless it was opened from a particular day.
    ========================================================= */
-const AQ={day:'someday', cal:false, added:[], pl:null, pw:null};
+const AQ={day:'someday', cal:false, added:[], pl:null, pw:null, rep:[]};
 const AQSEND='<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>';
 const AQCAL='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
 const AQTICK='<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7"/></svg>';
@@ -10109,7 +10218,20 @@ function aqSetDay(v){
   aqPill(false);
   const {t}=aqEls(); if(t) t.placeholder=aqHint();
 }
-function aqHint(){ return AQ.day==='someday'?'Something to do someday':'Something to do '+(AQ.day===today()?'today':AQ.day===addDaysISO(today(),1)?'tomorrow':'on '+dayWord(AQ.day).replace(/,.*$/,'')); }
+function aqRepHTML(){
+  return `<span class="aqrepl">Repeat</span>`+[0,1,2,3,4,5,6].map(d=>{
+    const on=AQ.rep.indexOf(d)>-1;
+    return `<button class="aqdow${on?' on':''}" type="button" data-aqdow="${d}" aria-pressed="${on}" aria-label="Every ${DOW[d]}">${DOW[d].slice(0,2)}</button>`;
+  }).join('');
+}
+function aqSetRep(d){
+  const k=AQ.rep.indexOf(d); if(k>-1) AQ.rep.splice(k,1); else AQ.rep.push(d);
+  const {sh,st,t}=aqEls();
+  const b=sh.querySelector('[data-aqdow="'+d+'"]'); if(b){ const on=k===-1; b.classList.toggle('on',on); b.setAttribute('aria-pressed',on); }
+  if(st) st.classList.toggle('muted',AQ.rep.length>0);
+  if(t) t.placeholder=aqHint();
+}
+function aqHint(){ if(AQ.rep.length) return 'Repeats every '+dowWords(AQ.rep); return AQ.day==='someday'?'Something to do someday':'Something to do '+(AQ.day===today()?'today':AQ.day===addDaysISO(today(),1)?'tomorrow':'on '+dayWord(AQ.day).replace(/,.*$/,'')); }
 function aqToggleCal(open){
   const {cal,st,t}=aqEls(); if(!cal) return;
   if(open===AQ.cal) return;
@@ -10133,12 +10255,13 @@ function openAdd(day){
   try{ closeSched(); }catch(e){}
   const t0=today();
   AQ.day=(!day||day==='someday')?'someday':(day<t0?t0:day);
-  AQ.cal=false; AQ.added=[]; AQ.pl=null; AQ.pw=null;
+  AQ.cal=false; AQ.added=[]; AQ.pl=null; AQ.pw=null; AQ.rep=[];
   sh.innerHTML=`<div class="aqgrab" id="aqgrab"><div class="shgrab"></div></div>`+
     `<div class="aqrow"><input type="text" id="aqt" placeholder="" autocomplete="off" autocapitalize="sentences" maxlength="200" enterkeyhint="send" aria-label="Task">`+
     `<button class="aqgo" id="aqgo" type="button" aria-label="Add">${AQSEND}</button></div>`+
     `<div class="aqstrip" id="aqstrip" role="group" aria-label="Which day">${aqChipsHTML()}</div>`+
     `<div class="aqcal" id="aqcal" hidden></div>`+
+    `<div class="aqrep" id="aqrep" role="group" aria-label="Repeat every">${aqRepHTML()}</div>`+
     `<div class="aqfeed" id="aqfeed" aria-live="polite"></div>`;
   aqEls().t.placeholder=aqHint();
   w.hidden=false; document.body.classList.add('sheet-open');
@@ -10167,6 +10290,19 @@ function submitAdd(){
   const {t,feed}=aqEls(); if(!t) return;
   const v=t.value.trim();
   if(!v){ toast('Give it a name first'); aqFocus(); return; }
+  if(AQ.rep.length){
+    /* A repeat, not a one-off: lands on the board and the date list on
+       every one of those weekdays, from today on. */
+    addRepeat(v,AQ.rep);
+    t.value=''; aqReady(); aqFocus();
+    const it=document.createElement('div'); it.className='aqitem';
+    it.innerHTML=`${AQTICK}<span>${esc(v)}</span><em>${esc('every '+dowWords(AQ.rep))}</em>`;
+    feed.insertBefore(it,feed.firstChild);
+    while(feed.children.length>4) feed.removeChild(feed.lastChild);
+    arrive(it,0,-8);
+    rebuild(); try{ flipPaint(paintLists); }catch(e){ try{ paintLists(); }catch(e2){} }
+    return;
+  }
   const day=AQ.day==='someday'?null:AQ.day;
   const nc=addCustom(v,day);
   t.value=''; aqReady(); aqFocus();
@@ -10190,10 +10326,12 @@ window.addEventListener('resize',aqKb);
 document.getElementById('addback').addEventListener('click',closeAdd);
 document.getElementById('addsheet').addEventListener('mousedown',e=>{
   /* keep the keyboard up while picking a chip (desktop and most phones) */
-  if(e.target.closest('[data-aqday],#aqgo')) e.preventDefault();
+  if(e.target.closest('[data-aqday],[data-aqdow],#aqgo')) e.preventDefault();
 });
 document.getElementById('addsheet').addEventListener('click',e=>{
   if(e.target.closest('#aqgo')){ submitAdd(); return; }
+  const dw=e.target.closest('[data-aqdow]');
+  if(dw){ aqSetRep(+dw.dataset.aqdow); aqFocus(); return; }
   const d=e.target.closest('[data-aqday]');
   if(d){ aqSetDay(d.dataset.aqday); if(AQ.cal) aqToggleCal(false); aqFocus(); return; }
   if(e.target.closest('[data-aqmore]')){ aqToggleCal(!AQ.cal); if(!AQ.cal) aqFocus(); return; }
@@ -10803,6 +10941,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.28-a', note:'REPEATS ON THE CALENDAR: the + sheet has a new Repeat row \u2014 tap weekdays (say Th and Su) and the task comes back on those days instead of landing on one date. It shows on the board on its days and on the By date list every time it lands in the next two weeks; the next one is the one you tick or move, later ones are a faint preview. Change its days in Full schedule; swipe a row left to delete it. Built-in scheduled items like Trim face now work with Plan too (they used to be skipped), and the Plan button now shows on those rows on the board.'},
   {v:'2026.10.27-c', note:'CALENDAR EVERYWHERE: the last places that opened the phone\u2019s date wheel \u2014 a routine\u2019s Starting and Last done dates in the schedule, and the Move panel on a late task \u2014 now use the app\u2019s own month grid. Tap the date to unfold it, tap a day to set it. MONTHLY COST, CONTROLS FIRST: each group\u2019s explanation sits behind a small i next to its heading, and The maximizer read folds away, leaving one line with what you are overpaying, if anything.'},
   {v:'2026.10.27-b', note:'UPDATES STICK, PART TWO: arriving through Reload now also refreshes the stored copy of the plain address on load, so the switch to this build is the last time an old version comes back, even though the Reload that brought you here ran the old code.'},
   {v:'2026.10.27-a', note:'UPDATES STICK: tapping Reload used to fetch the new build under a one-off address, so the copy your phone keeps for the plain address stayed old, and the next cold open (a widget tap, or the app being closed in the background) brought the old build back. Reload now replaces that stored copy before reloading, and when a newer build is found it is refreshed in the background even if you never tap. After this build loads once, the old version should stop coming back.'},
