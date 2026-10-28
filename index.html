@@ -4428,6 +4428,10 @@ function logDone(id,whenISO){
   S.rlog=S.rlog||{}; S.rgap=S.rgap||{}; S.rprev=S.rprev||{};
   const prev=S.rlog[id];
   const now=whenISO||new Date().toISOString();
+  /* Logged again the same day: just move the time. Overwriting rprev with
+     today's earlier tap would make unchecking restore today instead of the
+     real previous completion. */
+  if(prev && dayKeyOf(new Date(prev))===dayKeyOf(new Date(now))){ S.rlog[id]=now; return; }
   if(prev){
     const g=Math.round((dayOf(dayKeyOf(new Date(now)))-dayOf(dayKeyOf(new Date(prev))))/dayMs);
     if(g>0){
@@ -4810,7 +4814,10 @@ function dueRoutines(){ return ROUTINES.filter(r=>routineState(r).due); }
 function planDate(r){
   if(!plannable(r)) return null;
   const t=today(), st=routineState(r);
-  if(st.due) return (st.late && st.from) ? st.from : t;
+  /* A late occurrence caught up TODAY belongs to today now. Leaving it on the
+     day it slipped from meant the date list could never show it ticked (a row
+     reads as done only on today), so every tap just logged it again. */
+  if(st.due) return (st.late && st.from && doneOn(r.id)!==t) ? st.from : t;
   const pl=pullOf(r.id); if(pl && pl>t) return pl;
   const df=deferOf(r.id); if(df && df>t) return df;
   const sc=schedOf(r);
@@ -10941,6 +10948,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.28-b', note:'FIX: a late repeat on the By date list (like a shave a few days overdue) would not tick off — the tap logged it, but the row stayed under Late, unchecked, and every tap logged it again. Catching one up now moves it onto today, ticked, and unticking puts it back under Late. Tapping the same thing twice in a day also no longer overwrites its real previous completion.'},
   {v:'2026.10.28-a', note:'REPEATS ON THE CALENDAR: the + sheet has a new Repeat row \u2014 tap weekdays (say Th and Su) and the task comes back on those days instead of landing on one date. It shows on the board on its days and on the By date list every time it lands in the next two weeks; the next one is the one you tick or move, later ones are a faint preview. Change its days in Full schedule; swipe a row left to delete it. Built-in scheduled items like Trim face now work with Plan too (they used to be skipped), and the Plan button now shows on those rows on the board.'},
   {v:'2026.10.27-c', note:'CALENDAR EVERYWHERE: the last places that opened the phone\u2019s date wheel \u2014 a routine\u2019s Starting and Last done dates in the schedule, and the Move panel on a late task \u2014 now use the app\u2019s own month grid. Tap the date to unfold it, tap a day to set it. MONTHLY COST, CONTROLS FIRST: each group\u2019s explanation sits behind a small i next to its heading, and The maximizer read folds away, leaving one line with what you are overpaying, if anything.'},
   {v:'2026.10.27-b', note:'UPDATES STICK, PART TWO: arriving through Reload now also refreshes the stored copy of the plain address on load, so the switch to this build is the last time an old version comes back, even though the Reload that brought you here ran the old code.'},
