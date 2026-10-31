@@ -752,6 +752,13 @@ input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(-
 .step.done .golink{opacity:.5;}
 .step.off .golink{display:none;}
 .lrow{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.cvrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+.cvrow:last-child{border-bottom:none;}
+.cvname{flex:1 1 auto;min-width:0;font-size:13px;color:var(--ink);line-height:1.35;overflow-wrap:anywhere;}
+.cvname small{display:block;font-size:11px;color:var(--dimmer);margin-top:2px;}
+.cvrow select{flex:0 0 auto;max-width:48%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;min-height:36px;}
+.cvrow.need .cvname small{color:var(--warn,#E8A35A);}
+#cvmap:not(:empty){margin:4px 0 12px;}
 .lrow input.url{flex:1 1 200px;min-width:0;min-height:36px;padding:7px 9px;font-size:12px;
   text-align:left;background:var(--ground);border:1px solid var(--line);color:var(--ink);
   -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
@@ -2708,6 +2715,24 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     <div class="shelfbody">
       <p class="shelfnote">What each thing actually is, what it's for, and why it earns a step. Read once — you shouldn't need it twice.</p>
       <div id="guidelist"></div>
+    </div>
+  </section>
+
+  <section id="canvas">
+    <div class="shelfhead" id="canvashead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Canvas</h2><span class="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Canvas gives you a private calendar link with every assignment and its due date. Paste it here and new assignments land in your course lists by themselves, checked every few hours when you open the app. <b>If a due date moves in Canvas, it moves here too</b> (unless you have already ticked it off). Anything you delete stays deleted, and past-due work is left out, the same as an import.</p>
+      <p class="shelfnote">Where to find it: Canvas on a computer, <b>Calendar</b>, then <b>Calendar Feed</b> at the bottom of the right-hand column. Copy the whole address. Keep it private: anyone with it can see your assignments. It goes through your sync Worker, so Sync has to be set up.</p>
+      <div class="slot">
+        <label for="cvurl">Calendar feed link</label>
+        <div class="fields"><input id="cvurl" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://byu.instructure.com/feeds/calendars/user_….ics"></div>
+        <div class="eff on" id="cvstat" style="color:var(--dimmer)"></div>
+      </div>
+      <div id="cvmap"></div>
+      <button class="reset" id="cvgo">Check Canvas now</button>
+      <button class="reset" id="cvoff">Disconnect Canvas</button>
     </div>
   </section>
 
@@ -7422,6 +7447,266 @@ function importAssignments(lid,text,opts){
   return {added:added,skipped:skipped,past:past,undated:undated,pastDone:pastDone};
 }
 
+/* =========================================================
+   CANVAS CALENDAR FEED. Canvas gives every student a private
+   .ics link listing each assignment with its due date. The app
+   cannot fetch it directly (Canvas sends no CORS headers), so the
+   sync Worker's /canvas route fetches it on the app's behalf, with
+   the same key that guards your state.
+
+   Rules, all aimed at never surprising you:
+   - Each assignment is tracked by Canvas' own id (item.cv), so a
+     renamed title is not a new assignment.
+   - S.canvas.seen remembers every id ever filed. Delete one and it
+     stays deleted; it is only forgotten once Canvas stops listing it.
+   - A due date that moves in Canvas moves here, but only while the
+     item is still open. Ticked-off work is history.
+   - Past-due work is not imported, matching the paste importer.
+   - Each Canvas course maps to one of your lists. A guess is made
+     from the names; anything it cannot place waits for you to pick,
+     and nothing from that course is filed until you do.
+   ========================================================= */
+const CANVAS_EVERY=3*3600*1000;          /* auto-check at most this often */
+let CVLAST=null, CVERR=null, cvBusy=false, cvTried=0;
+function cvState(){                      /* only for writes: reads use S.canvas||{} */
+  S.canvas=S.canvas||{}; const c=S.canvas;
+  c.map=c.map||{}; c.seen=c.seen||{}; c.courses=c.courses||{};
+  return c;
+}
+function cvKey(x){ return String(x||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+/* webcal:// is the same address with a different scheme; Canvas offers both. */
+function cvNormUrl(u){
+  let x=String(u||'').trim().replace(/^webcals?:\/\//i,'https://');
+  if(x && !/^https?:\/\//i.test(x)) x='https://'+x;
+  return x;
+}
+function cvUrlOk(u){ return /^https:\/\/[^\/\s]+\/feeds\/calendars\/[^\/\s]+\.ics(\?.*)?$/i.test(u); }
+
+function icsUnfold(t){ return String(t||'').replace(/\r\n?/g,'\n').replace(/\n[ \t]/g,''); }
+function icsText(v){ return String(v||'').replace(/\\n/gi,' ').replace(/\\([,;\\])/g,'$1').replace(/\s+/g,' ').trim(); }
+function parseIcs(text){
+  const out=[]; let ev=null;
+  icsUnfold(text).split('\n').forEach(line=>{
+    line=line.replace(/\s+$/,'');
+    if(line==='BEGIN:VEVENT'){ ev={}; return; }
+    if(line==='END:VEVENT'){ if(ev) out.push(ev); ev=null; return; }
+    if(!ev) return;
+    const m=/^([A-Za-z-]+)((?:;[^:]*)?):(.*)$/.exec(line); if(!m) return;
+    ev[m[1].toUpperCase()]={params:m[2]||'', value:m[3]};
+  });
+  return out;
+}
+/* -> {due:'YYYY-MM-DD', at:'HH:MM'|null} in THIS device's time zone. Canvas
+   writes UTC ("...T055900Z" is 11:59pm in Utah), so it has to be converted,
+   or every night-due assignment lands a day late. A date with no time is an
+   all-day item. A time with no Z is read as local wall-clock time. */
+function icsWhen(p){
+  if(!p) return null;
+  const v=String(p.value||'').trim(), pad=n=>String(n).padStart(2,'0');
+  let m=/^(\d{4})(\d\d)(\d\d)$/.exec(v);
+  if(m) return {due:m[1]+'-'+m[2]+'-'+m[3], at:null};
+  m=/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(Z?)$/i.exec(v); if(!m) return null;
+  const d = m[7] ? new Date(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]))
+                 : new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]);
+  if(isNaN(d)) return null;
+  return {due:d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()), at:pad(d.getHours())+':'+pad(d.getMinutes())};
+}
+/* Canvas titles its events "Homework 3 [CHEM 105 Section 002]". Only events
+   whose id says assignment are work; class meetings and office hours are
+   calendar events and stay out. */
+function canvasEvents(text){
+  return parseIcs(text).map(ev=>{
+    const uid=ev.UID ? String(ev.UID.value).trim() : '';
+    if(!/assignment/i.test(uid)) return null;
+    let sum=icsText(ev.SUMMARY ? ev.SUMMARY.value : ''), course='';
+    const m=/\s*\[([^\[\]]+)\]\s*$/.exec(sum);
+    if(m){ course=m[1].trim(); sum=sum.slice(0,m.index).trim(); }
+    const title=cleanTitle(sum,false);
+    if(!title) return null;
+    const w=icsWhen(ev.DTSTART||ev.DUE);
+    return {uid:uid, text:title, course:course||'Canvas', due:w?w.due:null, at:w?w.at:null};
+  }).filter(Boolean);
+}
+/* Best guess at which of your lists a Canvas course belongs to. The longest
+   list name found inside the course name wins, so "General Chemistry Lab"
+   is not filed under "General Chemistry". Then the short code: Canvas'
+   "CHEM 105" against a list called "CHEM 105 Notes". No guess beats a wrong one. */
+function cvGuess(course){
+  const k=cvKey(course); if(!k) return null;
+  const lists=(S.lists||[]).filter(l=>l && l.name);
+  const exact=lists.find(l=>cvKey(l.name)===k); if(exact) return exact.id;
+  const inside=lists.filter(l=>{ const n=cvKey(l.name); return n.length>=4 && k.indexOf(n)>-1; })
+                    .sort((a,b)=>cvKey(b.name).length-cvKey(a.name).length);
+  if(inside.length) return inside[0].id;
+  const code=listCode(course);
+  if(code.length<2 || code==='CANVA') return null;
+  const same=lists.filter(l=>listCode(l.name)===code);
+  return same.length===1 ? same[0].id : null;
+}
+/* Pure-ish: changes S, returns what happened. opts.remap = course key whose
+   existing items should follow a newly picked list. */
+function canvasApply(evs,opts){
+  const o=opts||{}, c=cvState(), t=today();
+  let added=0, moved=0, linked=0, relisted=0;
+  const where={};
+  (S.lists||[]).forEach(l=>(l.items||[]).forEach(i=>{ if(i.cv) where[i.cv]={l:l,i:i}; }));
+  const inFeed={}, courses={};
+  /* Guess lists for new courses up front. Two courses guessing the same list
+     (a lecture and its lab both called "CHEM 105 ...") means the guess cannot
+     tell them apart, so neither is placed and both wait for you. */
+  const fresh={}, claims={};
+  evs.forEach(e=>{ const k=cvKey(e.course); if(c.map[k]===undefined && !(k in fresh)){ fresh[k]=cvGuess(e.course); if(fresh[k]) claims[fresh[k]]=(claims[fresh[k]]||0)+1; } });
+  Object.keys(fresh).forEach(k=>{ const g=fresh[k]; if(g && claims[g]===1) c.map[k]=g; });
+  evs.forEach(e=>{
+    inFeed[e.uid]=1;
+    const k=cvKey(e.course);
+    courses[k]=courses[k]||{name:e.course,n:0}; courses[k].n++;
+    const lid=c.map[k];
+    const dest = (lid && lid!=='skip') ? listById(lid) : null;
+    const have=where[e.uid];
+    if(have){
+      c.seen[e.uid]=1;
+      if(o.remap===k && dest && have.l!==dest){
+        have.l.items=have.l.items.filter(x=>x!==have.i);
+        dest.items=dest.items||[]; dest.items.push(have.i); relisted++;
+      }
+      if(!have.i.done && e.due && (have.i.due!==e.due || (have.i.at||null)!==(e.at||null))){
+        have.i.due=e.due; if(e.at) have.i.at=e.at; else delete have.i.at; moved++;
+      }
+      return;
+    }
+    if(c.seen[e.uid]) return;                    /* filed before, then deleted */
+    if(!dest) return;                            /* course not placed yet */
+    if(e.due && e.due<t) return;                 /* already past: not yours to do now */
+    dest.items=dest.items||[];
+    /* Pasted earlier by hand? Adopt that row instead of adding a twin. */
+    const lc=e.text.toLowerCase();
+    const twin=dest.items.find(i=>!i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
+    if(twin){
+      twin.cv=e.uid; c.seen[e.uid]=1; linked++;
+      if(!twin.done && e.due){ twin.due=e.due; if(e.at) twin.at=e.at; }
+      return;
+    }
+    const it={id:newId('i'), text:e.text, done:false, cv:e.uid, added:new Date().toISOString()};
+    if(e.due) it.due=e.due;
+    if(e.at) it.at=e.at;
+    dest.items.push(it); c.seen[e.uid]=1; added++;
+  });
+  /* forget ids Canvas no longer lists, so seen cannot grow forever */
+  Object.keys(c.seen).forEach(u=>{ if(!inFeed[u]) delete c.seen[u]; });
+  c.courses={}; Object.keys(courses).forEach(k=>{ c.courses[k]=courses[k]; });
+  const unplaced=Object.keys(courses).filter(k=>{ const v=c.map[k]; return v!=='skip' && !(v && listById(v)); });
+  return {added:added, moved:moved, linked:linked, relisted:relisted, unplaced:unplaced.length};
+}
+function cvAgo(ms){
+  const m=Math.round((Date.now()-ms)/60000);
+  if(m<1) return 'just now'; if(m<60) return m+' min ago';
+  const h=Math.round(m/60); if(h<24) return h+'h ago';
+  return Math.round(h/24)+'d ago';
+}
+function cvSub(){
+  const c=S.canvas||{};
+  if(!c.url) return 'Off';
+  if(CVERR) return '<em class="hot">Failed</em>';
+  const need=Object.keys(c.courses||{}).filter(k=>{ const v=(c.map||{})[k]; return v!=='skip' && !(v && listById(v)); }).length;
+  if(need) return `<em class="hot">${need} to place</em>`;
+  return c.last ? esc('Checked '+cvAgo(c.last)) : 'On';
+}
+function canvasSync(manual,opts){
+  const c=S.canvas||{}, sc=syncCfg();
+  if(!c.url) return Promise.resolve('off');
+  if(!sc.url || !sc.key){
+    if(manual) toast('Canvas goes through your sync Worker. Set up Sync first');
+    return Promise.resolve('nosync');
+  }
+  if(!manual){
+    if(c.last && Date.now()-c.last<CANVAS_EVERY) return Promise.resolve('fresh');
+    if(Date.now()-cvTried<15*60000) return Promise.resolve('wait');   /* after a failure, don't retry on every open */
+  }
+  if(cvBusy || !window.fetch) return Promise.resolve('busy');
+  cvBusy=true; cvTried=Date.now();
+  if(manual){ CVERR=null; paintCanvas('Checking Canvas…'); }
+  return fetch(sc.url+'/canvas',{headers:{'x-sync-key':sc.key,'x-feed':c.url},cache:'no-store'})
+    .then(r=>r.text().then(t=>{
+      if(!r.ok){ let msg='HTTP '+r.status; try{ msg=JSON.parse(t).error||msg; }catch(e){} throw new Error(msg); }
+      /* An older Worker has no /canvas route and answers with your synced state. */
+      if(/^\s*[\[{n]/.test(t) && !/BEGIN:VCALENDAR/.test(t)) throw new Error('your Worker needs the Canvas update');
+      if(!/BEGIN:VCALENDAR/.test(t)) throw new Error('that link did not return a calendar');
+      return t;
+    }))
+    .then(t=>{
+      const evs=canvasEvents(t); CVLAST=evs; CVERR=null;
+      const r=canvasApply(evs,opts);
+      cvState().last=Date.now();
+      save(S); try{ paintLists(); }catch(e){} rebuild(); paintCanvas();
+      const bits=[];
+      if(r.added) bits.push(r.added+(r.added===1?' new assignment':' new assignments'));
+      if(r.moved) bits.push(r.moved+(r.moved===1?' due date changed':' due dates changed'));
+      if(r.relisted) bits.push(r.relisted+' moved to the new list');
+      if(r.unplaced) bits.push(r.unplaced+(r.unplaced===1?' course needs a list':' courses need a list')+' (Settings, Canvas)');
+      if(bits.length) toast('Canvas: '+bits.join(', '));
+      else if(manual) toast('Canvas: nothing new');
+      return 'ok';
+    })
+    .catch(err=>{
+      CVERR=String((err&&err.message)||err||'failed');
+      if(/failed to fetch|load failed|networkerror/i.test(CVERR)) CVERR='could not reach your Worker';
+      paintCanvas();
+      if(manual) toast('Canvas: '+CVERR);
+      return 'error';
+    })
+    .then(v=>{ cvBusy=false; if(typeof SETOPEN!=='undefined' && SETOPEN) try{ paintSettings(); }catch(e){} return v; });
+}
+function paintCanvas(busyMsg){
+  const inp=document.getElementById('cvurl'), st=document.getElementById('cvstat'), mp=document.getElementById('cvmap');
+  if(!inp||!st||!mp) return;
+  const c=S.canvas||{};
+  if(document.activeElement!==inp) inp.value=c.url||'';
+  st.textContent = busyMsg ? busyMsg
+    : !c.url ? 'Not connected.'
+    : CVERR ? 'Last check failed: '+CVERR+'.'
+    : c.last ? 'Last checked '+cvAgo(c.last)+'.' : 'Not checked yet.';
+  st.style.color = CVERR&&!busyMsg ? 'var(--warn,#E8A35A)' : 'var(--dimmer)';
+  const ks=Object.keys(c.courses||{}).sort((a,b)=>String(c.courses[a].name).localeCompare(String(c.courses[b].name)));
+  if(!c.url || !ks.length){ mp.innerHTML=''; return; }
+  const lists=(S.lists||[]);
+  mp.innerHTML='<div class="slot" style="border-bottom:none;padding-bottom:0"><label>Courses → your lists</label></div>'+ks.map(k=>{
+    const v=(c.map||{})[k], ok=v==='skip'||(v&&listById(v)), co=c.courses[k];
+    const opts=['<option value=""'+(ok?'':' selected')+'>Pick a list…</option>']
+      .concat(lists.map(l=>`<option value="${esc(l.id)}"${v===l.id?' selected':''}>${esc(l.name)}</option>`))
+      .concat([`<option value="skip"${v==='skip'?' selected':''}>Don’t import</option>`]);
+    return `<div class="cvrow${ok?'':' need'}"><div class="cvname">${esc(co.name)}<small>${ok?(v==='skip'?'Skipped':co.n+' in the feed'):'Nothing is filed until you pick a list'}</small></div>`+
+      `<select data-cvmap="${esc(k)}" aria-label="List for ${esc(co.name)}">${opts.join('')}</select></div>`;
+  }).join('');
+}
+(function(){
+  const inp=document.getElementById('cvurl'); if(!inp) return;
+  inp.addEventListener('change',()=>{
+    const u=cvNormUrl(inp.value);
+    if(!u){ if(S.canvas&&S.canvas.url){ delete S.canvas.url; delete S.canvas.last; save(S); } CVERR=null; paintCanvas(); return; }
+    if(!cvUrlOk(u)){ toast('That is not a Canvas calendar feed link. It ends in .ics'); return; }
+    const c=cvState();
+    if(c.url!==u){ c.url=u; delete c.last; save(S); }
+    inp.value=u; canvasSync(true);
+  });
+  document.getElementById('cvgo').addEventListener('click',()=>{
+    if(!(S.canvas&&S.canvas.url)){ toast('Paste your Canvas calendar feed link first'); inp.focus(); return; }
+    canvasSync(true);
+  });
+  document.getElementById('cvoff').addEventListener('click',()=>{
+    if(!(S.canvas&&S.canvas.url)) return;
+    delete S.canvas.url; delete S.canvas.last; CVERR=null; save(S); paintCanvas();
+    toast('Canvas disconnected. Assignments already filed stay');
+  });
+  document.getElementById('cvmap').addEventListener('change',e=>{
+    const sel=e.target.closest('[data-cvmap]'); if(!sel) return;
+    const k=sel.dataset.cvmap, c=cvState();
+    if(sel.value) c.map[k]=sel.value; else delete c.map[k];
+    save(S); paintCanvas();
+    if(sel.value && sel.value!=='skip') canvasSync(true,{remap:k});
+  });
+})();
+
 function openCount(l){ return (l.items||[]).filter(i=>!i.done).length; }
 function listsOpenTotal(){ return (S.lists||[]).reduce((a,l)=>a+openCount(l),0); }
 
@@ -9353,7 +9638,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    permanently hidden, which was work nobody could see. */
 const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>{ paintHist(); try{ paintSkips(); }catch(e){} }, money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
-                    review:()=>paintReview(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
+                    review:()=>paintReview(), canvas:()=>paintCanvas(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
   const sec=document.getElementById(id); if(!sec) return;
   const open=force!==undefined?force:!sec.classList.contains('open');
@@ -9365,6 +9650,7 @@ function setPanel(id,force){
 const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
   {id:'alerts', label:'Alerts',   open:f=>setPanel('alerts',f)},
+  {id:'canvas', label:'Canvas',   open:f=>setPanel('canvas',f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
   {id:'plan',   label:'Schedule', open:f=>toggleP(f)},
   {id:'money',  label:'Cost',     open:f=>toggleMoney(f)},
@@ -9478,11 +9764,11 @@ document.getElementById('histcopy').addEventListener('click',()=>{
    THE SETTINGS SCREEN.
    ========================================================= */
 const SETGROUPS=[
-  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers']]],
+  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['canvas','Canvas']]],
   ['The protocol',[['@opt','Show optional steps'],['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
   ['This device',[['sync','Sync'],['about','About & backup']]]
 ];
-const SETTITLE={review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
+const SETTITLE={canvas:'Canvas',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
   shelf:'Products',guide:'Product guide',money:'Monthly cost',sync:'Sync',about:'About & backup'};
 function setSub(id){
   try{
@@ -9491,6 +9777,7 @@ function setSub(id){
     if(id==='sync'){ const c=document.getElementById('syncchip'); if(!c) return '';
       const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
+    if(id==='canvas') return cvSub();
     if(id==='money'){ const m=document.getElementById('mtotal'); return m?esc(m.textContent)+'/mo':''; }
   }catch(e){}
   return '';
@@ -10858,6 +11145,7 @@ function syncPull(){
       if(r==='pulled') toast('Updated from another device');
       if(rollover()) rebuild();        /* only if the server agrees it's a new day */
       if(r!=='error' && digestStale()) syncPush();
+      if(r!=='error') canvasSync(false);   /* after the pull, so it files into the newest state */
     });
   });
 
@@ -10873,6 +11161,7 @@ function syncPull(){
        so every device that syncs afterwards inherits it. */
     if(rollover()) rebuild();
     if(r!=='error' && digestStale()) syncPush();
+    if(r!=='error') canvasSync(false);
   });
 })();
 
@@ -10948,6 +11237,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.10.31-a', note:'CANVAS AUTO-SYNC: Settings, Canvas. Paste your private Canvas calendar feed link (Canvas on a computer: Calendar, then Calendar Feed) and new assignments file themselves into your course lists, checked every few hours when you open the app. Each Canvas course is matched to one of your lists; any it cannot place waits for you to pick. Due dates that move in Canvas move here while the item is still open, deleted ones stay deleted, past-due work is skipped, and anything you already pasted by hand is linked rather than doubled. Needs the small update to your sync Worker.'},
   {v:'2026.10.28-b', note:'FIX: a late repeat on the By date list (like a shave a few days overdue) would not tick off — the tap logged it, but the row stayed under Late, unchecked, and every tap logged it again. Catching one up now moves it onto today, ticked, and unticking puts it back under Late. Tapping the same thing twice in a day also no longer overwrites its real previous completion.'},
   {v:'2026.10.28-a', note:'REPEATS ON THE CALENDAR: the + sheet has a new Repeat row \u2014 tap weekdays (say Th and Su) and the task comes back on those days instead of landing on one date. It shows on the board on its days and on the By date list every time it lands in the next two weeks; the next one is the one you tick or move, later ones are a faint preview. Change its days in Full schedule; swipe a row left to delete it. Built-in scheduled items like Trim face now work with Plan too (they used to be skipped), and the Plan button now shows on those rows on the board.'},
   {v:'2026.10.27-c', note:'CALENDAR EVERYWHERE: the last places that opened the phone\u2019s date wheel \u2014 a routine\u2019s Starting and Last done dates in the schedule, and the Move panel on a late task \u2014 now use the app\u2019s own month grid. Tap the date to unfold it, tap a day to set it. MONTHLY COST, CONTROLS FIRST: each group\u2019s explanation sits behind a small i next to its heading, and The maximizer read folds away, leaving one line with what you are overpaying, if anything.'},
