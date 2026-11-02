@@ -2634,14 +2634,18 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
       </div>
       <div class="arecipe">
         <div class="shelfhead" id="rechead" role="button" tabindex="0" aria-expanded="false">
-          <h3>The two Shortcuts</h3><span class="caret">Open</span>
+          <h3>The Shortcuts</h3><span class="caret">Open</span>
         </div>
         <div class="recbody" id="recbody">
           <p class="hint"><b>1. Protocol Timer</b> — receives a duration from this page and starts a real timer.<br>
           New Shortcut, named exactly what you put in the Shortcut box above. One action: <b>Start Timer</b>. Set the unit to <b>seconds</b> and tap the number field, then pick the <b>Shortcut Input</b> variable. That is the whole thing. Test it by turning the toggle on and tapping any dial on the board.</p>
-          <p class="hint"><b>2. Protocol Reminders</b> — writes your alerts into Reminders each morning.<br>
-          Actions in order: <b>Get Contents of URL</b> pointed at your sync URL, with method GET and a header <b>x-sync-key</b> set to your sync key (both are on the Sync tab). Then <b>Get Dictionary Value</b>, key <b>alerts</b>. Then <b>Repeat with Each</b>. Inside the repeat: <b>Get Dictionary Value</b> key <b>l</b> from Repeat Item for the title, <b>Get Dictionary Value</b> key <b>atPretty</b> from Repeat Item, then <b>Text</b> reading <b>Today at</b> followed by that value, then <b>Get Dates from Input</b>, then <b>Add New Reminder</b> with the title and that date as the alert. End Repeat.<br>
+          <p class="hint"><b>2. Protocol Reminders</b> — writes your alerts into Reminders each morning, and tells you what the day holds.<br>
+          Actions in order: <b>Get Contents of URL</b> pointed at your sync URL, with method GET and a header <b>x-sync-key</b> set to your sync key (both are on the Sync tab). Then <b>Get Dictionary Value</b>, key <b>summary</b>, and from that another <b>Get Dictionary Value</b>, key <b>alerts</b> — they sit inside the summary, not at the top. Then <b>Repeat with Each</b>. Inside the repeat: <b>Get Dictionary Value</b> key <b>l</b> from Repeat Item for the title, <b>Get Dictionary Value</b> key <b>atPretty</b> from Repeat Item, then <b>Text</b> reading <b>Today at</b> followed by that value, then <b>Get Dates from Input</b>, then <b>Add New Reminder</b> with the title and that date as the alert. End Repeat.<br>
+          <b>The morning line:</b> after End Repeat, <b>Format Date</b> on Current Date with a custom format of <b>yyyy-MM-dd</b>. Then <b>Get Dictionary Value</b> key <b>briefs</b> from the summary, then <b>Get Dictionary Value</b> with the formatted date as the key. Then <b>If</b> it has any value, <b>Show Notification</b> with it. You get something like “Today: 3 assignments, 1 task due. Coming up: Exam 2 Wednesday.”<br>
           Then in the Shortcuts app under Automation, add a <b>Time of Day</b> automation for whenever you wake, running that shortcut, with <b>Run Immediately</b> on and Notify When Run off.</p>
+          <p class="hint"><b>3. Add to Someday</b> — say it to Siri, or share it from any app, without opening this one.<br>
+          New Shortcut named <b>Add to Someday</b>. In its details, turn on <b>Show in Share Sheet</b> and set it to receive <b>Text</b> and <b>URLs</b>; where it asks what to do if there is no input, pick <b>Ask For Text</b>. Then one action: <b>Get Contents of URL</b>, address your sync URL followed by <b>/inbox</b>, method <b>POST</b>, header <b>x-sync-key</b> set to your sync key, Request Body <b>JSON</b> with one Text field named <b>text</b> set to <b>Shortcut Input</b>. Optional last step: <b>Show Notification</b> “On Someday”.<br>
+          Say “Hey Siri, Add to Someday” and it asks what. It waits on the Worker and lands on Someday the next time this app opens.</p>
           <p class="hint">Alerts here are a published list, not a live connection. Change a time and the Shortcut picks it up the next morning — or run it by hand to see it now.</p>
       </div>
     </div>
@@ -3465,7 +3469,39 @@ function summarize(){
           school:{done:cdone, total:cids.length},
           star: !!(xids.length && xdone===xids.length),
           bulb: !!(cids.length && cdone===cids.length),
-          modes:Object.assign({},S.modes||{}), next:next, routines:due, alerts:alerts};
+          modes:Object.assign({},S.modes||{}), next:next, routines:due, alerts:alerts,
+          briefs:briefs()};
+}
+/* MORNING LINE. The Reminders Shortcut runs before the app has opened that
+   day, so the copy it reads was pushed the night before. That is why this
+   publishes one line for today AND one for tomorrow, keyed by date: the
+   Shortcut looks up the date it wakes on and gets the right one either way. */
+const BRIEF_EXAM=/\b(exam|midterm|final|test)\b/i;
+function briefFor(day){
+  const WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let asg=0; const exams=[];
+  (S.lists||[]).forEach(l=>{
+    if(!listOnBoard(l)) return;
+    (l.items||[]).forEach(i=>{
+      if(i.done) return;
+      const d=itemDue(i); if(!d) return;
+      if(d===day) asg++;
+      if(BRIEF_EXAM.test(i.text||'') && d>=day && d<=addDaysISO(day,6))
+        exams.push(i.text+(d===day?' today':' '+WD[dayOf(d).getDay()]));
+    });
+  });
+  const tasks=(S.custom||[]).filter(c=>c.date===day && !c.done).length;
+  const bits=[];
+  if(asg) bits.push(asg+(asg===1?' assignment':' assignments'));
+  if(tasks) bits.push(tasks+(tasks===1?' task':' tasks'));
+  let line=bits.length?'Today: '+bits.join(', ')+' due.':'Today: nothing due.';
+  if(exams.length) line+=' Coming up: '+exams.slice(0,2).join(', ')+'.';
+  return line;
+}
+function briefs(){
+  const o={}, t=today(), n=addDaysISO(t,1);
+  try{ o[t]=briefFor(t); o[n]=briefFor(n); }catch(e){}
+  return o;
 }
 /* =========================================================
    COMMIT — the one place that knows the order.
@@ -7612,6 +7648,36 @@ function cvSub(){
   if(need) return `<em class="hot">${need} to place</em>`;
   return c.last ? esc('Checked '+cvAgo(c.last)) : 'On';
 }
+/* SOMEDAY INBOX. Things said to Siri or shared from another app wait on the
+   sync Worker under /inbox. Each is filed into Someday once (ids are kept in
+   S.inboxSeen, which syncs, so a second device will not file it again), then
+   the Worker is told to drop everything it handed over. */
+let ibBusy=false;
+function inboxSync(){
+  const sc=syncCfg();
+  if(!sc.url || !sc.key || ibBusy || !window.fetch) return Promise.resolve('off');
+  ibBusy=true;
+  return fetch(sc.url+'/inbox',{headers:{'x-sync-key':sc.key},cache:'no-store'})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{
+      /* An older Worker answers /inbox with your whole synced state, which has
+         no items array \u2014 so there is simply nothing to file. */
+      const items=(j && Array.isArray(j.items))?j.items:[];
+      if(!items.length) return 'empty';
+      S.inboxSeen=S.inboxSeen||[];
+      const fresh=items.filter(x=>x && x.id && typeof x.text==='string' && x.text.trim() && S.inboxSeen.indexOf(x.id)===-1);
+      fresh.forEach(x=>{ S.inboxSeen.push(x.id); addCustom(x.text.trim().slice(0,300),null,{via:'inbox'}); });
+      if(S.inboxSeen.length>200) S.inboxSeen=S.inboxSeen.slice(-200);
+      if(fresh.length){
+        save(S); try{ paintLists(); }catch(e){} rebuild();
+        toast(fresh.length===1?'\u201c'+fresh[0].text.trim().slice(0,40)+'\u201d is on Someday':fresh.length+' new on your Someday list');
+      }
+      return fetch(sc.url+'/inbox/ack',{method:'POST',headers:syncHeaders(sc),body:JSON.stringify({ids:items.map(x=>x.id)})})
+        .then(()=>fresh.length?'added':'acked',()=>'ackfail');
+    })
+    .catch(()=>'error')
+    .then(v=>{ ibBusy=false; return v; });
+}
 function canvasSync(manual,opts){
   const c=S.canvas||{}, sc=syncCfg();
   if(!c.url) return Promise.resolve('off');
@@ -11146,6 +11212,7 @@ function syncPull(){
       if(rollover()) rebuild();        /* only if the server agrees it's a new day */
       if(r!=='error' && digestStale()) syncPush();
       if(r!=='error') canvasSync(false);   /* after the pull, so it files into the newest state */
+      if(r!=='error') inboxSync();         /* same reason */
     });
   });
 
@@ -11162,6 +11229,7 @@ function syncPull(){
     if(rollover()) rebuild();
     if(r!=='error' && digestStale()) syncPush();
     if(r!=='error') canvasSync(false);
+    if(r!=='error') inboxSync();
   });
 })();
 
@@ -11237,6 +11305,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.02-a', note:'ADD TO SOMEDAY WITH SIRI: a new Shortcut (Settings, Alerts & timers, The Shortcuts, number 3) sends anything you say or share to your Worker, and it lands on Someday the next time the app opens. Needs the updated Worker pasted in once. MORNING LINE: the digest now carries a one-line summary for today and tomorrow (assignments and tasks due, any exam in the next week), and the Reminders Shortcut recipe shows how to turn it into a morning notification. The recipe also now says alerts sit inside summary.'},
   {v:'2026.10.31-a', note:'CANVAS AUTO-SYNC: Settings, Canvas. Paste your private Canvas calendar feed link (Canvas on a computer: Calendar, then Calendar Feed) and new assignments file themselves into your course lists, checked every few hours when you open the app. Each Canvas course is matched to one of your lists; any it cannot place waits for you to pick. Due dates that move in Canvas move here while the item is still open, deleted ones stay deleted, past-due work is skipped, and anything you already pasted by hand is linked rather than doubled. Needs the small update to your sync Worker.'},
   {v:'2026.10.28-b', note:'FIX: a late repeat on the By date list (like a shave a few days overdue) would not tick off — the tap logged it, but the row stayed under Late, unchecked, and every tap logged it again. Catching one up now moves it onto today, ticked, and unticking puts it back under Late. Tapping the same thing twice in a day also no longer overwrites its real previous completion.'},
   {v:'2026.10.28-a', note:'REPEATS ON THE CALENDAR: the + sheet has a new Repeat row \u2014 tap weekdays (say Th and Su) and the task comes back on those days instead of landing on one date. It shows on the board on its days and on the By date list every time it lands in the next two weeks; the next one is the one you tick or move, later ones are a faint preview. Change its days in Full schedule; swipe a row left to delete it. Built-in scheduled items like Trim face now work with Plan too (they used to be skipped), and the Plan button now shows on those rows on the board.'},

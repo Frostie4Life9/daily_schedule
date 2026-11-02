@@ -43,6 +43,14 @@
       /feeds/calendars/<something>.ics are fetched, so this cannot be
       used as a general proxy, and it needs the same key as your state.
 
+   SOMEDAY INBOX (added 2026-11-02)
+      POST /inbox with header x-sync-key (the SECRET) and a JSON body
+      {"text":"..."} (plain text works too) from a Siri / share-sheet
+      Shortcut. It is held in KV under "inbox" until the app next opens,
+      files it into Someday, and calls POST /inbox/ack {"ids":[...]} to
+      drop what it took. GET /inbox lists what is waiting. Each entry is
+      capped at 300 characters and the inbox at 100 entries.
+
    Verify it works: opening the URL in a browser should return
    {"error":"unauthorized"} — that is the correct response. It means
    the Worker is live and refusing requests without the key.
@@ -73,6 +81,47 @@ function keyMatches(given, want) {
     if (given.charCodeAt(i) !== want.charCodeAt(i)) ok = false;
   }
   return ok;
+}
+
+/* ---- Someday inbox: things said to Siri wait here for the app ---- */
+const INBOX = 'inbox';
+const INBOX_MAX = 100;
+const INBOX_TEXT = 300;
+
+async function inboxRead(env) {
+  try { const a = JSON.parse((await env.STATE.get(INBOX)) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+
+async function inbox(request, env, url) {
+  if (url.pathname === '/inbox' && request.method === 'GET') {
+    return new Response(JSON.stringify({ items: await inboxRead(env) }), {
+      headers: Object.assign({ 'content-type': 'application/json', 'cache-control': 'no-store' }, CORS)
+    });
+  }
+  if (request.method !== 'POST') return reply({ error: 'method not allowed' }, 405);
+  const body = await request.text();
+  if (body.length > 16 * 1024) return reply({ error: 'payload too large' }, 413);
+
+  if (url.pathname === '/inbox/ack') {
+    let ids;
+    try { ids = JSON.parse(body).ids; } catch (e) { ids = null; }
+    if (!Array.isArray(ids)) return reply({ error: 'expected {"ids":[...]}' }, 400);
+    const left = (await inboxRead(env)).filter(x => ids.indexOf(x.id) === -1);
+    await env.STATE.put(INBOX, JSON.stringify(left));
+    return reply({ ok: true, left: left.length });
+  }
+
+  /* Shortcuts may send JSON {"text":...} or the raw text itself; take either. */
+  let text = body;
+  try { const j = JSON.parse(body); if (j && typeof j === 'object') text = j.text; } catch (e) {}
+  text = String(text == null ? '' : text).replace(/\s+/g, ' ').trim().slice(0, INBOX_TEXT);
+  if (!text) return reply({ error: 'nothing to add' }, 400);
+  const a = await inboxRead(env);
+  if (a.length >= INBOX_MAX) return reply({ error: 'inbox full: open the app to file what is waiting' }, 429);
+  a.push({ id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: text, t: Date.now() });
+  await env.STATE.put(INBOX, JSON.stringify(a));
+  return reply({ ok: true, waiting: a.length });
 }
 
 /* Fetch a Canvas calendar feed for the app. */
@@ -178,6 +227,11 @@ export default {
     if (url.pathname === '/canvas') {
       if (request.method !== 'GET') return reply({ error: 'method not allowed' }, 405);
       return canvasFeed(request);
+    }
+
+    // ---- Someday inbox (Siri / share sheet) ----
+    if (url.pathname === '/inbox' || url.pathname === '/inbox/ack') {
+      return inbox(request, env, url);
     }
 
     if (request.method === 'GET') {
