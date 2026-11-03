@@ -1737,6 +1737,21 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 .pltask{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:15px;border:0;background:rgba(111,183,255,.12);
   color:#CFE6FF;font-family:inherit;font-size:13px;cursor:pointer;}
 .pltask i{font-style:normal;color:var(--dimmer);}
+.plday.heavy .pldl{color:var(--warn);}
+.plexams{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.plexam{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:var(--live-soft);color:var(--live);font-size:12.5px;font-weight:500;}
+/* ---- the week in review (top of Plan the week) ---- */
+.wkbox{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:14px 0 0;padding:14px;border-radius:16px;background:#1B1E24;animation:g-rise .35s var(--ease) both;}
+.wkcol{min-width:0;}
+.wkeye{display:block;margin-bottom:4px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.14em;color:var(--dimmer);}
+.wkrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px solid var(--hair);}
+.wkrow span{min-width:0;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wkrow b{font-weight:600;white-space:nowrap;}
+.wkwarn{color:var(--warn);}
+.wkexam{color:var(--live);}
+.wktip{grid-column:1/-1;margin:2px 0 0;font-size:13px;color:var(--dim);}
+@media (max-width:420px){ .wkbox{grid-template-columns:1fr;} }
+.tcv{flex:0 0 auto;max-width:60%;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dsomeplan{margin-left:auto;height:30px;padding:0 12px;border-radius:15px;border:1px solid rgba(111,183,255,.35);background:transparent;
   color:var(--extra);font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;}
 .lsome .lbar{cursor:default;}
@@ -10094,15 +10109,79 @@ document.getElementById('revgo').addEventListener('click',()=>openTriage('review
    scrolling sheet on a phone is a fight; two taps never are.
    ========================================================= */
 const PLAN={pick:null};
-function planDayLoad(iso){
-  let school=0,tasks=[];
+function planDayLoad(iso,B){
+  let school=0,tasks=[],exams=[];
   try{
-    const B=listBuckets();
+    B=B||listBuckets();
     [].concat(B.today,B.tomorrow,B.week,B.fortnight).filter(r=>r.due===iso && !r.done).forEach(r=>{
-      if(r.task) tasks.push(r); else if(!r.routine) school++;
+      if(r.task) tasks.push(r);
+      else if(!r.routine){ school++; if(BRIEF_EXAM.test(r.text||'')) exams.push(r.text); }
     });
   }catch(e){}
-  return {school,tasks};
+  return {school,tasks,exams};
+}
+/* =========================================================
+   THE WEEK, SEEN FROM SUNDAY. Looking back reads logs that already
+   exist (S.hist for finished days, S.ntlog for set-asides, a one-off's
+   own done date); looking ahead is the same per-day load the days
+   below are painted from. Nothing new is stored, so there is nothing
+   to sync and nothing to migrate.
+   ========================================================= */
+const WEEK_HEAVY=3;   /* school things due on one day before it counts as heavy */
+function asideLabel(k){
+  if(k.indexOf('r:')===0){ const r=ROUTINES.find(x=>x.id===k.slice(2)); return r&&r.l; }
+  const st=PHASES.flatMap(p=>p.steps||[]).find(x=>x.id===k); return st&&st.l;
+}
+/* The seven days before today. Today is left out on purpose: on a Sunday
+   morning it has barely started, and counting it would read as a miss. */
+function weekBack(){
+  const t=today(), from=addDaysISO(t,-7), to=addDaysISO(t,-1), h=S.hist||{};
+  let full=0, seen=0;
+  for(let i=1;i<=7;i++){
+    const k=addDaysISO(t,-i);
+    if(S.since && k<S.since) continue;
+    seen++; const v=h[k]; if(v&&v[1]&&v[0]>=v[1]) full++;
+  }
+  const lg=S.ntlog||{};
+  const aside=Object.keys(lg).map(k=>({l:asideLabel(k), n:(lg[k]||[]).filter(d=>d>=from && d<=to).length}))
+    .filter(x=>x.l && x.n>=2).sort((a,b)=>b.n-a.n).slice(0,3)
+    .map(x=>({l:x.l.split(' — ')[0], n:x.n}));
+  const finished=(S.custom||[]).filter(c=>c.done && c.done>=from && c.done<=to).length;
+  return {full, seen, aside, finished, waiting:someday().length};
+}
+function weekAhead(){
+  const t=today(); let B=null; try{ B=listBuckets(); }catch(e){}
+  const days=[0,1,2,3,4,5,6].map(i=>{
+    const iso=addDaysISO(t,i), L=planDayLoad(iso,B||undefined);
+    return {iso, school:L.school, tasks:L.tasks.length, exams:L.exams,
+            heavy: L.school>=WEEK_HEAVY || L.school+L.tasks.length>WEEK_HEAVY};
+  });
+  const due=days.reduce((n,d)=>n+d.school,0);
+  const peak=days.reduce((a,d)=>(d.school+d.tasks)>(a?a.school+a.tasks:0)?d:a,null);
+  return {days, due, peak:peak&&peak.heavy?peak:null, heavy:days.filter(d=>d.heavy),
+          exams:days.flatMap(d=>d.exams.map(x=>({l:x, iso:d.iso})))};
+}
+function weekDayName(iso,short){
+  const t=today();
+  if(iso===t) return 'Today';
+  if(iso===addDaysISO(t,1)) return 'Tomorrow';
+  return dayOf(iso).toLocaleDateString('en-US',{weekday:short?'short':'long'});
+}
+/* The look-back block at the top of Plan the week. Short on purpose: a
+   number, the things you kept setting aside, and the week's crunch. */
+function weekReviewHTML(){
+  const b=weekBack(), a=weekAhead();
+  const back=[];
+  if(b.seen) back.push(`<div class="wkrow"><span>Protocol finished</span><b>${b.full} of ${b.seen} days</b></div>`);
+  b.aside.forEach(x=>back.push(`<div class="wkrow"><span>Set aside: ${esc(x.l)}</span><b class="wkwarn">${x.n} days</b></div>`));
+  back.push(`<div class="wkrow"><span>One-offs finished</span><b>${b.finished}</b></div>`);
+  const ahead=[`<div class="wkrow"><span>School due</span><b>${a.due}</b></div>`];
+  a.heavy.forEach(d=>ahead.push(`<div class="wkrow"><span>Heavy: ${esc(weekDayName(d.iso))}</span><b class="wkwarn">${d.school} school${d.tasks?' + '+d.tasks+' task'+(d.tasks>1?'s':''):''}</b></div>`));
+  a.exams.slice(0,3).forEach(x=>ahead.push(`<div class="wkrow"><span>${esc(x.l)}</span><b class="wkexam">${esc(weekDayName(x.iso))}</b></div>`));
+  const tip=a.heavy.length&&b.waiting?'Give Someday things to the lighter days.':'';
+  return `<div class="wkbox"><div class="wkcol"><span class="wkeye">LAST 7 DAYS</span>${back.join('')}</div>`+
+    `<div class="wkcol"><span class="wkeye">NEXT 7 DAYS</span>${ahead.join('')}</div>`+
+    (tip?`<p class="wktip">${tip}</p>`:'')+`</div>`;
 }
 function openPlan(){
   PLAN.pick=null;
@@ -10131,18 +10210,21 @@ function paintPlan(glowDay){
   sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">PLAN THE WEEK</span>`+
     `<h2 id="plantitle">Give Someday a day</h2></div>`+
     `<button class="shclose" data-plan="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
+    weekReviewHTML()+
     `<p class="plhint">${hint}</p>`+
     (some.length?`<div class="plsome">`+some.map(c=>`<button class="plitem${c.id===PLAN.pick?' on':''}" data-pk="${esc(c.id)}" type="button" aria-pressed="${c.id===PLAN.pick}">${esc(c.l)}</button>`).join('')+`</div>`:'')+
-    `<div class="pldays${pick?' armed':''}">`+days.map(iso=>{
-      const L=planDayLoad(iso), d=dayOf(iso);
-      const name=iso===t?'Today':iso===addDaysISO(t,1)?'Tomorrow':d.toLocaleDateString('en-US',{weekday:'long'});
+    `<div class="pldays${pick?' armed':''}">`+(()=>{ let B=null; try{ B=listBuckets(); }catch(e){} return days.map(iso=>{
+      const L=planDayLoad(iso,B||undefined), d=dayOf(iso);
+      const name=weekDayName(iso);
+      const heavy=L.school>=WEEK_HEAVY || L.school+L.tasks.length>WEEK_HEAVY;
       const load=[L.school?L.school+' school':'', L.tasks.length?L.tasks.length+' task'+(L.tasks.length>1?'s':''):''].filter(Boolean).join(' · ')||'Free';
-      return `<div class="plday${iso===glowDay?' glow':''}" data-pday="${iso}" role="button" tabindex="0" aria-label="${esc(name)}">`+
+      return `<div class="plday${iso===glowDay?' glow':''}${heavy?' heavy':''}" data-pday="${iso}" role="button" tabindex="0" aria-label="${esc(name)}${heavy?', heavy day':''}">`+
         `<div class="pldh"><span class="pldn">${esc(name)}</span><span class="plddate">${esc(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>`+
-        `<span class="pldl">${esc(load)}</span></div>`+
+        `<span class="pldl">${esc(load)}${heavy?' · heavy':''}</span></div>`+
+        (L.exams.length?`<div class="plexams">`+L.exams.map(x=>`<span class="plexam">${esc(x)}</span>`).join('')+`</div>`:'')+
         (L.tasks.length?`<div class="pltasks">`+L.tasks.map(r=>`<button class="pltask" data-pback="${esc(r.cid)}" type="button" title="Send back to Someday">${esc(r.text)}<i aria-hidden="true">×</i></button>`).join('')+`</div>`:'')+
       `</div>`;
-    }).join('')+`</div>`+
+    }).join(''); })()+`</div>`+
     `<div class="shbtns"><button class="shdone" data-plan="close" type="button">Done</button></div>`;
 }
 document.getElementById('planback').addEventListener('click',closePlan);
@@ -10183,7 +10265,8 @@ function staleSomeday(){ return someday().filter(c=>c.made && c.made<=addDaysISO
 function whichCard(){
   const h=hourNow();
   if((h>=21 || h<(+S.dayStart||4)) && !waved('sweep') && sweepItems().length) return 'sweep';
-  if(dayOf(today()).getDay()===0 && !waved('plan') && someday().length) return 'plan';
+  /* Sunday's card is the week in review now, so it shows even with Someday empty */
+  if(dayOf(today()).getDay()===0 && !waved('plan')) return 'plan';
   if(!waved('stale') && staleSomeday().length) return 'stale';
   return null;
 }
@@ -10191,7 +10274,9 @@ function paintCards(){
   const m=document.getElementById('cardmount'); if(!m) return;
   const k=whichCard();
   /* paint() runs on every tick; only rebuild the card when what it says changed */
-  const sig=!k?'':k+':'+(k==='sweep'?sweepItems().map(i=>i.id).join(','):k==='plan'?someday().length:staleSomeday().length);
+  let wb=null, wa=null;
+  if(k==='plan'){ wb=weekBack(); wa=weekAhead(); }
+  const sig=!k?'':k+':'+(k==='sweep'?sweepItems().map(i=>i.id).join(','):k==='plan'?JSON.stringify([wb,wa.due,wa.peak&&wa.peak.iso,wa.exams.length]):staleSomeday().length);
   if(m.dataset.sig===sig) return;
   m.dataset.sig=sig;
   if(!k){ m.innerHTML=''; return; }
@@ -10207,9 +10292,16 @@ function paintCards(){
           `<button class="tcb" data-card="some:${esc(i.id)}" type="button">Someday</button>`:'')+`</div>`).join('')+`</div>`+
       `<div class="tcbtns"><button class="tcgo" data-card="alltmr" type="button">All to tomorrow</button></div></div>`;
   } else if(k==='plan'){
-    const n=someday().length;
+    const n=wb.waiting, rows=[];
+    if(wb.seen) rows.push(['Last week',`${wb.full} of ${wb.seen} days finished`,'']);
+    if(wb.aside.length) rows.push(['Set aside most',`${wb.aside[0].l} · ${wb.aside[0].n} days`,'wkwarn']);
+    rows.push(['This week', wa.due+' school due', '']);
+    if(wa.peak) rows.push(['Heaviest day', weekDayName(wa.peak.iso,true)+' · '+(wa.peak.school+wa.peak.tasks)+' things', 'wkwarn']);
+    wa.exams.slice(0,2).forEach(e=>rows.push([e.l, weekDayName(e.iso,true), 'wkexam']));
     m.innerHTML=`<div class="tcard"><div class="tch"><span class="tce">SUNDAY</span>${x}</div>`+
-      `<h3>Plan the week?</h3><p class="tcp">${n} thing${n>1?'s':''} on Someday waiting for a day.</p>`+
+      `<h3>Your week</h3>`+
+      `<div class="tclist">`+rows.map(r=>`<div class="tcrow"><span class="tcl">${esc(r[0])}</span><span class="tcv ${r[2]}">${esc(r[1])}</span></div>`).join('')+`</div>`+
+      `<p class="tcp">${n?n+' thing'+(n>1?'s':'')+' on Someday waiting for a day.':'Someday is empty.'}</p>`+
       `<div class="tcbtns"><button class="tcgo" data-card="plan" type="button">Plan the week</button></div></div>`;
   } else {
     const n=staleSomeday().length;
@@ -11305,6 +11397,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.03-a', note:'YOUR WEEK: Sunday\'s card on Today is now a week in review. It shows how many of the last 7 days you finished the protocol, what you set aside most, how much school is due this week with the heaviest day called out, and any exam coming up. It shows every Sunday, even with Someday empty. Plan the week opens with the same look-back and look-ahead at the top, and each day below now flags a heavy load (3 or more school things) and names any exam on it.'},
   {v:'2026.11.02-a', note:'ADD TO SOMEDAY WITH SIRI: a new Shortcut (Settings, Alerts & timers, The Shortcuts, number 3) sends anything you say or share to your Worker, and it lands on Someday the next time the app opens. Needs the updated Worker pasted in once. MORNING LINE: the digest now carries a one-line summary for today and tomorrow (assignments and tasks due, any exam in the next week), and the Reminders Shortcut recipe shows how to turn it into a morning notification. The recipe also now says alerts sit inside summary.'},
   {v:'2026.10.31-a', note:'CANVAS AUTO-SYNC: Settings, Canvas. Paste your private Canvas calendar feed link (Canvas on a computer: Calendar, then Calendar Feed) and new assignments file themselves into your course lists, checked every few hours when you open the app. Each Canvas course is matched to one of your lists; any it cannot place waits for you to pick. Due dates that move in Canvas move here while the item is still open, deleted ones stay deleted, past-due work is skipped, and anything you already pasted by hand is linked rather than doubled. Needs the small update to your sync Worker.'},
   {v:'2026.10.28-b', note:'FIX: a late repeat on the By date list (like a shave a few days overdue) would not tick off — the tap logged it, but the row stayed under Late, unchecked, and every tap logged it again. Catching one up now moves it onto today, ticked, and unticking puts it back under Late. Tapping the same thing twice in a day also no longer overwrites its real previous completion.'},
