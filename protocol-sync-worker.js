@@ -150,6 +150,46 @@ async function canvasFeed(request) {
   });
 }
 
+/* Fetch a Learning Suite (BYU) calendar feed for the app. BYU does not publish
+   the exact address shape, so the check is on WHO it points at, not on its
+   path: https, a byu.edu host, no credentials, no odd port. Redirects are
+   followed by hand so a redirect cannot carry the request somewhere else. */
+function byuHost(u) {
+  return u.protocol === 'https:' && /(^|\.)byu\.edu$/i.test(u.hostname) && !u.username && !u.password && !u.port;
+}
+async function lsFeed(request) {
+  const raw = (request.headers.get('x-feed') || '').trim().replace(/^webcals?:\/\//i, 'https://');
+  let feed;
+  try { feed = new URL(raw); } catch (e) { return reply({ error: 'missing or invalid feed link' }, 400); }
+  if (!byuHost(feed)) return reply({ error: 'not a BYU Learning Suite feed link' }, 400);
+  let r;
+  try {
+    for (let hop = 0; hop < 4; hop++) {
+      r = await fetch(feed.toString(), {
+        headers: { 'accept': 'text/calendar, */*', 'user-agent': 'protocol-sync (personal Learning Suite feed)' },
+        redirect: 'manual'
+      });
+      if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
+        let next;
+        try { next = new URL(r.headers.get('location'), feed); } catch (e) { return reply({ error: 'bad redirect from Learning Suite' }, 502); }
+        if (!byuHost(next)) return reply({ error: 'Learning Suite redirected somewhere else' }, 502);
+        feed = next; r = null; continue;
+      }
+      break;
+    }
+  } catch (e) {
+    return reply({ error: 'could not reach Learning Suite' }, 502);
+  }
+  if (!r) return reply({ error: 'too many redirects' }, 502);
+  if (!r.ok) return reply({ error: 'Learning Suite answered ' + r.status + (r.status === 404 ? ' (link expired or reset?)' : '') }, 502);
+  const text = await r.text();
+  if (text.length > MAX_ICS) return reply({ error: 'feed too large' }, 413);
+  if (text.indexOf('BEGIN:VCALENDAR') === -1) return reply({ error: 'that link did not return a calendar' }, 502);
+  return new Response(text, {
+    headers: Object.assign({ 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'no-store' }, CORS)
+  });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -227,6 +267,12 @@ export default {
     if (url.pathname === '/canvas') {
       if (request.method !== 'GET') return reply({ error: 'method not allowed' }, 405);
       return canvasFeed(request);
+    }
+
+    // ---- Learning Suite calendar feed, fetched on the app's behalf ----
+    if (url.pathname === '/lsfeed') {
+      if (request.method !== 'GET') return reply({ error: 'method not allowed' }, 405);
+      return lsFeed(request);
     }
 
     // ---- Someday inbox (Siri / share sheet) ----

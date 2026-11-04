@@ -759,6 +759,12 @@ input.atime-in{background:var(--ground);border:1px solid var(--line);color:var(-
 .cvrow select{flex:0 0 auto;max-width:48%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;min-height:36px;}
 .cvrow.need .cvname small{color:var(--warn,#E8A35A);}
 #cvmap:not(:empty){margin:4px 0 12px;}
+.lsfeed{border-top:1px solid var(--line);padding-top:12px;margin-top:12px;}
+.lsfeed:first-child{border-top:none;padding-top:0;margin-top:0;}
+.lsprev{font-size:12.5px;color:var(--dim);line-height:1.5;margin:8px 0 10px;}
+.lsprev ul{margin:6px 0 0;padding-left:18px;}
+.lsprev li{margin:2px 0;color:var(--ink);overflow-wrap:anywhere;}
+.lsfeed .reset{margin-right:8px;}
 .lrow input.url{flex:1 1 200px;min-width:0;min-height:36px;padding:7px 9px;font-size:12px;
   text-align:left;background:var(--ground);border:1px solid var(--line);color:var(--ink);
   -webkit-text-fill-color:var(--ink);color-scheme:dark;border-radius:5px;
@@ -2752,6 +2758,19 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
       <div id="cvmap"></div>
       <button class="reset" id="cvgo">Check Canvas now</button>
       <button class="reset" id="cvoff">Disconnect Canvas</button>
+    </div>
+  </section>
+
+  <section id="lsuite">
+    <div class="shelfhead" id="lsuitehead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Learning Suite</h2><span class="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">Learning Suite gives each course its own private calendar link. Add one per course here and its scheduled items can land in that course&rsquo;s list by themselves, checked every few hours when you open the app. <b>The first time you add a link, nothing is filed</b>: you see what the feed contains and confirm it. Learning Suite only refreshes its feed once a day, and its items carry a date but no time.</p>
+      <p class="shelfnote">Where to find it: Learning Suite, open the course, the <b>Schedule</b> tab, then <b>Get iCalendar Feed</b> at the top. Copy the link in the box. Keep it private. It goes through your sync Worker, so Sync has to be set up.</p>
+      <div id="lsfeeds"></div>
+      <button class="reset" id="lsadd">Add a course</button>
+      <button class="reset" id="lsgo">Check Learning Suite now</button>
     </div>
   </section>
 
@@ -7663,6 +7682,240 @@ function cvSub(){
   if(need) return `<em class="hot">${need} to place</em>`;
   return c.last ? esc('Checked '+cvAgo(c.last)) : 'On';
 }
+/* =========================================================
+   LEARNING SUITE CALENDAR FEEDS. Each Learning Suite course has its own
+   iCalendar link (Schedule tab, Get iCalendar Feed). Same idea as Canvas,
+   with three differences that shape the code:
+   - One link PER COURSE, so a feed is mapped to a list directly; there is
+     no course name inside the events to guess from.
+   - Items are all-day: a date, never a time.
+   - BYU does not publish what the feed holds, and a course schedule can list
+     lectures and readings as well as homework. So a new feed files NOTHING
+     until you have seen what is in it and said yes (feed.ok).
+   Everything else follows Canvas: each item is tracked by its feed id
+   (item.ls = feedId:uid), deleted items stay deleted (feed.seen), a moved
+   due date follows while the item is open, past dates are skipped, and a
+   row you pasted by hand is adopted instead of duplicated.
+   Stored in S.ls.feeds = [{id,name,url,list,ok,last,seen,preview}].
+   ========================================================= */
+const LS_EVERY=6*3600*1000;
+let LSERR={}, lsBusy=false, lsTried=0;
+function lsState(){ S.ls=S.ls||{}; S.ls.feeds=S.ls.feeds||[]; return S.ls; }
+function lsFeeds(){ return (S.ls&&S.ls.feeds)||[]; }
+function lsFeedById(id){ return lsFeeds().find(f=>f.id===id)||null; }
+function lsUrlOk(u){
+  try{ const x=new URL(u); return x.protocol==='https:' && /(^|\.)byu\.edu$/i.test(x.hostname) && !x.username && !x.password && !x.port; }
+  catch(e){ return false; }
+}
+function lsEvents(text){
+  const seen={};
+  return parseIcs(text).map(ev=>{
+    if(ev.STATUS && /cancel/i.test(ev.STATUS.value)) return null;
+    const title=cleanTitle(icsText(ev.SUMMARY?ev.SUMMARY.value:''),false);
+    if(!title) return null;
+    const w=icsWhen(ev.DTSTART||ev.DUE);
+    let key=ev.UID?String(ev.UID.value).trim():'';
+    if(!key) key=title.toLowerCase()+'|'+(w?w.due:'');
+    if(seen[key]){ seen[key]++; key+='#'+seen[key]; } else seen[key]=1;
+    return {uid:key, text:title, due:w?w.due:null, at:w?w.at:null};
+  }).filter(Boolean);
+}
+function lsShort(d){ const m=/^\d{4}-(\d\d)-(\d\d)$/.exec(d||''); return m?(+m[1])+'/'+(+m[2]):''; }
+/* What the feed holds, for the "is this right?" step. Past dates are left out
+   because they would not be filed either. */
+function lsPreview(evs){
+  const t=today();
+  const up=evs.filter(e=>!e.due||e.due>=t).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+  return {n:up.length, total:evs.length,
+          titles:up.slice(0,8).map(e=>e.text+(e.due?' ('+lsShort(e.due)+')':''))};
+}
+/* Files one feed's events into its list. Returns what happened. */
+function lsApply(feed,dest,evs,o){
+  o=o||{};
+  const t=today(); feed.seen=feed.seen||{};
+  const pre=feed.id+':';
+  let added=0, moved=0, linked=0, relisted=0;
+  const where={}, inFeed={};
+  (S.lists||[]).forEach(l=>(l.items||[]).forEach(i=>{ if(i.ls && i.ls.indexOf(pre)===0) where[i.ls]={l:l,i:i}; }));
+  evs.forEach(e=>{
+    const key=pre+e.uid; inFeed[e.uid]=1;
+    const have=where[key];
+    if(have){
+      feed.seen[e.uid]=1;
+      if(o.remap && have.l!==dest){
+        have.l.items=have.l.items.filter(x=>x!==have.i);
+        dest.items=dest.items||[]; dest.items.push(have.i); relisted++;
+      }
+      if(!have.i.done && e.due && (have.i.due!==e.due)){ have.i.due=e.due; moved++; }
+      return;
+    }
+    if(feed.seen[e.uid]) return;                 /* filed before, then deleted */
+    if(e.due && e.due<t) return;                 /* already past */
+    dest.items=dest.items||[];
+    const lc=e.text.toLowerCase();
+    const twin=dest.items.find(i=>!i.ls && !i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
+    if(twin){
+      twin.ls=key; feed.seen[e.uid]=1; linked++;
+      if(!twin.done && e.due) twin.due=e.due;
+      return;
+    }
+    const it={id:newId('i'), text:e.text, done:false, ls:key, added:new Date().toISOString()};
+    if(e.due) it.due=e.due;
+    dest.items.push(it); feed.seen[e.uid]=1; added++;
+  });
+  Object.keys(feed.seen).forEach(u=>{ if(!inFeed[u]) delete feed.seen[u]; });
+  return {added:added, moved:moved, linked:linked, relisted:relisted};
+}
+function lsFetch(feed,sc){
+  return fetch(sc.url+'/lsfeed',{headers:{'x-sync-key':sc.key,'x-feed':feed.url},cache:'no-store'})
+    .then(r=>r.text().then(t=>{
+      if(!r.ok){ let msg='HTTP '+r.status; try{ msg=JSON.parse(t).error||msg; }catch(e){} throw new Error(msg); }
+      /* An older Worker has no /lsfeed route and answers with your synced state. */
+      if(/^\s*[\[{n]/.test(t) && !/BEGIN:VCALENDAR/.test(t)) throw new Error('your Worker needs the Learning Suite update');
+      if(!/BEGIN:VCALENDAR/.test(t)) throw new Error('that link did not return a calendar');
+      return t;
+    }));
+}
+function lsSync(manual,onlyId,opts){
+  const sc=syncCfg();
+  const all=lsFeeds().filter(f=>f.url && (!onlyId||f.id===onlyId));
+  if(!all.length) return Promise.resolve('off');
+  if(!sc.url || !sc.key){
+    if(manual) toast('Learning Suite goes through your sync Worker. Set up Sync first');
+    return Promise.resolve('nosync');
+  }
+  let feeds=all;
+  if(!manual){
+    /* automatic checks only touch feeds you have already confirmed */
+    feeds=all.filter(f=>f.ok && (!f.last || Date.now()-f.last>=LS_EVERY));
+    if(!feeds.length) return Promise.resolve('fresh');
+    if(Date.now()-lsTried<15*60000) return Promise.resolve('wait');
+  }
+  if(lsBusy || !window.fetch) return Promise.resolve('busy');
+  lsBusy=true; lsTried=Date.now();
+  if(manual){ feeds.forEach(f=>{ LSERR[f.id]=null; }); paintLS('Checking…'); }
+  let added=0, moved=0, relisted=0, failed=0, unplaced=0;
+  return feeds.reduce((p,f)=>p.then(()=>lsFetch(f,sc).then(t=>{
+      const evs=lsEvents(t); LSERR[f.id]=null;
+      const live=lsFeedById(f.id); if(!live) return;
+      live.last=Date.now();
+      live.preview=lsPreview(evs);
+      if(!live.ok) return;
+      const dest=(live.list && live.list!=='skip') ? listById(live.list) : null;
+      if(!dest){ if(live.list!=='skip') unplaced++; return; }
+      const r=lsApply(live,dest,evs,opts);
+      added+=r.added; moved+=r.moved; relisted+=r.relisted;
+    }).catch(err=>{
+      failed++;
+      let m=String((err&&err.message)||err||'failed');
+      if(/failed to fetch|load failed|networkerror/i.test(m)) m='could not reach your Worker';
+      LSERR[f.id]=m;
+    })), Promise.resolve())
+    .then(()=>{
+      save(S); try{ paintLists(); }catch(e){} rebuild(); paintLS();
+      const bits=[];
+      if(added) bits.push(added+(added===1?' new item':' new items'));
+      if(moved) bits.push(moved+(moved===1?' due date changed':' due dates changed'));
+      if(relisted) bits.push(relisted+' moved to the new list');
+      if(unplaced) bits.push('pick a list for '+unplaced+(unplaced===1?' course':' courses')+' (Settings, Learning Suite)');
+      if(bits.length) toast('Learning Suite: '+bits.join(', '));
+      else if(failed && manual){ const f=feeds.find(x=>LSERR[x.id]); toast('Learning Suite: '+(f?LSERR[f.id]:'failed')); }
+      else if(manual) toast('Learning Suite: nothing new');
+      return failed?'error':'ok';
+    })
+    .then(v=>{ lsBusy=false; if(typeof SETOPEN!=='undefined' && SETOPEN) try{ paintSettings(); }catch(e){} return v; });
+}
+function lsSub(){
+  const fs=lsFeeds().filter(f=>f.url);
+  if(!fs.length) return 'Off';
+  if(fs.some(f=>LSERR[f.id])) return '<em class="hot">Failed</em>';
+  const need=fs.filter(f=>!f.ok && f.preview).length;
+  if(need) return `<em class="hot">${need} to confirm</em>`;
+  const bare=fs.filter(f=>f.ok && !(f.list==='skip' || (f.list && listById(f.list)))).length;
+  if(bare) return `<em class="hot">${bare} to place</em>`;
+  const last=Math.max.apply(null,fs.map(f=>f.last||0));
+  return last ? esc('Checked '+cvAgo(last)) : 'On';
+}
+function paintLS(busyMsg){
+  const box=document.getElementById('lsfeeds'); if(!box) return;
+  const ae=document.activeElement;
+  if(ae && ae!==document.body && box.contains(ae) && /^(INPUT|SELECT)$/.test(ae.tagName) && !busyMsg){ box._dirty=true; return; }
+  box._dirty=false;
+  const lists=(S.lists||[]);
+  box.innerHTML=lsFeeds().map(f=>{
+    const placed=f.list==='skip' || (f.list && listById(f.list));
+    const opts=['<option value=""'+(placed?'':' selected')+'>Pick a list…</option>']
+      .concat(lists.map(l=>`<option value="${esc(l.id)}"${f.list===l.id?' selected':''}>${esc(l.name)}</option>`))
+      .concat([`<option value="skip"${f.list==='skip'?' selected':''}>Don’t import</option>`]);
+    const err=LSERR[f.id];
+    const stat = busyMsg && f.url ? busyMsg
+      : !f.url ? 'Paste this course’s feed link.'
+      : err ? 'Last check failed: '+err+'.'
+      : f.last ? 'Last checked '+cvAgo(f.last)+'.' : 'Not checked yet.';
+    let prev='';
+    if(f.url && !f.ok && f.preview && !err){
+      const p=f.preview;
+      prev=`<div class="lsprev"><b>${p.n} upcoming ${p.n===1?'item':'items'}</b> in this feed`+(p.total>p.n?` (${p.total-p.n} already past are left out)`:'')+'.'+
+        (p.titles.length?'<ul>'+p.titles.map(x=>`<li>${esc(x)}</li>`).join('')+(p.n>p.titles.length?`<li>…and ${p.n-p.titles.length} more</li>`:'')+'</ul>':'')+
+        (placed&&f.list!=='skip'?'':'<div style="margin-top:6px;color:var(--warn,#E8A35A)">Pick a list below before filing.</div>')+
+        '</div>';
+    }
+    const canFile = f.url && !f.ok && f.preview && !err && placed && f.list!=='skip' && f.preview.n>0;
+    return `<div class="lsfeed" data-lsid="${esc(f.id)}">`+
+      `<div class="slot"><label>Course name</label><div class="fields"><input data-lsname type="text" value="${esc(f.name||'')}" placeholder="e.g. GPL" autocapitalize="off" autocorrect="off" spellcheck="false"></div></div>`+
+      `<div class="slot"><label>Calendar feed link</label><div class="fields"><input data-lsurl type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(f.url||'')}" placeholder="Paste the link from Get iCalendar Feed"></div>`+
+      `<div class="eff on" style="color:${err&&!busyMsg?'var(--warn,#E8A35A)':'var(--dimmer)'}">${esc(stat)}</div></div>`+
+      prev+
+      `<div class="cvrow${placed?'':' need'}"><div class="cvname">Files into<small>${placed?(f.list==='skip'?'Skipped':(f.ok?'On: new items land here':'Waiting for you to confirm')):'Nothing is filed until you pick a list'}</small></div>`+
+      `<select data-lslist aria-label="List for ${esc(f.name||'this course')}">${opts.join('')}</select></div>`+
+      `<div>`+(canFile?`<button class="reset" data-lsok>File these</button>`:'')+`<button class="reset" data-lsrm>Remove this course</button></div>`+
+      `</div>`;
+  }).join('');
+}
+(function(){
+  const box=document.getElementById('lsfeeds'); if(!box) return;
+  const feedOf=el=>{ const c=el.closest('[data-lsid]'); return c?lsFeedById(c.dataset.lsid):null; };
+  box.addEventListener('focusout',()=>{ setTimeout(()=>{ if(box._dirty) paintLS(); },0); });
+  box.addEventListener('change',e=>{
+    const f=feedOf(e.target); if(!f) return;
+    if(e.target.matches('[data-lsname]')){ f.name=e.target.value.trim().slice(0,40); save(S); return; }
+    if(e.target.matches('[data-lsurl]')){
+      const u=cvNormUrl(e.target.value);
+      if(!u){ f.url=''; delete f.last; delete f.preview; f.ok=false; save(S); LSERR[f.id]=null; paintLS(); return; }
+      if(!lsUrlOk(u)){ toast('That is not a Learning Suite feed link. It should be an https address on byu.edu'); return; }
+      if(f.url!==u){ f.url=u; f.ok=false; f.seen={}; delete f.last; delete f.preview; save(S); }
+      e.target.value=u;
+      if(!f.list){ const g=f.name?cvGuess(f.name):null; if(g){ f.list=g; save(S); } }
+      lsSync(true,f.id); return;
+    }
+    if(e.target.matches('[data-lslist]')){
+      const was=f.list;
+      if(e.target.value) f.list=e.target.value; else delete f.list;
+      save(S); paintLS();
+      if(f.ok && f.list && f.list!=='skip' && f.list!==was) lsSync(true,f.id,{remap:true});
+    }
+  });
+  box.addEventListener('click',e=>{
+    const ok=e.target.closest('[data-lsok]'), rm=e.target.closest('[data-lsrm]');
+    const f=feedOf(e.target); if(!f) return;
+    if(ok){ f.ok=true; save(S); lsSync(true,f.id); return; }
+    if(rm){
+      lsState().feeds=lsFeeds().filter(x=>x!==f); delete LSERR[f.id]; save(S); paintLS();
+      toast('Removed. Items already filed stay');
+    }
+  });
+  document.getElementById('lsadd').addEventListener('click',()=>{
+    const st=lsState();
+    st.feeds.push({id:newId('f'), name:'', url:'', list:'', ok:false});
+    save(S); paintLS();
+    const ins=box.querySelectorAll('[data-lsname]'); if(ins.length) ins[ins.length-1].focus();
+  });
+  document.getElementById('lsgo').addEventListener('click',()=>{
+    if(!lsFeeds().some(f=>f.url)){ toast('Add a course and paste its feed link first'); return; }
+    lsSync(true);
+  });
+})();
+
 /* SOMEDAY INBOX. Things said to Siri or shared from another app wait on the
    sync Worker under /inbox. Each is filed into Someday once (ids are kept in
    S.inboxSeen, which syncs, so a second device will not file it again), then
@@ -9719,7 +9972,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    permanently hidden, which was work nobody could see. */
 const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>{ paintHist(); try{ paintSkips(); }catch(e){} }, money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
-                    review:()=>paintReview(), canvas:()=>paintCanvas(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
+                    review:()=>paintReview(), canvas:()=>paintCanvas(), lsuite:()=>paintLS(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
   const sec=document.getElementById(id); if(!sec) return;
   const open=force!==undefined?force:!sec.classList.contains('open');
@@ -9732,6 +9985,7 @@ const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
   {id:'alerts', label:'Alerts',   open:f=>setPanel('alerts',f)},
   {id:'canvas', label:'Canvas',   open:f=>setPanel('canvas',f)},
+  {id:'lsuite', label:'Learning Suite', open:f=>setPanel('lsuite',f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
   {id:'plan',   label:'Schedule', open:f=>toggleP(f)},
   {id:'money',  label:'Cost',     open:f=>toggleMoney(f)},
@@ -9845,11 +10099,11 @@ document.getElementById('histcopy').addEventListener('click',()=>{
    THE SETTINGS SCREEN.
    ========================================================= */
 const SETGROUPS=[
-  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['canvas','Canvas']]],
+  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['canvas','Canvas'],['lsuite','Learning Suite']]],
   ['The protocol',[['@opt','Show optional steps'],['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
   ['This device',[['sync','Sync'],['about','About & backup']]]
 ];
-const SETTITLE={canvas:'Canvas',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
+const SETTITLE={canvas:'Canvas',lsuite:'Learning Suite',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
   shelf:'Products',guide:'Product guide',money:'Monthly cost',sync:'Sync',about:'About & backup'};
 function setSub(id){
   try{
@@ -9859,6 +10113,7 @@ function setSub(id){
       const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
     if(id==='canvas') return cvSub();
+    if(id==='lsuite') return lsSub();
     if(id==='money'){ const m=document.getElementById('mtotal'); return m?esc(m.textContent)+'/mo':''; }
   }catch(e){}
   return '';
@@ -11304,6 +11559,7 @@ function syncPull(){
       if(rollover()) rebuild();        /* only if the server agrees it's a new day */
       if(r!=='error' && digestStale()) syncPush();
       if(r!=='error') canvasSync(false);   /* after the pull, so it files into the newest state */
+      if(r!=='error') lsSync(false);
       if(r!=='error') inboxSync();         /* same reason */
     });
   });
@@ -11321,6 +11577,7 @@ function syncPull(){
     if(rollover()) rebuild();
     if(r!=='error' && digestStale()) syncPush();
     if(r!=='error') canvasSync(false);
+    if(r!=='error') lsSync(false);
     if(r!=='error') inboxSync();
   });
 })();
@@ -11397,6 +11654,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.04-a', note:"LEARNING SUITE SYNC: Settings, Learning Suite. Learning Suite gives every course its own calendar link (open the course, Schedule tab, Get iCalendar Feed). Add one per course, pick the list it belongs in, and its items file themselves each time you open the app, with the same rules as Canvas: a due date that moves follows while the item is open, deleted items stay deleted, past dates are skipped, and something you pasted by hand is adopted instead of doubled. A new link files nothing at first: it shows what the feed holds and waits for your yes, because BYU does not publish what is in these feeds and a course schedule can list lectures and readings as well as homework. Items come with a date but no time, and Learning Suite refreshes its feed once a day. Needs the updated sync Worker pasted into Cloudflare (it adds a /lsfeed route)."},
   {v:'2026.11.03-a', note:'YOUR WEEK: Sunday\'s card on Today is now a week in review. It shows how many of the last 7 days you finished the protocol, what you set aside most, how much school is due this week with the heaviest day called out, and any exam coming up. It shows every Sunday, even with Someday empty. Plan the week opens with the same look-back and look-ahead at the top, and each day below now flags a heavy load (3 or more school things) and names any exam on it.'},
   {v:'2026.11.02-a', note:'ADD TO SOMEDAY WITH SIRI: a new Shortcut (Settings, Alerts & timers, The Shortcuts, number 3) sends anything you say or share to your Worker, and it lands on Someday the next time the app opens. Needs the updated Worker pasted in once. MORNING LINE: the digest now carries a one-line summary for today and tomorrow (assignments and tasks due, any exam in the next week), and the Reminders Shortcut recipe shows how to turn it into a morning notification. The recipe also now says alerts sit inside summary.'},
   {v:'2026.10.31-a', note:'CANVAS AUTO-SYNC: Settings, Canvas. Paste your private Canvas calendar feed link (Canvas on a computer: Calendar, then Calendar Feed) and new assignments file themselves into your course lists, checked every few hours when you open the app. Each Canvas course is matched to one of your lists; any it cannot place waits for you to pick. Due dates that move in Canvas move here while the item is still open, deleted ones stay deleted, past-due work is skipped, and anything you already pasted by hand is linked rather than doubled. Needs the small update to your sync Worker.'},
