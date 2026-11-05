@@ -7613,6 +7613,34 @@ function cvGuess(course){
   const same=lists.filter(l=>listCode(l.name)===code);
   return same.length===1 ? same[0].id : null;
 }
+/* A professor renames an assignment after you pasted it ("Quiz 10: Books 4-6"
+   becomes "Quiz 10: Books 4-6, 8, and 10"), so the exact-title match misses and
+   the feed files a second copy. Two titles are the same piece of work when one
+   starts with the other (eight characters or more, so "Lab" never swallows
+   "Lab report") AND they are due the same day. */
+function cvRelated(a,b){
+  const x=lsNorm(a), y=lsNorm(b);
+  if(!x || !y) return false;
+  if(x===y) return true;
+  const sh=x.length<y.length?x:y, lo=sh===x?y:x;
+  return sh.length>=8 && lo.indexOf(sh)===0;
+}
+/* One-time cleanup for copies filed before that rule existed: a Canvas row and
+   a hand-pasted row, same day, related titles. The Canvas row is kept (it has
+   the current name and keeps following Canvas); a ticked-off paste carries its
+   tick across. Returns how many were merged. */
+function cvMergeTwins(){
+  let merged=0;
+  (S.lists||[]).forEach(l=>{
+    (l.items||[]).filter(i=>i.cv).forEach(c=>{
+      const old=(l.items||[]).find(o=>o!==c && !o.cv && !o.ls && itemDue(o) && itemDue(c) && o.due===c.due && cvRelated(o.text,c.text));
+      if(!old) return;
+      if(old.done && !c.done){ c.done=old.done; c.doneAt=old.doneAt; c.doneOn=old.doneOn; }
+      l.items=l.items.filter(x=>x!==old); merged++;
+    });
+  });
+  return merged;
+}
 /* Pure-ish: changes S, returns what happened. opts.remap = course key whose
    existing items should follow a newly picked list. */
 function canvasApply(evs,opts){
@@ -7651,9 +7679,15 @@ function canvasApply(evs,opts){
     dest.items=dest.items||[];
     /* Pasted earlier by hand? Adopt that row instead of adding a twin. */
     const lc=e.text.toLowerCase();
-    const twin=dest.items.find(i=>!i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
+    let twin=dest.items.find(i=>!i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
+    let renamed=false;
+    if(!twin && e.due){
+      twin=dest.items.find(i=>!i.cv && !i.ls && itemDue(i) && i.due===e.due && cvRelated(i.text,e.text));
+      renamed=!!twin;
+    }
     if(twin){
       twin.cv=e.uid; c.seen[e.uid]=1; linked++;
+      if(renamed) twin.text=e.text;             /* follow the new name */
       if(!twin.done && e.due){ twin.due=e.due; if(e.at) twin.at=e.at; }
       return;
     }
@@ -7666,7 +7700,9 @@ function canvasApply(evs,opts){
   Object.keys(c.seen).forEach(u=>{ if(!inFeed[u]) delete c.seen[u]; });
   c.courses={}; Object.keys(courses).forEach(k=>{ c.courses[k]=courses[k]; });
   const unplaced=Object.keys(courses).filter(k=>{ const v=c.map[k]; return v!=='skip' && !(v && listById(v)); });
-  return {added:added, moved:moved, linked:linked, relisted:relisted, unplaced:unplaced.length};
+  let merged=0;
+  if(!c.merged){ merged=cvMergeTwins(); c.merged=1; }
+  return {added:added, moved:moved, linked:linked, relisted:relisted, merged:merged, unplaced:unplaced.length};
 }
 function cvAgo(ms){
   const m=Math.round((Date.now()-ms)/60000);
@@ -8045,6 +8081,7 @@ function canvasSync(manual,opts){
       if(r.added) bits.push(r.added+(r.added===1?' new assignment':' new assignments'));
       if(r.moved) bits.push(r.moved+(r.moved===1?' due date changed':' due dates changed'));
       if(r.relisted) bits.push(r.relisted+' moved to the new list');
+      if(r.merged) bits.push(r.merged+(r.merged===1?' duplicate merged':' duplicates merged'));
       if(r.unplaced) bits.push(r.unplaced+(r.unplaced===1?' course needs a list':' courses need a list')+' (Settings, Canvas)');
       if(bits.length) toast('Canvas: '+bits.join(', '));
       else if(manual) toast('Canvas: nothing new');
@@ -11722,6 +11759,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.04-c', note:"CANVAS DUPLICATES AFTER A RENAME. When a professor renames an assignment after you pasted it (“Quiz 10: Books 4-6” became “Quiz 10: Books 4-6, 8, and 10”), the Canvas sync did not recognise your pasted copy and filed a second one. It now treats two titles as the same piece of work when one starts with the other (eight characters or more) and they are due the same day: your pasted row is adopted and takes Canvas’ new name. A one-time cleanup on the next Canvas check merges copies already filed, keeping the Canvas row (and carrying over a tick if you had checked the pasted one) and telling you how many it merged. No Worker update."},
   {v:'2026.11.04-b', note:"LEARNING SUITE: ONLY ASSIGNMENTS NOW. Read from a real course feed, which mixes two things: the Schedule tab (what happens in class, like “Experiment 8”, lab check-out, exam windows) and the grade book (what you hand in). Schedule items are left out. For quizzes and assignments with a window, the feed's start is when they OPEN and its end is when they close, so the due date is now the last day of the window and the start shows as an opens date — “Pre-Lab Experiment 11” was showing the day it opened as the day it was due. The first time a confirmed feed checks after this update, items the old version filed that are not assignments are removed (ticked-off items and anything you added yourself stay), and the toast says how many. A Learning Suite item with the same name and date as one already filed from Canvas is skipped. The preview now says how many schedule notes it left out. No Worker update needed this time."},
   {v:'2026.11.04-a', note:"LEARNING SUITE SYNC: Settings, Learning Suite. Learning Suite gives every course its own calendar link (open the course, Schedule tab, Get iCalendar Feed). Add one per course, pick the list it belongs in, and its items file themselves each time you open the app, with the same rules as Canvas: a due date that moves follows while the item is open, deleted items stay deleted, past dates are skipped, and something you pasted by hand is adopted instead of doubled. A new link files nothing at first: it shows what the feed holds and waits for your yes, because BYU does not publish what is in these feeds and a course schedule can list lectures and readings as well as homework. Items come with a date but no time, and Learning Suite refreshes its feed once a day. Needs the updated sync Worker pasted into Cloudflare (it adds a /lsfeed route)."},
   {v:'2026.11.03-a', note:'YOUR WEEK: Sunday\'s card on Today is now a week in review. It shows how many of the last 7 days you finished the protocol, what you set aside most, how much school is due this week with the heaviest day called out, and any exam coming up. It shows every Sunday, even with Someday empty. Plan the week opens with the same look-back and look-ahead at the top, and each day below now flags a heavy load (3 or more school things) and names any exam on it.'},
