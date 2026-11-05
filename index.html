@@ -1312,6 +1312,9 @@ body.on-lists.lv-list .newlist{display:flex;margin-top:16px;}
 .dtodayact{width:88px;background:var(--done);color:#08130E;}
 .dpinact{background:#2A2F38;color:#EEF0F3;}
 .dclassact{background:#3B355E;color:#E4DEFF;}
+.destact{background:#1F4147;color:#CFF3F7;}
+.dest{color:var(--dimmer);margin-left:2px;}
+.dvest{margin-left:auto;font-family:'Geist',sans-serif;font-size:12px;color:var(--dimmer);align-self:center;}
 .dhideact{background:#273052;color:#DCE3FF;}
 .ddelact{background:var(--live);color:#2A0E0A;}
 .dact.on{box-shadow:inset 0 -3px 0 rgba(255,255,255,.35);}
@@ -7390,6 +7393,30 @@ function toggleInClass(key){
   f.item.inclass = f.item.inclass ? null : true;
   return !!f.item.inclass;
 }
+/* TIME ESTIMATES. An optional number of minutes on an assignment or one-off,
+   set by tapping Time in its swipe tray (it steps 15m, 30m, 45m, 1h, 1h30m,
+   2h, 3h, then clears). Stored on the item itself as est, so it syncs and
+   survives a Canvas or Learning Suite refresh like any other field. Days add
+   their estimates up; items without one count as nothing, never as a guess. */
+const EST_STEPS=[15,30,45,60,90,120,180];
+const WEEK_HEAVY_MIN=240;   /* estimated minutes on one day before it counts as heavy */
+function estText(m){
+  m=Math.round(+m||0); if(m<=0) return '';
+  const h=Math.floor(m/60), r=m%60;
+  return h?(r?h+'h '+r+'m':h+'h'):m+'m';
+}
+/* key is "l:listId|itemId" for an assignment or "c:id" for a one-off.
+   Returns the new minutes (0 when cleared), or undefined if nothing matched. */
+function cycleEst(key){
+  let o=null;
+  if(String(key||'').indexOf('c:')===0) o=(S.custom||[]).find(x=>x.id===String(key).slice(2));
+  else { const f=findListItem(key); o=f&&f.item; }
+  if(!o) return undefined;
+  const cur=+o.est||0, i=EST_STEPS.indexOf(cur);
+  const nx=!cur?EST_STEPS[0]:(i>=0&&i<EST_STEPS.length-1?EST_STEPS[i+1]:0);
+  if(nx) o.est=nx; else delete o.est;
+  return nx;
+}
 function findListItem(key){
   const m=/^l:([^|]+)\|(.+)$/.exec(key||''); if(!m) return null;
   const l=listById(m[1]); if(!l) return null;
@@ -8621,7 +8648,7 @@ function listBuckets(){
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
                  opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i),
-                 inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win};
+                 inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win, est:+i.est>0?+i.est:0};
       /* Only work whose day has actually gone by drops into the Done fold.
          Ticking something off should not make it leave the section you are
          looking at while it is still today's problem. */
@@ -8653,7 +8680,7 @@ function listBuckets(){
   (S.custom||[]).forEach(c=>{
     const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:(c.win&&winHM(c.at))||null,
                opens:winISO(c.opens), oat:winHM(c.opensAt), win:!!c.win,
-               done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
+               done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task', est:+c.est>0?+c.est:0};
     if(c.done && (!c.date || c.date<t)){ B.done.push(row); return; }
     const d=row.due;
     if(!d) B.someday.push(row);
@@ -8744,6 +8771,7 @@ const SWPIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 5 3 
 const SWSUN='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 const SWCAP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11v5c0 1.5 2.5 3 5 3s5-1.5 5-3v-5"/></svg>';
 const SWBIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+const SWCLK='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>';
 const SWHIDE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.5 9.5 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3.2 4.2M6.6 6.6C4.4 8 2.9 10 2 12c1 2.5 5 7 10 7a9.6 9.6 0 0 0 4.4-1"/></svg>';
 function dateRow(r,big,inlist){
   const late=!!(r.due && r.due<today());
@@ -8754,6 +8782,8 @@ function dateRow(r,big,inlist){
   let id, attrs, trayL='', trayR='', grip='', whenEl;
   const topBtn=(attr,val)=>`<button class="dact dpinact${r.top?' on':''}" ${attr}="${esc(val)}" aria-pressed="${!!r.top}" `+
       `title="${r.top?'Pinned to the top — tap to release':'Keep this at the top of its day'}" aria-label="${r.top?'Unpin':'Pin to top'}">${SWPIN}<span>${r.top?'Unpin':'Pin'}</span></button>`;
+  const estBtn=key=>`<button class="dact destact${r.est?' on':''}" data-est="${esc(key)}" `+
+      `title="${r.est?'About '+estText(r.est)+' — tap to change':'How long will this take?'}" aria-label="Time estimate">${SWCLK}<span>${r.est?estText(r.est):'Time'}</span></button>`;
   const udel=r.user?`<button class="dact ddelact" data-udel="${esc(r.rid)}" aria-label="Delete this repeat">${SWBIN}<span>Delete</span></button>`:'';
   if(r.routine && r.rep){
     attrs=`data-rrep="${esc(r.rid)}"`;
@@ -8777,7 +8807,7 @@ function dateRow(r,big,inlist){
       ? `<button class="dwhen dpick dbtn${late?' late':''}" type="button" data-csched="${esc(r.cid)}" title="Change the day">${esc(late?whenText(r):dayLabel(r.due))}</button>`
       : `<button class="dwhen dpick dsomeday" type="button" data-csched="${esc(r.cid)}" title="Give it a day">schedule</button>`;
     if(r.due!==today() && !r.done) trayL=`<button class="dact dtodayact" data-ctoday="${esc(r.cid)}" title="Do it today" aria-label="Schedule for today">${SWSUN}<span>Today</span></button>`;
-    trayR=topBtn('data-ctop',r.cid)+(r.due?`<button class="dact dhideact" data-csome="${esc(r.cid)}" title="Take it off the calendar — back to Someday" aria-label="Move to Someday">${SWHIDE}<span>Someday</span></button>`:'')+
+    trayR=topBtn('data-ctop',r.cid)+estBtn('c:'+r.cid)+(r.due?`<button class="dact dhideact" data-csome="${esc(r.cid)}" title="Take it off the calendar — back to Someday" aria-label="Move to Someday">${SWHIDE}<span>Someday</span></button>`:'')+
       `<button class="dact ddelact" data-cdel="${esc(r.cid)}" aria-label="Delete task">${SWBIN}<span>Delete</span></button>`;
   } else {
     const k=esc(r.lid)+'|'+esc(r.iid);
@@ -8788,7 +8818,7 @@ function dateRow(r,big,inlist){
       : `<button class="dwhen dpick dsomeday" type="button" data-csched="l:${k}" title="Give it a date">add date</button>`;
     trayL=`<button class="dact dtodayact${r.pin?' on':''}" data-lpin="${k}" aria-pressed="${!!r.pin}" `+
       `title="${r.pin?'On today’s board — tap to take it off':'Put this on today’s board'}" aria-label="${r.pin?'Not today':'Put this on today’s board'}">${SWSUN}<span>${r.pin?'Not today':'Today'}</span></button>`;
-    trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+
+    trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+estBtn('l:'+k)+
       `<button class="dact dclassact${r.inclass?' on':''}" data-lclass="l:${k}" aria-pressed="${!!r.inclass}" `+
         `title="${r.inclass?'Done in class — tap if it is on your own':'Mark as done in class'}" aria-label="Done in class">${SWCAP}<span>${r.inclass?'Own work':'In class'}</span></button>`+
       `<button class="dact ddelact" data-lidel="${k}" aria-label="Delete item">${SWBIN}<span>Delete</span></button>`;
@@ -8810,6 +8840,7 @@ function dateRow(r,big,inlist){
           `<i class="ddot" style="--c:${TINTHEX[tint]||'#80868F'}"></i>`+
           `<span class="dcode ${codeCls}" title="${esc(r.list||'')}">${esc(code)}</span>`)+
           (onToday?`<span class="donday">· on today</span>`:'')+
+          (r.est&&!r.routine?`<span class="dest">· ≈${esc(estText(r.est))}</span>`:'')+
           (big&&r.list&&!r.task&&!r.routine&&r.list.toUpperCase().indexOf(String(r.code).toUpperCase())!==0?`<span class="dlist">· ${esc(r.list)}</span>`:'')+
         `</div>`+
         winRowHTML(r)+
@@ -8926,7 +8957,8 @@ function paintByDate(host){
       filterChips(B)+
       `<div class="dview ${LANIM||''}" data-day="${LDAY}">`+
         `<div class="dchips" role="group" aria-label="Days">${chips}</div>`+
-        `<div class="dvhead"><h2>${esc(title)}</h2><span class="dvsub" id="dvsub"></span></div>`+
+        `<div class="dvhead"><h2>${esc(title)}</h2><span class="dvsub" id="dvsub"></span>`+
+          (()=>{ const m=rows.filter(x=>!x.done&&!x.routine).reduce((n,x)=>n+(x.est||0),0); return m?`<span class="dvest">≈${esc(estText(m))} planned</span>`:''; })()+`</div>`+
         `<section class="dsec dday" data-sec="${LDAY}" data-day="${LDAY}">`+
           `<div class="drows"><div class="dempty dvempty">${rows.length?'Nothing for this course today.':'Nothing due. A free day.'}</div>`+
           dateRowsHTML(rows,true,true)+`</div></section>`+
@@ -9408,6 +9440,14 @@ listsRoot.addEventListener('click',e=>{
       after(()=>expandEl(document.querySelector('#lists .llist[data-lid="'+cssEsc(l.id)+'"] .lbody')));
       paintLists();
     }
+    return;
+  }
+  const esb=e.target.closest('[data-est]');
+  if(esb){
+    const v=cycleEst(esb.dataset.est);
+    if(v===undefined) return;
+    save(S); paintLists();
+    toast(v?'About '+estText(v):'Estimate cleared');
     return;
   }
   const clb=e.target.closest('[data-lclass]');
@@ -10863,15 +10903,20 @@ document.getElementById('revgo').addEventListener('click',()=>openTriage('review
    ========================================================= */
 const PLAN={pick:null};
 function planDayLoad(iso,B){
-  let school=0,tasks=[],exams=[];
+  let school=0,tasks=[],exams=[],mins=0;
   try{
     B=B||listBuckets();
     [].concat(B.today,B.tomorrow,B.week,B.fortnight).filter(r=>r.due===iso && !r.done).forEach(r=>{
       if(r.task) tasks.push(r);
       else if(!r.routine){ school++; if(BRIEF_EXAM.test(r.text||'')) exams.push(r.text); }
+      if(!r.routine) mins+=r.est||0;
     });
   }catch(e){}
-  return {school,tasks,exams};
+  return {school,tasks,exams,mins};
+}
+/* One rule for "heavy": by count, or by estimated time once you have given some. */
+function dayHeavy(L){
+  return L.school>=WEEK_HEAVY || L.school+L.tasks.length>WEEK_HEAVY || (L.mins||0)>=WEEK_HEAVY_MIN;
 }
 /* =========================================================
    THE WEEK, SEEN FROM SUNDAY. Looking back reads logs that already
@@ -10906,8 +10951,8 @@ function weekAhead(){
   const t=today(); let B=null; try{ B=listBuckets(); }catch(e){}
   const days=[0,1,2,3,4,5,6].map(i=>{
     const iso=addDaysISO(t,i), L=planDayLoad(iso,B||undefined);
-    return {iso, school:L.school, tasks:L.tasks.length, exams:L.exams,
-            heavy: L.school>=WEEK_HEAVY || L.school+L.tasks.length>WEEK_HEAVY};
+    return {iso, school:L.school, tasks:L.tasks.length, exams:L.exams, mins:L.mins,
+            heavy: dayHeavy(L)};
   });
   const due=days.reduce((n,d)=>n+d.school,0);
   const peak=days.reduce((a,d)=>(d.school+d.tasks)>(a?a.school+a.tasks:0)?d:a,null);
@@ -10929,7 +10974,7 @@ function weekReviewHTML(){
   b.aside.forEach(x=>back.push(`<div class="wkrow"><span>Set aside: ${esc(x.l)}</span><b class="wkwarn">${x.n} days</b></div>`));
   back.push(`<div class="wkrow"><span>One-offs finished</span><b>${b.finished}</b></div>`);
   const ahead=[`<div class="wkrow"><span>School due</span><b>${a.due}</b></div>`];
-  a.heavy.forEach(d=>ahead.push(`<div class="wkrow"><span>Heavy: ${esc(weekDayName(d.iso))}</span><b class="wkwarn">${d.school} school${d.tasks?' + '+d.tasks+' task'+(d.tasks>1?'s':''):''}</b></div>`));
+  a.heavy.forEach(d=>ahead.push(`<div class="wkrow"><span>Heavy: ${esc(weekDayName(d.iso))}</span><b class="wkwarn">${d.school} school${d.tasks?' + '+d.tasks+' task'+(d.tasks>1?'s':''):''}${d.mins?' · ~'+estText(d.mins):''}</b></div>`));
   a.exams.slice(0,3).forEach(x=>ahead.push(`<div class="wkrow"><span>${esc(x.l)}</span><b class="wkexam">${esc(weekDayName(x.iso))}</b></div>`));
   const tip=a.heavy.length&&b.waiting?'Give Someday things to the lighter days.':'';
   return `<div class="wkbox"><div class="wkcol"><span class="wkeye">LAST 7 DAYS</span>${back.join('')}</div>`+
@@ -11107,8 +11152,8 @@ function paintPlan(glowDay){
     `<div class="pldays${pick?' armed':''}">`+(()=>{ let B=null; try{ B=listBuckets(); }catch(e){} return days.map(iso=>{
       const L=planDayLoad(iso,B||undefined), d=dayOf(iso);
       const name=weekDayName(iso);
-      const heavy=L.school>=WEEK_HEAVY || L.school+L.tasks.length>WEEK_HEAVY;
-      const load=[L.school?L.school+' school':'', L.tasks.length?L.tasks.length+' task'+(L.tasks.length>1?'s':''):''].filter(Boolean).join(' · ')||'Free';
+      const heavy=dayHeavy(L);
+      const load=[L.school?L.school+' school':'', L.tasks.length?L.tasks.length+' task'+(L.tasks.length>1?'s':''):'', L.mins?'~'+estText(L.mins):''].filter(Boolean).join(' · ')||'Free';
       return `<div class="plday${iso===glowDay?' glow':''}${heavy?' heavy':''}" data-pday="${iso}" role="button" tabindex="0" aria-label="${esc(name)}${heavy?', heavy day':''}">`+
         `<div class="pldh"><span class="pldn">${esc(name)}</span><span class="plddate">${esc(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>`+
         `<span class="pldl">${esc(load)}${heavy?' · heavy':''}</span></div>`+
@@ -12463,6 +12508,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.05-b', note:"TIME ESTIMATES: swipe any assignment or one-off left and tap Time to say how long it will take. Each tap steps 15m, 30m, 45m, 1h, 1h 30m, 2h, 3h, then clears it. The row shows ≈45m next to its course, a day opened in Lists shows how much is planned, and Plan the week adds the minutes to each day (“2 school · ~2h 30m”). A day with about four hours or more estimated now counts as heavy, the same as three school things. Items with no estimate count as nothing rather than a guess. Stored on the item, so it syncs and survives a Canvas or Learning Suite refresh. No Worker update."},
   {v:'2026.11.05-a', note:"STUDY BLOCKS FOR EXAMS: when an exam (any title with “exam” or “midterm”) is within ten days and has no study sessions yet, Today shows an Exam card with Plan study blocks. It opens a sheet that proposes up to three sessions spread over the days before the exam (fewer when there is less room), each on the lightest day in its stretch: another exam on a day or a heavy day counts against it, a tie goes to the later day so the last one lands nearest the exam, and today is only offered in the daytime. Tap a day to leave it out, then Schedule these days (they become ordinary one-offs on those days, counted like any other) or Put on Someday instead (ideas that count for nothing until you give them a day). Nothing is added until you pick. Not this one on the card, or Not for this exam in the sheet, stops the suggestions for that exam on this device. For a window exam the sessions are planned before it opens, since that is the first day you could take it. Plan the week lists each exam that still needs sessions at the top, so it can be started from there too. A bare “final” is not treated as an exam, since it is as often a paper or a project. No Worker update."},
   {v:'2026.11.04-d', note:"TIME WINDOWS: some things are not due at a moment, they are open across a stretch, like an exam that opens Monday morning and closes Tuesday night. Tap any date, then Add time window, tap the day it opens and the day it closes, set the two times, and save. It shows as a glowing capsule that fills as the window is used up, with the days marked along the top and the nights shaded: lavender while it is open, coral in the last stretch, blue before it opens, green once you mark it done. On Today a window gets its own card from a day and a half before it opens until the day it closes, with Mark done and Edit window. On the closing day it is an ordinary row with a thin bar, so nothing is listed twice and the school count is unchanged. Lists shows the same thin bar under the row. It works on assignments and one-offs. The closing moment is the due date and time, so late, sorting and the sync behave as before, and a Learning Suite or Canvas refresh no longer overwrites a window you set. A Learning Suite item that arrives with an opens date is not a window until you make it one."},
   {v:'2026.11.04-c', note:"CANVAS DUPLICATES AFTER A RENAME. When a professor renames an assignment after you pasted it (“Quiz 10: Books 4-6” became “Quiz 10: Books 4-6, 8, and 10”), the Canvas sync did not recognise your pasted copy and filed a second one. It now treats two titles as the same piece of work when one starts with the other (eight characters or more) and they are due the same day: your pasted row is adopted and takes Canvas’ new name. A one-time cleanup on the next Canvas check merges copies already filed, keeping the Canvas row (and carrying over a tick if you had checked the pasted one) and telling you how many it merged. No Worker update."},
