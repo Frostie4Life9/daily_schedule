@@ -7707,18 +7707,54 @@ function lsUrlOk(u){
   try{ const x=new URL(u); return x.protocol==='https:' && /(^|\.)byu\.edu$/i.test(x.hostname) && !x.username && !x.password && !x.port; }
   catch(e){ return false; }
 }
+/* WHAT A LEARNING SUITE FEED HOLDS (read from a real course feed). Two kinds of
+   event share one calendar, and only one kind is homework:
+   - SCHEDULE NOTES, from the course's Schedule tab: "Experiment 8", "Lab
+     check-out", "Exam 2 closes in the testing center." Their summary ends in a
+     line break, or is a cut-off copy of a longer description. They are what
+     happens in class, not something to hand in, so they are left out.
+   - ASSIGNMENTS, from the grade book: "Experiment 7 Due", "Process Skills 8",
+     "Exam 2", and quizzes with a window. A windowed one has DTSTART = the day it
+     OPENS and DTEND = the day it CLOSES. In iCalendar an all-day DTEND is the day
+     AFTER the last day, so the due date is DTEND minus one. (Checked against the
+     feed: every pre-lab closes the day before its experiment's date.) Reading
+     DTSTART as the due date, as the first version did, filed "Pre-Lab Experiment
+     11" two weeks early. DTSTART becomes the opens date instead. */
+function lsIsNote(rawSum,sum,desc){
+  if(/\\n\s*$/i.test(rawSum)) return true;
+  const a=sum.toLowerCase(), b=desc.toLowerCase();
+  if(!a) return false;
+  if(a===b) return true;
+  return a.length>=60 && b.indexOf(a)===0;      /* a long note whose summary was cut short */
+}
+function lsEnd(p){
+  if(!p) return null;
+  const v=String(p.value||'').trim(), m=/^(\d{4})(\d\d)(\d\d)$/.exec(v);
+  if(m) return {due:addDaysISO(m[1]+'-'+m[2]+'-'+m[3],-1), at:null};
+  return icsWhen(p);
+}
 function lsEvents(text){
-  const seen={};
-  return parseIcs(text).map(ev=>{
+  const seen={}; let skipped=0;
+  const out=parseIcs(text).map(ev=>{
     if(ev.STATUS && /cancel/i.test(ev.STATUS.value)) return null;
-    const title=cleanTitle(icsText(ev.SUMMARY?ev.SUMMARY.value:''),false);
+    const rawSum=ev.SUMMARY?String(ev.SUMMARY.value):'';
+    const sum=icsText(rawSum), desc=icsText(ev.DESCRIPTION?ev.DESCRIPTION.value:'');
+    const title=cleanTitle(sum,false);
     if(!title) return null;
-    const w=icsWhen(ev.DTSTART||ev.DUE);
+    if(!ev.DTEND && lsIsNote(rawSum,sum,desc)){ skipped++; return null; }
+    const st=icsWhen(ev.DTSTART||ev.DUE);
+    let due=st?st.due:null, at=st?st.at:null, opens=null;
+    if(ev.DTEND){
+      const en=lsEnd(ev.DTEND);
+      if(en && en.due){ if(due && due<en.due) opens=due; due=en.due; at=en.at; }
+    }
     let key=ev.UID?String(ev.UID.value).trim():'';
-    if(!key) key=title.toLowerCase()+'|'+(w?w.due:'');
+    if(!key) key=title.toLowerCase()+'|'+(due||'');
     if(seen[key]){ seen[key]++; key+='#'+seen[key]; } else seen[key]=1;
-    return {uid:key, text:title, due:w?w.due:null, at:w?w.at:null};
+    return {uid:key, text:title, due:due, at:at, opens:opens};
   }).filter(Boolean);
+  out.skipped=skipped;
+  return out;
 }
 function lsShort(d){ const m=/^\d{4}-(\d\d)-(\d\d)$/.exec(d||''); return m?(+m[1])+'/'+(+m[2]):''; }
 /* What the feed holds, for the "is this right?" step. Past dates are left out
@@ -7726,19 +7762,36 @@ function lsShort(d){ const m=/^\d{4}-(\d\d)-(\d\d)$/.exec(d||''); return m?(+m[1
 function lsPreview(evs){
   const t=today();
   const up=evs.filter(e=>!e.due||e.due>=t).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
-  return {n:up.length, total:evs.length,
+  return {n:up.length, total:evs.length, skipped:evs.skipped||0,
           titles:up.slice(0,8).map(e=>e.text+(e.due?' ('+lsShort(e.due)+')':''))};
 }
-/* Files one feed's events into its list. Returns what happened. */
+/* Files one feed's events into its list. Returns what happened.
+   feed.v marks which version of the rules filed this feed's items. A feed filed
+   by the first version (feed.v unset) had class-schedule notes in it, so the
+   first run of the corrected rules removes the open items from this feed that
+   it no longer lists. Ticked-off items and anything you added by hand stay. */
+function lsNorm(t){ return String(t||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
 function lsApply(feed,dest,evs,o){
   o=o||{};
   const t=today(); feed.seen=feed.seen||{};
   const pre=feed.id+':';
-  let added=0, moved=0, linked=0, relisted=0;
+  let added=0, moved=0, linked=0, relisted=0, removed=0, dupes=0;
   const where={}, inFeed={};
   (S.lists||[]).forEach(l=>(l.items||[]).forEach(i=>{ if(i.ls && i.ls.indexOf(pre)===0) where[i.ls]={l:l,i:i}; }));
+  evs.forEach(e=>{ inFeed[e.uid]=1; });
+  if(feed.v!==2){
+    (S.lists||[]).forEach(l=>{
+      const keep=(l.items||[]).filter(i=>{
+        if(!(i.ls && i.ls.indexOf(pre)===0) || i.done) return true;
+        if(inFeed[i.ls.slice(pre.length)]) return true;
+        removed++; delete where[i.ls]; return false;
+      });
+      if(keep.length!==(l.items||[]).length) l.items=keep;
+    });
+    feed.v=2;
+  }
   evs.forEach(e=>{
-    const key=pre+e.uid; inFeed[e.uid]=1;
+    const key=pre+e.uid;
     const have=where[key];
     if(have){
       feed.seen[e.uid]=1;
@@ -7746,25 +7799,38 @@ function lsApply(feed,dest,evs,o){
         have.l.items=have.l.items.filter(x=>x!==have.i);
         dest.items=dest.items||[]; dest.items.push(have.i); relisted++;
       }
-      if(!have.i.done && e.due && (have.i.due!==e.due)){ have.i.due=e.due; moved++; }
+      if(!have.i.done){
+        let ch=false;
+        if(e.due && have.i.due!==e.due){ have.i.due=e.due; ch=true; }
+        if(e.opens && have.i.opens!==e.opens){ have.i.opens=e.opens; ch=true; }
+        else if(!e.opens && have.i.opens){ delete have.i.opens; ch=true; }
+        if(ch) moved++;
+      }
       return;
     }
     if(feed.seen[e.uid]) return;                 /* filed before, then deleted */
     if(e.due && e.due<t) return;                 /* already past */
     dest.items=dest.items||[];
     const lc=e.text.toLowerCase();
+    /* The same work can reach you from Canvas and from Learning Suite. A Canvas
+       row with the same title and a due date within a day is the same thing. */
+    const nn=lsNorm(e.text);
+    const dup=dest.items.find(i=>i.cv && lsNorm(i.text)===nn && (!e.due || !itemDue(i) || Math.abs((new Date(i.due+'T00:00:00')-new Date(e.due+'T00:00:00'))/864e5)<=1));
+    if(dup){ dupes++; return; }
     const twin=dest.items.find(i=>!i.ls && !i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
     if(twin){
       twin.ls=key; feed.seen[e.uid]=1; linked++;
       if(!twin.done && e.due) twin.due=e.due;
+      if(!twin.done && e.opens) twin.opens=e.opens;
       return;
     }
     const it={id:newId('i'), text:e.text, done:false, ls:key, added:new Date().toISOString()};
     if(e.due) it.due=e.due;
+    if(e.opens) it.opens=e.opens;
     dest.items.push(it); feed.seen[e.uid]=1; added++;
   });
   Object.keys(feed.seen).forEach(u=>{ if(!inFeed[u]) delete feed.seen[u]; });
-  return {added:added, moved:moved, linked:linked, relisted:relisted};
+  return {added:added, moved:moved, linked:linked, relisted:relisted, removed:removed, dupes:dupes};
 }
 function lsFetch(feed,sc){
   return fetch(sc.url+'/lsfeed',{headers:{'x-sync-key':sc.key,'x-feed':feed.url},cache:'no-store'})
@@ -7794,7 +7860,7 @@ function lsSync(manual,onlyId,opts){
   if(lsBusy || !window.fetch) return Promise.resolve('busy');
   lsBusy=true; lsTried=Date.now();
   if(manual){ feeds.forEach(f=>{ LSERR[f.id]=null; }); paintLS('Checking…'); }
-  let added=0, moved=0, relisted=0, failed=0, unplaced=0;
+  let added=0, moved=0, relisted=0, failed=0, unplaced=0, removed=0;
   return feeds.reduce((p,f)=>p.then(()=>lsFetch(f,sc).then(t=>{
       const evs=lsEvents(t); LSERR[f.id]=null;
       const live=lsFeedById(f.id); if(!live) return;
@@ -7804,7 +7870,7 @@ function lsSync(manual,onlyId,opts){
       const dest=(live.list && live.list!=='skip') ? listById(live.list) : null;
       if(!dest){ if(live.list!=='skip') unplaced++; return; }
       const r=lsApply(live,dest,evs,opts);
-      added+=r.added; moved+=r.moved; relisted+=r.relisted;
+      added+=r.added; moved+=r.moved; relisted+=r.relisted; removed+=r.removed;
     }).catch(err=>{
       failed++;
       let m=String((err&&err.message)||err||'failed');
@@ -7817,6 +7883,7 @@ function lsSync(manual,onlyId,opts){
       if(added) bits.push(added+(added===1?' new item':' new items'));
       if(moved) bits.push(moved+(moved===1?' due date changed':' due dates changed'));
       if(relisted) bits.push(relisted+' moved to the new list');
+      if(removed) bits.push(removed+(removed===1?' item removed that was not an assignment':' items removed that were not assignments'));
       if(unplaced) bits.push('pick a list for '+unplaced+(unplaced===1?' course':' courses')+' (Settings, Learning Suite)');
       if(bits.length) toast('Learning Suite: '+bits.join(', '));
       else if(failed && manual){ const f=feeds.find(x=>LSERR[x.id]); toast('Learning Suite: '+(f?LSERR[f.id]:'failed')); }
@@ -7856,6 +7923,7 @@ function paintLS(busyMsg){
     if(f.url && !f.ok && f.preview && !err){
       const p=f.preview;
       prev=`<div class="lsprev"><b>${p.n} upcoming ${p.n===1?'item':'items'}</b> in this feed`+(p.total>p.n?` (${p.total-p.n} already past are left out)`:'')+'.'+
+        (p.skipped?` <span style="color:var(--dimmer)">${p.skipped} class-schedule ${p.skipped===1?'note':'notes'} (labs, exam windows) left out.</span>`:'')+
         (p.titles.length?'<ul>'+p.titles.map(x=>`<li>${esc(x)}</li>`).join('')+(p.n>p.titles.length?`<li>…and ${p.n-p.titles.length} more</li>`:'')+'</ul>':'')+
         (placed&&f.list!=='skip'?'':'<div style="margin-top:6px;color:var(--warn,#E8A35A)">Pick a list below before filing.</div>')+
         '</div>';
@@ -11654,6 +11722,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.04-b', note:"LEARNING SUITE: ONLY ASSIGNMENTS NOW. Read from a real course feed, which mixes two things: the Schedule tab (what happens in class, like “Experiment 8”, lab check-out, exam windows) and the grade book (what you hand in). Schedule items are left out. For quizzes and assignments with a window, the feed's start is when they OPEN and its end is when they close, so the due date is now the last day of the window and the start shows as an opens date — “Pre-Lab Experiment 11” was showing the day it opened as the day it was due. The first time a confirmed feed checks after this update, items the old version filed that are not assignments are removed (ticked-off items and anything you added yourself stay), and the toast says how many. A Learning Suite item with the same name and date as one already filed from Canvas is skipped. The preview now says how many schedule notes it left out. No Worker update needed this time."},
   {v:'2026.11.04-a', note:"LEARNING SUITE SYNC: Settings, Learning Suite. Learning Suite gives every course its own calendar link (open the course, Schedule tab, Get iCalendar Feed). Add one per course, pick the list it belongs in, and its items file themselves each time you open the app, with the same rules as Canvas: a due date that moves follows while the item is open, deleted items stay deleted, past dates are skipped, and something you pasted by hand is adopted instead of doubled. A new link files nothing at first: it shows what the feed holds and waits for your yes, because BYU does not publish what is in these feeds and a course schedule can list lectures and readings as well as homework. Items come with a date but no time, and Learning Suite refreshes its feed once a day. Needs the updated sync Worker pasted into Cloudflare (it adds a /lsfeed route)."},
   {v:'2026.11.03-a', note:'YOUR WEEK: Sunday\'s card on Today is now a week in review. It shows how many of the last 7 days you finished the protocol, what you set aside most, how much school is due this week with the heaviest day called out, and any exam coming up. It shows every Sunday, even with Someday empty. Plan the week opens with the same look-back and look-ahead at the top, and each day below now flags a heavy load (3 or more school things) and names any exam on it.'},
   {v:'2026.11.02-a', note:'ADD TO SOMEDAY WITH SIRI: a new Shortcut (Settings, Alerts & timers, The Shortcuts, number 3) sends anything you say or share to your Worker, and it lands on Someday the next time the app opens. Needs the updated Worker pasted in once. MORNING LINE: the digest now carries a one-line summary for today and tomorrow (assignments and tasks due, any exam in the next week), and the Reminders Shortcut recipe shows how to turn it into a morning notification. The recipe also now says alerts sit inside summary.'},
