@@ -1,0 +1,11 @@
+// Deploy config for the protocol-sync Worker (Workers Builds deploys on every push to main).
+// Secrets (SECRET, READ_KEY) stay in the dashboard; never put them here.
+{
+  "name": "protocol-sync",
+  "main": "protocol-sync-worker.js",
+  "compatibility_date": "2026-08-01",
+  "kv_namespaces": [
+    { "binding": "STATE", "id": "d55ef9ec7ec544428a07055c34e5c149" }
+  ],
+  "keep_vars": true
+}
