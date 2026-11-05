@@ -2155,6 +2155,166 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 
 </style>
 <!-- /suite:css -->
+<style id="windows-css">
+/* =========================================================
+   TIME WINDOWS. A task that is not due at a moment but is open across a
+   stretch of time (an exam that opens Monday morning and closes Tuesday
+   night). The bubble is the stretch itself: a glass capsule you watch fill as
+   the window is used up, with the days marked along the top and the nights
+   shaded, so "how much of this is left" is something you see, not compute.
+   Colour is the state: lavender open, coral closing, blue not yet, mint done.
+   ========================================================= */
+.wb{--wc:#A78BFA;--wc2:#8F7BFF;--wc3:#E4D6FF;--wg:rgba(167,139,250,.45);--p:0;position:relative;display:block;}
+.wb.is-soon{--wc:#F2995E;--wc2:#FF8A7A;--wc3:#FFD9C4;--wg:rgba(255,138,122,.5);}
+.wb.is-done{--wc:#2FBF8C;--wc2:#5EE6B0;--wc3:#C9FFE9;--wg:rgba(94,230,176,.4);}
+.wb.is-upcoming{--wc:#6F86FF;--wc2:#8EA2FF;--wc3:#CBD4FF;--wg:rgba(142,162,255,.32);}
+.wb.is-closed{--wc:#555B66;--wc2:#80868F;--wc3:#B4BAC4;--wg:rgba(128,134,143,.16);}
+
+.wb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.wb-state{display:inline-flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;
+  font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--wc2);transition:color .6s ease;}
+.wb-state b{font-weight:500;}
+.wb-led{width:7px;height:7px;border-radius:50%;background:var(--wc2);flex:0 0 auto;transition:background .6s ease;}
+.wb.is-open .wb-led,.wb.is-soon .wb-led{animation:wbping 2s ease-out infinite;}
+.wb.is-soon .wb-led{animation-duration:1.15s;}
+.wb-clock{font-size:13.5px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.005em;white-space:nowrap;}
+
+/* the ruler: which day each stretch of the capsule belongs to */
+.wb-ruler{position:relative;height:13px;margin-bottom:5px;}
+.wb-ruler:empty{display:none;}
+.wb-ruler span{position:absolute;bottom:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dimmer);white-space:nowrap;}
+.wb-ruler i{position:absolute;bottom:-5px;width:1px;height:6px;background:rgba(255,255,255,.2);}
+
+.wb-track{position:relative;height:50px;border-radius:999px;isolation:isolate;overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012) 60%,rgba(255,255,255,.03));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.085),inset 0 -12px 20px rgba(0,0,0,.3),0 14px 36px -18px var(--wg);
+  transition:box-shadow .6s ease;}
+.wb.is-upcoming .wb-track{box-shadow:inset 0 0 0 1px rgba(142,162,255,.3),inset 0 -12px 20px rgba(0,0,0,.25),0 14px 36px -18px var(--wg);
+  background:repeating-linear-gradient(135deg,rgba(142,162,255,.07) 0 8px,rgba(142,162,255,.02) 8px 16px);}
+.wb-night{position:absolute;top:0;bottom:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(135deg,rgba(6,7,10,.34) 0 4px,rgba(6,7,10,.12) 4px 8px);}
+.wb-tick{position:absolute;top:0;bottom:0;width:1px;z-index:3;background:rgba(255,255,255,.16);pointer-events:none;}
+.wb-fill{position:absolute;left:0;top:0;bottom:0;width:calc(var(--p)*100%);z-index:1;border-radius:999px;overflow:hidden;
+  background:linear-gradient(90deg,var(--wc2),var(--wc) 58%,var(--wc3));
+  box-shadow:0 0 26px -2px var(--wg);transition:width 1.2s var(--ease),background .6s ease;}
+.wb.is-open .wb-fill,.wb.is-soon .wb-fill,.wb.is-done .wb-fill{min-width:30px;}
+.wb.is-upcoming .wb-fill{width:0;min-width:0;box-shadow:none;}
+.wb.is-closed .wb-fill{background:linear-gradient(90deg,#3A3F48,#4A505A);box-shadow:none;}
+.wb-fill::after{content:'';position:absolute;inset:0;transform:translateX(-110%);
+  background:linear-gradient(100deg,transparent 28%,rgba(255,255,255,.42) 50%,transparent 72%);}
+.wb.is-open .wb-fill::after,.wb.is-soon .wb-fill::after{animation:wbshine 3.6s ease-in-out infinite;}
+.wb.is-soon .wb-fill::after{animation-duration:2.2s;}
+
+.wb-orb{position:absolute;top:50%;z-index:4;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
+  left:clamp(14px,calc(var(--p)*100%),calc(100% - 14px));
+  background:radial-gradient(circle at 34% 28%,#fff,var(--wc3) 42%,var(--wc) 100%);
+  box-shadow:0 0 0 3px rgba(14,15,18,.6),0 0 20px 3px var(--wg);
+  transition:left 1.2s var(--ease),box-shadow .6s ease;}
+.wb.is-open .wb-orb,.wb.is-soon .wb-orb{animation:wbbreath 2.6s ease-in-out infinite;}
+.wb.is-soon .wb-orb{animation-duration:1.4s;}
+.wb.is-upcoming .wb-orb{left:14px;background:var(--panel);box-shadow:inset 0 0 0 2px var(--wc2),0 0 16px var(--wg);}
+.wb.is-closed .wb-orb{opacity:.5;box-shadow:0 0 0 3px rgba(14,15,18,.6);}
+.wb.is-done .wb-orb::after{content:'';position:absolute;left:8.5px;top:4.5px;width:5px;height:10px;border:solid #06130D;
+  border-width:0 2.6px 2.6px 0;transform:rotate(42deg);}
+
+.wb-ends{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-top:10px;font-size:13px;color:var(--ink);}
+.wb-ends span{display:block;min-width:0;}
+.wb-ends span:last-child{text-align:right;}
+.wb-ends em{display:block;font-style:normal;font-family:'Geist Mono',ui-monospace,monospace;font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dimmer);margin-bottom:2px;}
+.wb-ends b{font-weight:500;font-variant-numeric:tabular-nums;}
+
+/* the card on Today */
+.wband .pcard{display:block;}
+.wband .pcard>.pin{background:transparent;border:0;border-radius:0;overflow:visible;}
+.wcards{display:flex;flex-direction:column;gap:12px;}
+.wcard{padding:18px 18px 16px;border-radius:22px;border:1px solid var(--hair-2);overflow:hidden;
+  background:radial-gradient(130% 120% at 0% 0%,rgba(167,139,250,.13),transparent 58%),var(--card);
+  transition:background .6s ease,border-color .6s ease;}
+.wcard.is-soon{background:radial-gradient(130% 120% at 0% 0%,rgba(255,138,122,.14),transparent 58%),var(--card);border-color:rgba(255,138,122,.22);}
+.wcard.is-done{background:radial-gradient(130% 120% at 0% 0%,rgba(94,230,176,.11),transparent 58%),var(--card);}
+.wcard.is-upcoming{background:radial-gradient(130% 120% at 0% 0%,rgba(142,162,255,.11),transparent 58%),var(--card);}
+.wcard.is-closed{background:var(--card);}
+.wc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.wc-top h3{margin:0;min-width:0;font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.2;overflow-wrap:anywhere;}
+.wcard.is-done .wc-top h3{color:var(--dim);}
+.wc-top .ccode{flex:0 0 auto;margin-top:5px;}
+.wc-act{display:flex;gap:8px;margin-top:16px;}
+.wc-btn{flex:1 1 0;height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--dim);
+  font-family:inherit;font-size:14.5px;font-weight:500;cursor:pointer;transition:transform .15s var(--ease),background .2s;}
+.wc-btn:active{transform:scale(.97);}
+.wc-btn.go{border-color:transparent;background:var(--wc2);color:#0B0912;font-weight:600;}
+.wb.is-done .wc-btn.go{background:transparent;border-color:rgba(255,255,255,.12);color:var(--dim);font-weight:500;}
+.wb.is-closed .wc-btn.go{background:transparent;border-color:rgba(255,255,255,.12);color:var(--dim);}
+@media (hover:hover) and (pointer:fine){ .wc-btn:not(.go):hover{background:#1B1E24;color:var(--ink);} }
+.wb-intro .wb-fill{animation:wbgrow 1.1s var(--ease) both;}
+.wb-intro.wcard{animation:wbarrive .55s var(--ease) both;}
+
+/* the thin version, under a row */
+.wb-mini{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.wb-mini .wb-track{flex:1 1 auto;height:7px;overflow:visible;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09);}
+.wb-mini .wb-fill{min-width:0!important;box-shadow:0 0 12px -2px var(--wg);}
+.wb-mini .wb-orb{width:12px;height:12px;margin:-6px 0 0 -6px;left:clamp(6px,calc(var(--p)*100%),calc(100% - 6px));
+  box-shadow:0 0 0 2px rgba(14,15,18,.7),0 0 12px 1px var(--wg);}
+.wb-mini.is-upcoming .wb-orb{left:6px;box-shadow:inset 0 0 0 1.6px var(--wc2),0 0 10px var(--wg);}
+.wb-mini.is-done .wb-orb::after{display:none;}
+.wb-mlab{flex:0 0 auto;max-width:48%;font-size:11.5px;font-weight:500;color:var(--wc2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-variant-numeric:tabular-nums;transition:color .6s ease;}
+.dwin{margin:3px 0 1px;}
+.dwin .wb-mini{margin-top:6px;}
+
+/* the editor */
+.wed{display:flex;flex-direction:column;gap:14px;margin-top:16px;}
+/* Pinned to the top of the scrolling sheet, so the bubble is in view while you tap days and times. */
+.wed-prev{position:sticky;top:0;z-index:6;padding:13px 16px 14px;border-radius:20px;background:var(--card);border:1px solid var(--hair-2);
+  box-shadow:0 16px 20px -14px rgba(0,0,0,.7);}
+.wed-prev .wb-head{margin-bottom:7px;}
+.wed-prev .wb-track{height:40px;}
+.wed-prev .wb-orb{width:20px;height:20px;margin:-10px 0 0 -10px;}
+.wed-prev .wb-ends{margin-top:8px;}
+.wed-prev .wb-fill{min-width:22px!important;}
+/* The sheet pads its top by 11px; without this the calendar shows through that gap as it scrolls under the pinned card. */
+.wed-prev::before{content:'';position:absolute;z-index:-1;left:-22px;right:-22px;top:-16px;height:16px;background:#15171C;}
+.wed-empty{display:flex;align-items:center;justify-content:center;height:50px;border-radius:999px;border:1px dashed rgba(255,255,255,.16);
+  font-size:13px;color:var(--dimmer);}
+.wed-bad{margin:10px 2px 0;font-size:12.5px;color:var(--live);}
+.wed-hint{margin:0;font-size:14px;line-height:1.4;color:var(--dim);min-height:20px;}
+.wed-hint b{color:var(--ink);font-weight:600;}
+.wed-hint button{border:0;background:none;padding:0 0 0 6px;font:inherit;font-size:13px;color:#B7A4FF;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
+.wcal{margin-top:-6px;}
+.wcal .calgrid{column-gap:0;}
+.wcal .cday.inr{background:rgba(167,139,250,.17);border-radius:0;}
+.wcal .cday.inr.l{border-radius:13px 0 0 13px;}
+.wcal .cday.inr.r{border-radius:0 13px 13px 0;}
+.wcal .cday.inr.l.r{border-radius:13px;}
+.wcal .cday.edge{background:#A78BFA;color:#150C2B;font-weight:600;}
+.wcal .cday.edge.l:not(.inr),.wcal .cday.edge:not(.inr){border-radius:13px;}
+.wcal .cday:disabled{color:rgba(255,255,255,.16);}
+.wtimes{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.wtm{min-width:0;padding:13px 12px 12px;border-radius:18px;background:var(--card);border:1px solid var(--hair-2);}
+.wtm label{display:block;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dimmer);margin-bottom:4px;}
+.wtd{min-height:18px;margin-bottom:9px;font-size:13px;color:var(--dim);}
+.wtm input[type=time]{width:100%;height:46px;padding:0 8px;border-radius:13px;border:1px solid rgba(255,255,255,.12);background:#1B1E24;
+  color:var(--ink);font-family:'Geist Mono',ui-monospace,monospace;font-size:15.5px;letter-spacing:-.02em;min-width:0;font-variant-numeric:tabular-nums;color-scheme:dark;}
+.wchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+.wchip{height:32px;padding:0 11px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--dim);
+  font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;transition:transform .15s var(--ease),border-color .2s,color .2s;}
+.wchip:active{transform:scale(.94);}
+.wchip.on{border-color:rgba(167,139,250,.6);color:#C9B8FF;}
+.wed .tcgo{background:#A78BFA;color:#150C2B;}
+.wed .tcgo:disabled{opacity:.35;cursor:default;}
+.shwinbtn{border-color:rgba(167,139,250,.4)!important;color:#C9B8FF!important;}
+
+@keyframes wbping{0%{box-shadow:0 0 0 0 var(--wg);}75%,100%{box-shadow:0 0 0 9px transparent;}}
+@keyframes wbshine{0%{transform:translateX(-110%);}55%,100%{transform:translateX(110%);}}
+@keyframes wbbreath{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+@keyframes wbgrow{from{width:0;}}
+@keyframes wbarrive{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){
+  .wb *,.wb{animation:none!important;transition:none!important;}
+}
+</style>
 </head>
 <body>
 <!-- suite:bar -->
@@ -5913,6 +6073,9 @@ function buildRows(){
     });
   });
 
+  /* time windows — open now or about to be, closing on a later day */
+  (function(){ const sec=winBandSection(); if(sec) list.appendChild(sec); })();
+
   /* coursework — a view of list items, not a copy of them */
   (function(){
     const as=dueAssignments(), soon=soonAssignments();
@@ -5940,6 +6103,7 @@ function buildRows(){
         key:a.key, cls:['routine','course','custom'].concat(a.inclass?['inclass']:[]),
         num:String(ai+1).padStart(2,'0'),
         label:esc(a.text),
+        extra:winMiniHTML(winOf({win:a.win,opens:a.opens,oat:a.oat,due:a.due,at:a.at}),a.done),
         meta:[`<span class="ccode" title="${esc(a.list)}"><i style="--c:${courseHex(listTint(lid))}"></i>${esc(listCode(a.list))}</span>`,
               /* Pinned undated work has no deadline to report, so say what it
                  IS doing here instead of leaving the row unexplained. */
@@ -5993,6 +6157,7 @@ function buildRows(){
         key:key, cls:['routine','extra','custom'], late:state.late, from:state.from,
         num:String(ci+1).padStart(2,'0'),
         label:esc(c.l),
+        extra:winMiniHTML(winOfCustom(c),!!c.done),
         meta:[`<button class="sched schedbtn" data-late="${esc(key)}" `+
               `title="Move this to another day" aria-label="Added for ${esc(prettyDay(c.date))} \u2014 tap to move it">`+
               `added for ${esc(prettyDay(c.date))}</button>`],
@@ -7116,6 +7281,8 @@ function soonAssignments(){
       const d=itemDue(i);
       if(!d || i.done || isPinned(i)) return;
       if(d<=t || d>lim) return;
+      /* A window has its own card above; listing it here as well would show it twice. */
+      if(winOfItem(i)) return;
       out.push({lid:l.id, iid:i.id, list:l.name, text:i.text, due:d,
                 at:itemTime(i), opens:itemOpens(i), inclass:!!i.inclass,
                 opensChip:opensChip(itemOpens(i)), key:'l:'+l.id+'|'+i.id});
@@ -7150,6 +7317,7 @@ function dueAssignments(){
                 at:itemTime(i), late:!!(d&&d<t), done:!!i.done,
                 pin:pin, inclass:!!i.inclass,
                 opens:itemOpens(i), opensChip:opensChip(itemOpens(i)),
+                oat:winHM(i.opensAt), win:!!i.win,
                 key:'l:'+l.id+'|'+i.id});
     });
   });
@@ -7226,6 +7394,214 @@ function dueChip(d,at){
   if(d===addDaysISO(t,1)) return 'due tomorrow'+clock;
   return 'due '+prettyDay(d)+clock;
 }
+/* =========================================================
+   TIME WINDOWS. Some things are not owed at a moment, they are open across a
+   stretch: an exam that opens Monday morning and closes Tuesday night. A window
+   is NOT a new kind of task. It is a task (a list item or a one-off) that also
+   remembers when it opens:
+     opens    the day it opens          (already there: Learning Suite fills it)
+     opensAt  the time it opens, HH:MM  (new)
+     due      the day it closes         (the ordinary due date, untouched)
+     at       the time it closes, HH:MM (the ordinary due time, untouched)
+     win      1, set by hand           (new)
+   Everything that already reads due and at -- lateness, sorting, the digest,
+   the Canvas sync -- keeps working, because the closing moment IS the deadline.
+   The flag is what makes it a window: an imported "opens" date alone is not,
+   or every pre-lab in the course would grow a progress bar. Promote one by
+   hand (tap its date, Time window) and it becomes one.
+   ========================================================= */
+const WDAY=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WIN_SEEN=new Set();            /* cards already shown this visit: only the first plays the entrance */
+const winHM=v=>/^\d\d:\d\d$/.test(v||'')?v:null;
+const winISO=v=>/^\d{4}-\d\d-\d\d$/.test(v||'')?v:null;
+/* A closing time of 11:59 PM means the END of that minute, so a window that
+   closes "Tuesday night" is still open at 11:59 and 30 seconds. */
+function winAt(iso,hhmm,closing){
+  const d=dayOf(iso), m=/^(\d\d):(\d\d)$/.exec(hhmm||'');
+  if(m) d.setHours(+m[1],+m[2],(closing&&+m[1]===23&&+m[2]===59)?59:0,0);
+  else if(closing) d.setHours(23,59,59,0);
+  return d;
+}
+/* o is {win,opens,oat,due,at}; a list row, a one-off row and a raw item all
+   map onto it. Null unless it is a window someone made and it has a shape. */
+function winOf(o){
+  if(!o||!o.win) return null;
+  const from=winISO(o.opens), to=winISO(o.due); if(!from||!to) return null;
+  const a=winAt(from,winHM(o.oat),false), b=winAt(to,winHM(o.at),true);
+  return b>a?{from:a,to:b,fromISO:from,toISO:to}:null;
+}
+const winOfItem=i=>i?winOf({win:i.win,opens:i.opens,oat:i.opensAt,due:i.due,at:i.at}):null;
+const winOfCustom=c=>c?winOf({win:c.win,opens:c.opens,oat:c.opensAt,due:c.date,at:c.at}):null;
+
+/* Where "now" sits in it. soon = the last stretch: six hours, or a quarter of
+   it when the whole window is shorter than a day. */
+function winState(w,now){
+  now=now||new Date();
+  const total=w.to-w.from, left=w.to-now;
+  if(now<w.from) return {k:'upcoming',p:0,until:w.from-now,left:left,total:total};
+  if(now>=w.to) return {k:'closed',p:1,left:0,ago:now-w.to,total:total};
+  return {k:left<=Math.min(6*36e5,total/4)?'soon':'open',p:(now-w.from)/total,left:left,total:total};
+}
+function winSpan(ms){
+  const m=Math.max(1,Math.round(ms/6e4)), d=Math.floor(m/1440), h=Math.floor((m%1440)/60), mm=m%60;
+  if(d>=4) return d+'d';
+  if(d>=1) return d+'d'+(h?' '+h+'h':'');
+  if(h>=1) return h+'h'+(mm?' '+mm+'m':'');
+  return mm+' min';
+}
+function winWhen(d){
+  const hm=prettyTime(String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'));
+  const near=Math.abs(d-new Date())<6*DAY_MS;
+  return (near?WDAY[d.getDay()]:d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+',')+' '+hm;
+}
+function winTexts(w,s,done){
+  const k=done?'done':s.k, from=winWhen(w.from), to=winWhen(w.to);
+  const T={from:from,to:to,state:'',clock:'',mini:'',
+           aria:'Window opens '+from+' and closes '+to+'. '+Math.round(s.p*100)+' percent of it has passed.'};
+  if(k==='done'){ T.state='Done'; T.clock='All set'; T.mini='done'; }
+  else if(k==='upcoming'){ T.state='Not open yet'; T.clock='Opens in '+winSpan(s.until); T.mini='opens '+from; }
+  else if(k==='open'){ T.state='Open now'; T.clock=winSpan(s.left)+' left'; T.mini='open \u00b7 '+winSpan(s.left)+' left'; }
+  else if(k==='soon'){ T.state='Closing soon'; T.clock=winSpan(s.left)+' left'; T.mini='closes in '+winSpan(s.left); }
+  else { T.state='Closed'; T.clock=winSpan(s.ago)+' ago'; T.mini='closed'; }
+  return T;
+}
+/* Day boundaries and nights inside the window, as percentages along it. Past
+   ten days the marks would only crowd, so a long window gets a plain capsule. */
+function winGeom(w){
+  const total=w.to-w.from, days=total/DAY_MS, g={ticks:[],nights:[],first:''};
+  if(days>10) return g;
+  g.first=WDAY[w.from.getDay()];
+  let d=new Date(w.from.getFullYear(),w.from.getMonth(),w.from.getDate()+1);
+  while(d<w.to){ g.ticks.push({p:(d-w.from)/total*100,l:WDAY[d.getDay()]}); d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1); }
+  if(days<=7){
+    let n=new Date(w.from.getFullYear(),w.from.getMonth(),w.from.getDate()-1,22,0);
+    for(;n<w.to;n=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,22,0)){
+      const a=Math.max(+n,+w.from), b=Math.min(+new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,6,0),+w.to);
+      if(b>a) g.nights.push({l:(a-w.from)/total*100,w:(b-a)/total*100});
+    }
+  }
+  return g;
+}
+const wpct=n=>(Math.round(n*100)/100)+'%';
+function winTrack(w,rich){
+  const g=rich?winGeom(w):{ticks:[],nights:[]};
+  return g.nights.map(n=>`<i class="wb-night" style="left:${wpct(n.l)};width:${wpct(n.w)}"></i>`).join('')+
+    `<div class="wb-fill"></div>`+
+    g.ticks.map(t=>`<i class="wb-tick" style="left:${wpct(t.p)}"></i>`).join('')+
+    `<div class="wb-orb"></div>`;
+}
+function winRuler(w){
+  const g=winGeom(w); if(!g.first) return '';
+  return `<span style="left:8px">${g.first}</span>`+
+    g.ticks.map(t=>`<i style="left:${wpct(t.p)}"></i><span style="left:calc(${wpct(t.p)} + 7px)">${t.l}</span>`).join('');
+}
+function winFace(w,s,T){
+  return `<div class="wb-head"><span class="wb-state"><i class="wb-led"></i><b data-wt="state">${esc(T.state)}</b></span>`+
+      `<span class="wb-clock" data-wt="clock">${esc(T.clock)}</span></div>`+
+    `<div class="wb-ruler">${winRuler(w)}</div>`+
+    `<div class="wb-track" role="img" aria-label="${esc(T.aria)}">${winTrack(w,true)}</div>`+
+    `<div class="wb-ends"><span><em>Opens</em><b data-wt="from">${esc(T.from)}</b></span>`+
+      `<span><em>Closes</em><b data-wt="to">${esc(T.to)}</b></span></div>`;
+}
+function winAttrs(w,s,done){
+  return `data-wb data-f="${+w.from}" data-t="${+w.to}" data-done="${done?1:0}" style="--p:${s.p.toFixed(4)}"`;
+}
+function winKind(s,done){ return done?'done':s.k; }
+/* The thin bar that sits under a row, on the board and in Lists. */
+function winMiniHTML(w,done){
+  if(!w) return '';
+  const s=winState(w), T=winTexts(w,s,done);
+  return `<div class="wb wb-mini is-${winKind(s,done)}" ${winAttrs(w,s,done)}>`+
+    `<div class="wb-track" role="img" aria-label="${esc(T.aria)}">${winTrack(w,false)}</div>`+
+    `<span class="wb-mlab" data-wt="mini">${esc(T.mini)}</span></div>`;
+}
+/* Lists rows carry their fields flat, so one helper serves both row kinds. A
+   window that has closed and was never done is lateness's business, not ours. */
+function winRowHTML(r){
+  const w=winOf(r); if(!w) return '';
+  const s=winState(w); if(s.k==='closed' && !r.done) return '';
+  return `<div class="dwin">${winMiniHTML(w,!!r.done)}</div>`;
+}
+function winPreviewHTML(w){
+  const s=winState(w), T=winTexts(w,s,false);
+  return `<div class="wb wb-prev is-${s.k}" ${winAttrs(w,s,false)}>${winFace(w,s,T)}</div>`;
+}
+function winCardHTML(x){
+  const s=winState(x.w), k=winKind(s,x.done), T=winTexts(x.w,s,x.done);
+  const intro=WIN_SEEN.has(x.key)?'':' wb-intro'; WIN_SEEN.add(x.key);
+  return `<div class="wb wcard is-${k}${intro}" ${winAttrs(x.w,s,x.done)} data-wkey="${esc(x.key)}">`+
+    `<div class="wc-top"><h3>${esc(x.text)}</h3>`+
+      `<span class="ccode"><i style="--c:${x.dot}"></i>${esc(x.code)}</span></div>`+
+    winFace(x.w,s,T)+
+    `<div class="wc-act"><button class="wc-btn go" type="button" data-wdone="${esc(x.key)}">${x.done?'Undo':'Mark done'}</button>`+
+      `<button class="wc-btn" type="button" data-wedit="${esc(x.key)}">Edit window</button></div></div>`;
+}
+/* ON TODAY. A window gets a card from a day and a half before it opens until
+   the day it closes. On the closing day it is an ordinary row in Coursework (or
+   One-offs) with a thin bar, so nothing is listed twice and the schoolwork
+   count is exactly what it was. The card never counts toward anything: it is
+   the picture, the row is the chore. */
+function winBandItems(){
+  const t=today(), now=new Date(), lead=36*36e5, out=[];
+  (S.lists||[]).forEach(l=>{
+    if(!listOnBoard(l)) return;
+    (l.items||[]).forEach(i=>{
+      const w=winOfItem(i); if(!w) return;
+      if(isPinned(i) || !i.due || i.due<=t) return;
+      if(now<w.from-lead || now>=w.to) return;
+      out.push({key:'l:'+l.id+'|'+i.id, text:i.text, w:w, done:!!i.done, code:listCode(l.name), dot:courseHex(listTint(l.id))});
+    });
+  });
+  (S.custom||[]).forEach(c=>{
+    const w=winOfCustom(c); if(!w || !c.date || c.date<=t) return;
+    if(now<w.from-lead || now>=w.to) return;
+    out.push({key:'c:'+c.id, text:c.l, w:w, done:!!c.done, code:'Task', dot:'var(--extra)'});
+  });
+  return out.sort((a,b)=>a.w.to-b.w.to);
+}
+function winBandSection(){
+  const its=winBandItems(); if(!its.length) return null;
+  const sec=document.createElement('section'); sec.className='phase wband'; sec.dataset.kind='school';
+  /* Brings its own pcard, so wrapCards leaves it alone: this is a stack of
+     cards, not rows to be boxed together and folded when they are all ticked. */
+  sec.innerHTML=`<div class="phead"><h2>Windows</h2></div>`+
+    `<div class="pcard"><div class="pin"><div class="wcards">${its.map(winCardHTML).join('')}</div></div></div>`;
+  return sec;
+}
+function winToggleDone(key){
+  if(String(key).indexOf('l:')===0){
+    const f=findListItem(key); if(!f) return;
+    setItemDone(f.item,key,!f.item.done);
+  } else {
+    const c=(S.custom||[]).find(x=>x.id===String(key).slice(2)); if(!c) return;
+    const k='c:'+c.id, at=S.checked.indexOf(k);
+    if(c.done){ c.done=null; if(at>-1) S.checked.splice(at,1); }
+    else { c.done=today(); if(c.date<=today() && at===-1) S.checked.push(k); }
+  }
+  save(S); try{ paintLists(); }catch(e){} rebuild();
+}
+/* The clock. Nothing is rebuilt: each bubble is re-read from the two moments
+   it carries, so the fill creeps and the words change while you watch. */
+function winPaint(root){
+  (root||document).querySelectorAll('[data-wb]').forEach(el=>{
+    const w={from:new Date(+el.dataset.f),to:new Date(+el.dataset.t)};
+    if(isNaN(w.from)||isNaN(w.to)) return;
+    const s=winState(w), done=el.dataset.done==='1', k=winKind(s,done), T=winTexts(w,s,done);
+    ['upcoming','open','soon','closed','done'].forEach(c=>el.classList.toggle('is-'+c,c===k));
+    el.style.setProperty('--p',s.p.toFixed(4));
+    el.querySelectorAll('[data-wt]').forEach(n=>{ const v=T[n.dataset.wt]; if(v!=null && n.textContent!==v) n.textContent=v; });
+    const tr=el.querySelector('.wb-track'); if(tr) tr.setAttribute('aria-label',T.aria);
+  });
+}
+setInterval(()=>{ if(!document.hidden) winPaint(document); },20000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) winPaint(document); });
+document.addEventListener('click',e=>{
+  const dn=e.target.closest&&e.target.closest('[data-wdone]');
+  if(dn){ e.preventDefault(); winToggleDone(dn.dataset.wdone); return; }
+  const ed=e.target.closest&&e.target.closest('[data-wedit]');
+  if(ed){ e.preventDefault(); openSched(ed.dataset.wedit,'win'); }
+});
+
 /* Paste import. Canvas and Learning Suite both let you copy a list of
    assignments; the shapes vary, so this reads a date from anywhere in the
    line rather than demanding a format. A line with no date it can read is
@@ -7669,7 +8045,7 @@ function canvasApply(evs,opts){
         dest.items=dest.items||[]; dest.items.push(have.i); relisted++;
       }
       if(!have.i.done && e.due && (have.i.due!==e.due || (have.i.at||null)!==(e.at||null))){
-        have.i.due=e.due; if(e.at) have.i.at=e.at; else delete have.i.at; moved++;
+        have.i.due=e.due; if(e.at) have.i.at=e.at; else if(!have.i.win) delete have.i.at; moved++;
       }
       return;
     }
@@ -7838,8 +8214,11 @@ function lsApply(feed,dest,evs,o){
       if(!have.i.done){
         let ch=false;
         if(e.due && have.i.due!==e.due){ have.i.due=e.due; ch=true; }
-        if(e.opens && have.i.opens!==e.opens){ have.i.opens=e.opens; ch=true; }
-        else if(!e.opens && have.i.opens){ delete have.i.opens; ch=true; }
+        /* A window you made keeps the opens day you gave it. */
+        if(!have.i.win){
+          if(e.opens && have.i.opens!==e.opens){ have.i.opens=e.opens; ch=true; }
+          else if(!e.opens && have.i.opens){ delete have.i.opens; ch=true; }
+        }
         if(ch) moved++;
       }
       return;
@@ -7857,7 +8236,7 @@ function lsApply(feed,dest,evs,o){
     if(twin){
       twin.ls=key; feed.seen[e.uid]=1; linked++;
       if(!twin.done && e.due) twin.due=e.due;
-      if(!twin.done && e.opens) twin.opens=e.opens;
+      if(!twin.done && e.opens && !twin.win) twin.opens=e.opens;
       return;
     }
     const it={id:newId('i'), text:e.text, done:false, ls:key, added:new Date().toISOString()};
@@ -8230,7 +8609,7 @@ function listBuckets(){
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
                  opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i),
-                 inclass:!!i.inclass};
+                 inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win};
       /* Only work whose day has actually gone by drops into the Done fold.
          Ticking something off should not make it leave the section you are
          looking at while it is still today's problem. */
@@ -8260,7 +8639,8 @@ function listBuckets(){
      either place moves it in both. (It used to be opt-in, via a Plan button;
      two lists that disagree about what you have to do were the worse deal.) */
   (S.custom||[]).forEach(c=>{
-    const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:null,
+    const row={task:true, cid:c.id, text:c.l, due:c.date||null, at:(c.win&&winHM(c.at))||null,
+               opens:winISO(c.opens), oat:winHM(c.opensAt), win:!!c.win,
                done:!!c.done, top:!!c.top, code:'TASK', list:'One-off task'};
     if(c.done && (!c.date || c.date<t)){ B.done.push(row); return; }
     const d=row.due;
@@ -8420,6 +8800,7 @@ function dateRow(r,big,inlist){
           (onToday?`<span class="donday">· on today</span>`:'')+
           (big&&r.list&&!r.task&&!r.routine&&r.list.toUpperCase().indexOf(String(r.code).toUpperCase())!==0?`<span class="dlist">· ${esc(r.list)}</span>`:'')+
         `</div>`+
+        winRowHTML(r)+
       `</div>`+
       (whenEl||'')+grip+
     `</div>`+
@@ -8649,7 +9030,7 @@ function paintLists(){
     /* Same row as the date view, so the same swipes work here too. */
     const rowFor=i=>dateRow({lid:l.id, iid:i.id, list:l.name, code:listCode(l.name), tint:listTint(l.id),
       text:i.text, due:itemDue(i), at:itemTime(i), opens:itemOpens(i), done:!!i.done, pin:isPinned(i),
-      top:itemTop(i), inclass:!!i.inclass}, true, true);
+      top:itemTop(i), inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win}, true, true);
     return `<div class="llist${l.shut?' shut':''}" data-lid="${esc(l.id)}">`+
       `<div class="lbar" data-lshut="${esc(l.id)}" role="button" tabindex="0" aria-expanded="${!l.shut}">`+
         `<span class="lgrip" data-lgrip="${esc(l.id)}" role="button" tabindex="-1" `+
@@ -10777,11 +11158,11 @@ function schedTarget(id){
   if(String(id||'').indexOf('l:')===0){
     const [lid,iid]=id.slice(2).split('|'), l=listById(lid);
     const it=l&&(l.items||[]).find(x=>x.id===iid); if(!it) return null;
-    return {list:true, l:it.text, date:it.due||null, set(d){ it.due=d||undefined; }, lst:l, key:lid+'|'+iid};
+    return {list:true, l:it.text, date:it.due||null, win:!!it.win, set(d){ it.due=d||undefined; }, lst:l, key:lid+'|'+iid};
   }
-  const c=(S.custom||[]).find(x=>x.id===id); return c?{list:false, l:c.l, date:c.date, c}:null;
+  const c=(S.custom||[]).find(x=>x.id===id); return c?{list:false, l:c.l, date:c.date, win:!!c.win, c}:null;
 }
-function openSched(id){
+function openSched(id,mode){
   const c=schedTarget(id); if(!c) return;
   SCHED=id;
   const sh=document.getElementById('schedsheet');
@@ -10791,6 +11172,7 @@ function openSched(id){
     `<div id="schbody">${schedPickHTML(c)}</div>`;
   const w=document.getElementById('schedwrap'); w.hidden=false; document.body.classList.add('sheet-open');
   requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+  if(mode==='win') winEditOpen(id);
 }
 function schedPickHTML(c,ym){
   const t=today(), d=n=>addDaysISO(t,n);
@@ -10801,7 +11183,7 @@ function schedPickHTML(c,ym){
     .filter((x,i,a)=>a.findIndex(y=>y[1]===x[1])===i);
   return `<div class="trchips schchips">${chips.map(([l,v])=>`<button class="trchip${v===c.date?' on':''}" data-schday="${v}" type="button">${l}<i>${esc(dayOf(v).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</i></button>`).join('')}</div>`+
     `<div class="schcal" id="schcal">${calHTML(ym||(c.date&&c.date>=t?c.date:t).slice(0,7),c.date,t)}</div>`+
-    `<div class="shacts">${c.date?`<button class="shact" data-sch="some" type="button">${c.list?'Remove date':'Back to Someday'}</button>`:''}`+
+    `<div class="shacts"><button class="shact shwinbtn" data-sch="win" type="button">${c.win?'Edit time window':'Add time window'}</button>${c.date?`<button class="shact" data-sch="some" type="button">${c.list?'Remove date':'Back to Someday'}</button>`:''}`+
     `<button class="shact" data-sch="close" type="button">${c.date?'Keep it':c.list?'Leave undated':'Leave on Someday'}</button></div>`;
 }
 /* LOOK BEFORE YOU COMMIT. Tapping a day no longer schedules straight away:
@@ -10885,6 +11267,7 @@ document.getElementById('schedsheet').addEventListener('click',e=>{
   const a=e.target.closest('[data-sch]'); if(!a) return;
   const v=a.dataset.sch;
   if(v==='close'){ closeSched(); return; }
+  if(v==='win'){ winEditOpen(SCHED); return; }
   if(v==='some'){ schedTo(null); return; }
   if(v==='confirm'){ const cur=document.querySelector('#schbody [data-spv]'); if(cur) schedTo(cur.dataset.spv); return; }
   if(v==='back'){ const cur=document.querySelector('#schbody [data-spv]'), c=schedTarget(SCHED);
@@ -10896,6 +11279,156 @@ document.addEventListener('click',e=>{
   const b=e.target.closest && e.target.closest('[data-csched]'); if(!b) return;
   e.preventDefault(); e.stopPropagation(); openSched(b.dataset.csched);
 },true);
+/* =========================================================
+   THE WINDOW EDITOR lives in the same sheet as "give it a day", one tap in.
+   A range calendar: the first tap is the day it opens, the second the day it
+   closes, and from then on a tap moves whichever end is nearer. Two time
+   fields under it, and the bubble above redraws as you go, so you see the
+   shape before you save it. Nothing is written until Save window.
+   ========================================================= */
+let WED=null;
+function winTarget(id){
+  if(String(id||'').indexOf('l:')===0){
+    const [lid,iid]=id.slice(2).split('|'), l=listById(lid), it=l&&(l.items||[]).find(x=>x.id===iid);
+    if(!it) return null;
+    return {l:it.text,
+      get:()=>({win:!!it.win,opens:winISO(it.opens),oat:winHM(it.opensAt),due:winISO(it.due),at:winHM(it.at)}),
+      set:w=>{ it.win=1; it.opens=w.from; it.opensAt=w.fromAt; it.due=w.to; it.at=w.toAt; },
+      /* A Learning Suite item keeps the opens date the feed gave it. */
+      clear:()=>{ delete it.win; delete it.opensAt; if(!it.ls) delete it.opens; }};
+  }
+  const c=(S.custom||[]).find(x=>x.id===id); if(!c) return null;
+  return {l:c.l,
+    get:()=>({win:!!c.win,opens:winISO(c.opens),oat:winHM(c.opensAt),due:winISO(c.date),at:winHM(c.at)}),
+    set:w=>{
+      /* Closing on another day takes it off today's board, so today's tick goes too. */
+      if(c.date===today() && w.to!==c.date){ const k=S.checked.indexOf('c:'+c.id); if(k>-1) S.checked.splice(k,1); }
+      c.win=1; c.opens=w.from; c.opensAt=w.fromAt; c.date=w.to; c.at=w.toAt; c.inlist=true; },
+    clear:()=>{ delete c.win; delete c.opens; delete c.opensAt; delete c.at; }};
+}
+const WIN_OPEN_CHIPS=[['Midnight','00:00'],['Morning','08:00'],['Noon','12:00'],['Evening','18:00']];
+const WIN_CLOSE_CHIPS=[['Noon','12:00'],['5 PM','17:00'],['9 PM','21:00'],['11:59 PM','23:59']];
+const winChips=(kind,list,cur)=>list.map(([l,v])=>
+  `<button class="wchip${v===cur?' on':''}" type="button" data-wchip="${kind}" data-v="${v}">${l}</button>`).join('');
+function winEditOpen(id){
+  const tg=winTarget(id||SCHED); if(!tg) return;
+  const g=tg.get(), t=today();
+  WED={id:id||SCHED, tg:tg, from:g.opens||null, to:g.due||null,
+       fromAt:g.oat||'08:00', toAt:g.at||'23:59', had:g.win, ym:(g.opens&&g.opens>=t?g.opens:(g.due&&g.due>=t?g.due:t)).slice(0,7)};
+  const eye=document.querySelector('#schedsheet .sheye'); if(eye) eye.textContent='TIME WINDOW';
+  document.getElementById('schbody').innerHTML=
+    `<div class="wed" data-wed>`+
+      `<div class="wed-prev" id="wedprev"></div>`+
+      `<p class="wed-hint" id="wedhint"></p>`+
+      `<div class="schcal wcal" id="wedcal"></div>`+
+      `<div class="wtimes">`+
+        `<div class="wtm"><label for="wedft">Opens</label><div class="wtd" id="wedfd"></div>`+
+          `<input type="time" id="wedft" value="${WED.fromAt}"><div class="wchips" id="wedfc"></div></div>`+
+        `<div class="wtm"><label for="wedtt">Closes</label><div class="wtd" id="wedtd"></div>`+
+          `<input type="time" id="wedtt" value="${WED.toAt}"><div class="wchips" id="wedtc"></div></div>`+
+      `</div>`+
+      `<div class="tcbtns"><button class="tcgo" type="button" data-w="save" id="wedsave">Save window</button></div>`+
+      `<div class="shacts">${WED.had?`<button class="shact" type="button" data-w="remove">Remove window</button>`:''}`+
+        `<button class="shact" type="button" data-w="back">Back</button></div>`+
+    `</div>`;
+  winEditUpdate(true);
+}
+function winEditCal(){
+  const E=WED, ym=E.ym, [y,m]=ym.split('-').map(Number);
+  const first=new Date(y,m-1,1), n=new Date(y,m,0).getDate(), lead=first.getDay(), t=today();
+  const title=first.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  let g=['S','M','T','W','T','F','S'].map(w=>`<span class="calwk">${w}</span>`).join('')+'<span></span>'.repeat(lead);
+  for(let d=1;d<=n;d++){
+    const iso=ym+'-'+String(d).padStart(2,'0'), dow=(lead+d-1)%7;
+    const inr=!!(E.from&&E.to&&iso>=E.from&&iso<=E.to), edge=iso===E.from||iso===E.to;
+    let c='cday'; if(inr) c+=' inr'; if(edge) c+=' edge'; if(iso===t) c+=' now';
+    if(inr&&(iso===E.from||dow===0)) c+=' l'; if(inr&&(iso===E.to||dow===6)) c+=' r';
+    g+=`<button class="${c}" type="button" data-wcal="${iso}"${iso<t?' disabled':''}${edge?' aria-pressed="true"':''} `+
+       `aria-label="${esc(dayOf(iso).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))}">${d}</button>`;
+  }
+  return `<div class="cal" data-ym="${ym}"><div class="calhead">`+
+    `<button class="calnav" type="button" data-wnav="-1" aria-label="Previous month"${ym<=t.slice(0,7)?' disabled':''}>${CHEVL}</button>`+
+    `<b>${esc(title)}</b><button class="calnav" type="button" data-wnav="1" aria-label="Next month">${CHEVR}</button></div>`+
+    `<div class="calgrid">${g}</div></div>`;
+}
+/* Redraw everything that depends on the picks, and nothing that holds focus:
+   the time inputs are left alone so a keyboard or wheel is never yanked away. */
+function winEditUpdate(withCal){
+  const E=WED; if(!E) return;
+  const w=(E.from&&E.to)?winOf({win:1,opens:E.from,oat:E.fromAt,due:E.to,at:E.toAt}):null;
+  const hint=document.getElementById('wedhint'), prev=document.getElementById('wedprev');
+  if(w){
+    prev.innerHTML=winPreviewHTML(w);
+    hint.innerHTML='Tap a day to move the nearer end, or adjust the times.<button type="button" data-w="reset">Start over</button>';
+  } else {
+    prev.innerHTML=`<div class="wed-empty">${E.from&&E.to?'It closes before it opens':'Your window shows up here'}</div>`+
+      (E.from&&E.to?`<p class="wed-bad">Check the times: the close has to come after the open.</p>`:'');
+    hint.innerHTML=!E.from?'Tap the day it <b>opens</b>.':!E.to?'Now tap the day it <b>closes</b>. The same day is fine.':'';
+  }
+  if(withCal){ const h=document.getElementById('wedcal'); if(h) h.innerHTML=winEditCal(); }
+  const lab=iso=>iso?ipLabel(iso):'Pick a day';
+  document.getElementById('wedfd').textContent=lab(E.from);
+  document.getElementById('wedtd').textContent=lab(E.to);
+  document.getElementById('wedfc').innerHTML=winChips('from',WIN_OPEN_CHIPS,E.fromAt);
+  document.getElementById('wedtc').innerHTML=winChips('to',WIN_CLOSE_CHIPS,E.toAt);
+  document.getElementById('wedsave').disabled=!w;
+}
+function winEditPick(iso){
+  const E=WED;
+  if(!E.from){ E.from=iso; E.to=null; }
+  else if(!E.to){ if(iso>=E.from) E.to=iso; else E.from=iso; }
+  else if(iso<E.from) E.from=iso;
+  else if(iso>E.to) E.to=iso;
+  else { const a=keyGap(E.from,iso), b=keyGap(iso,E.to); if(a<b) E.from=iso; else E.to=iso; }
+  winEditUpdate(true);
+}
+function winEditSave(){
+  const E=WED; if(!E) return;
+  if(!E.from||!E.to){ toast('Pick both days first'); return; }
+  const w=winOf({win:1,opens:E.from,oat:E.fromAt,due:E.to,at:E.toAt});
+  if(!w){ toast('It closes before it opens'); return; }
+  if(E.to<today()){ toast('The closing day has already passed'); return; }
+  E.tg.set({from:E.from,fromAt:E.fromAt,to:E.to,toAt:E.toAt});
+  winEditDone();
+  toast('Window set · '+winWhen(w.from)+' to '+winWhen(w.to));
+}
+function winEditRemove(){
+  const E=WED; if(!E) return;
+  E.tg.clear(); winEditDone(); toast('Window removed');
+}
+function winEditDone(){
+  WED=null; closeSched(); save(S);
+  try{ flipPaint(paintLists); }catch(e){ try{ paintLists(); }catch(_){} }
+  rebuild();
+}
+function winEditBack(){
+  const c=schedTarget(SCHED); WED=null; if(!c){ closeSched(); return; }
+  const eye=document.querySelector('#schedsheet .sheye'); if(eye) eye.textContent='GIVE IT A DAY';
+  document.getElementById('schbody').innerHTML=schedPickHTML(c);
+}
+document.getElementById('schedsheet').addEventListener('click',e=>{
+  if(!WED) return;
+  const cd=e.target.closest('[data-wcal]'); if(cd && !cd.disabled){ winEditPick(cd.dataset.wcal); return; }
+  const nv=e.target.closest('[data-wnav]'); if(nv && !nv.disabled){
+    WED.ym=ymShift(WED.ym,+nv.dataset.wnav);
+    const h=document.getElementById('wedcal'); h.innerHTML=winEditCal(); arrive(h.querySelector('.calgrid'),+nv.dataset.wnav*22,0); return; }
+  const ch=e.target.closest('[data-wchip]');
+  if(ch){ const k=ch.dataset.wchip, v=ch.dataset.v;
+    if(k==='from'){ WED.fromAt=v; document.getElementById('wedft').value=v; }
+    else { WED.toAt=v; document.getElementById('wedtt').value=v; }
+    winEditUpdate(false); return; }
+  const a=e.target.closest('[data-w]'); if(!a) return;
+  const v=a.dataset.w;
+  if(v==='save') winEditSave();
+  else if(v==='remove') winEditRemove();
+  else if(v==='back') winEditBack();
+  else if(v==='reset'){ WED.from=null; WED.to=null; winEditUpdate(true); }
+});
+document.getElementById('schedsheet').addEventListener('input',e=>{
+  if(!WED) return;
+  if(e.target.id==='wedft'){ WED.fromAt=winHM(e.target.value)||WED.fromAt; winEditUpdate(false); }
+  else if(e.target.id==='wedtt'){ WED.toAt=winHM(e.target.value)||WED.toAt; winEditUpdate(false); }
+});
 /* =========================================================
    MONTH GRID. The app's own calendar, so picking a day looks and moves like
    the rest of the app, and never commits a date just by opening.
@@ -11759,6 +12292,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.04-d', note:"TIME WINDOWS: some things are not due at a moment, they are open across a stretch, like an exam that opens Monday morning and closes Tuesday night. Tap any date, then Add time window, tap the day it opens and the day it closes, set the two times, and save. It shows as a glowing capsule that fills as the window is used up, with the days marked along the top and the nights shaded: lavender while it is open, coral in the last stretch, blue before it opens, green once you mark it done. On Today a window gets its own card from a day and a half before it opens until the day it closes, with Mark done and Edit window. On the closing day it is an ordinary row with a thin bar, so nothing is listed twice and the school count is unchanged. Lists shows the same thin bar under the row. It works on assignments and one-offs. The closing moment is the due date and time, so late, sorting and the sync behave as before, and a Learning Suite or Canvas refresh no longer overwrites a window you set. A Learning Suite item that arrives with an opens date is not a window until you make it one."},
   {v:'2026.11.04-c', note:"CANVAS DUPLICATES AFTER A RENAME. When a professor renames an assignment after you pasted it (“Quiz 10: Books 4-6” became “Quiz 10: Books 4-6, 8, and 10”), the Canvas sync did not recognise your pasted copy and filed a second one. It now treats two titles as the same piece of work when one starts with the other (eight characters or more) and they are due the same day: your pasted row is adopted and takes Canvas’ new name. A one-time cleanup on the next Canvas check merges copies already filed, keeping the Canvas row (and carrying over a tick if you had checked the pasted one) and telling you how many it merged. No Worker update."},
   {v:'2026.11.04-b', note:"LEARNING SUITE: ONLY ASSIGNMENTS NOW. Read from a real course feed, which mixes two things: the Schedule tab (what happens in class, like “Experiment 8”, lab check-out, exam windows) and the grade book (what you hand in). Schedule items are left out. For quizzes and assignments with a window, the feed's start is when they OPEN and its end is when they close, so the due date is now the last day of the window and the start shows as an opens date — “Pre-Lab Experiment 11” was showing the day it opened as the day it was due. The first time a confirmed feed checks after this update, items the old version filed that are not assignments are removed (ticked-off items and anything you added yourself stay), and the toast says how many. A Learning Suite item with the same name and date as one already filed from Canvas is skipped. The preview now says how many schedule notes it left out. No Worker update needed this time."},
   {v:'2026.11.04-a', note:"LEARNING SUITE SYNC: Settings, Learning Suite. Learning Suite gives every course its own calendar link (open the course, Schedule tab, Get iCalendar Feed). Add one per course, pick the list it belongs in, and its items file themselves each time you open the app, with the same rules as Canvas: a due date that moves follows while the item is open, deleted items stay deleted, past dates are skipped, and something you pasted by hand is adopted instead of doubled. A new link files nothing at first: it shows what the feed holds and waits for your yes, because BYU does not publish what is in these feeds and a course schedule can list lectures and readings as well as homework. Items come with a date but no time, and Learning Suite refreshes its feed once a day. Needs the updated sync Worker pasted into Cloudflare (it adds a /lsfeed route)."},
