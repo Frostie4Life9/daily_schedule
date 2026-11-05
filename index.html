@@ -1746,6 +1746,18 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 .plday.heavy .pldl{color:var(--warn);}
 .plexams{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .plexam{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:var(--live-soft);color:var(--live);font-size:12.5px;font-weight:500;}
+/* ---- study blocks for an exam ---- */
+.stdrow{border-color:rgba(111,183,255,.28);transition:opacity .2s,border-color .2s,background .2s;}
+.stdrow:active{background:rgba(111,183,255,.12);}
+.stdrow.off{opacity:.42;border-color:transparent;}
+.stdlab{margin-top:6px;font-size:14px;color:var(--ink);}
+.stdrow.off .stdlab{text-decoration:line-through;color:var(--dim);}
+.stoffer{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+.stoff{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;padding:8px 14px;border-radius:14px;border:1px solid rgba(111,183,255,.35);
+  background:transparent;color:var(--ink);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
+.stoff span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.stoff b{flex:0 0 auto;color:var(--live);font-weight:600;font-size:13px;white-space:nowrap;}
+.stoff:active{transform:scale(.98);}
 /* ---- the week in review (top of Plan the week) ---- */
 .wkbox{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:14px 0 0;padding:14px;border-radius:16px;background:#1B1E24;animation:g-rise .35s var(--ease) both;}
 .wkcol{min-width:0;}
@@ -10924,8 +10936,144 @@ function weekReviewHTML(){
     `<div class="wkcol"><span class="wkeye">NEXT 7 DAYS</span>${ahead.join('')}</div>`+
     (tip?`<p class="wktip">${tip}</p>`:'')+`</div>`;
 }
+/* =========================================================
+   STUDY BLOCKS. An exam is the one thing on the board that needs
+   preparing for over several days, and the app already knows when it is.
+   So when one is close, it can offer to spread a few short sessions
+   across the days before it, on the lightest days it can find.
+
+   The two rules this app is built on are kept: nothing is added until
+   you say so, and what you add goes where you choose. "Schedule these
+   days" commits them (they reach the board, the widget and the Extras
+   count like any one-off); "Put on Someday" files them as ideas that
+   count for nothing until you give them a day.
+
+   Nothing new is stored beyond the one-offs themselves. Each carries
+   study:<list>:<item> so the app can tell an exam already has its blocks
+   and stops offering. Only titles with "exam" or "midterm" count: a bare
+   "final" is as often a paper or a project as it is an exam.
+   For a window exam (opens Monday, closes Tuesday) the sessions are
+   planned before it OPENS, since that is the first day you could sit it.
+   Constants live in a function, not a const: this runs on every repaint,
+   and a const declared down here would not exist yet on an early one.
+   ========================================================= */
+function studyCfg(){ return {re:/\b(exam|midterm)\b/i, max:3, ahead:10}; }
+function studyShort(s){ s=String(s||''); return s.length>60?s.slice(0,57).trimEnd()+'…':s; }
+function studyOffList(){ try{ const a=JSON.parse(localStorage.getItem('protocol_study_off')||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function studyOffAdd(key){ const a=studyOffList(); if(a.indexOf(key)===-1) a.push(key); try{ localStorage.setItem('protocol_study_off',JSON.stringify(a.slice(-60))); }catch(e){} }
+function studyBlocks(key){ return (S.custom||[]).filter(c=>c.study===key); }
+function studyExams(B){
+  const cfg=studyCfg(), t=today(), lim=addDaysISO(t,cfg.ahead), out=[];
+  /* cheap look first: most days there is no exam anywhere, and this runs on every repaint */
+  const any=(S.lists||[]).some(l=>(l.items||[]).some(i=>!i.done && itemDue(i) && itemDue(i)>=t && cfg.re.test(i.text||'')));
+  if(!any) return out;
+  try{ B=B||listBuckets(); }catch(e){ return out; }
+  [].concat(B.today,B.tomorrow,B.week,B.fortnight).forEach(r=>{
+    if(r.task||r.routine||r.done||!r.due||!cfg.re.test(r.text||'')) return;
+    const tg=(r.opens && r.opens>t && r.opens<=r.due)?r.opens:r.due;
+    if(tg<=t || tg>lim) return;
+    out.push({key:r.lid+':'+r.iid, text:r.text, due:r.due, opens:r.opens||null, target:tg,
+              days:Math.round((dayOf(tg)-dayOf(t))/dayMs)});
+  });
+  return out.sort((a,b)=>a.target<b.target?-1:a.target>b.target?1:0);
+}
+/* Up to three days, one from each third of the run-up (fewer when there is
+   less room), each the lightest day in its stretch. A tie goes to the later
+   day, so the last session lands nearest the exam. Another exam on a day, or
+   a day that is already heavy, counts against it. Today is only offered
+   during the daytime. */
+function studyPlan(ex,B){
+  const cfg=studyCfg(), t=today(), ds=+S.dayStart||4, h=hourNow(), days=[];
+  try{ B=B||listBuckets(); }catch(e){ B=null; }
+  for(let d=(h>=ds&&h<18)?t:addDaysISO(t,1), g=0; d<ex.target && g<14; d=addDaysISO(d,1), g++) days.push(d);
+  const c=days.length; if(!c) return [];
+  const N=c>=6?cfg.max:c>=3?2:1, out=[];
+  const score=iso=>{
+    const L=planDayLoad(iso,B||undefined), n=L.school+L.tasks.length;
+    const heavy=L.school>=WEEK_HEAVY || n>WEEK_HEAVY;
+    return {L, heavy, s:n+(L.exams.length?2:0)+(heavy?1:0)};
+  };
+  let from=0;
+  for(let k=0;k<N;k++){
+    const to=Math.round((k+1)*c/N); let best=null;
+    for(let i=from;i<to;i++){ const x=score(days[i]); if(!best || x.s<=best.s) best={iso:days[i], s:x.s, L:x.L, heavy:x.heavy}; }
+    if(best) out.push({iso:best.iso, L:best.L, heavy:best.heavy, n:k+1, of:N});
+    from=to;
+  }
+  return out;
+}
+function studyLabel(ex,p){ return 'Study for '+studyShort(ex.text)+(p.of>1?' ('+p.n+' of '+p.of+')':''); }
+/* the next exam worth a card: close, no blocks yet, not waved off for good, and room to plan.
+   Memoised on the save clock, the day and the hour, since the card asks on every repaint. */
+var STUDYMEMO=null;
+function studyNext(){
+  const k=[S.mtime,today(),hourNow(),(S.custom||[]).length,(S.lists||[]).length,studyOffList().join(',')].join('|');
+  if(STUDYMEMO && STUDYMEMO.k===k) return STUDYMEMO.v;
+  let v=null;
+  try{
+    const off=studyOffList(), B=listBuckets();
+    v=studyExams(B).find(e=>!studyBlocks(e.key).length && off.indexOf(e.key)===-1 && studyPlan(e,B).length)||null;
+  }catch(e){ v=null; }
+  STUDYMEMO={k:k,v:v}; return v;
+}
+function studyWhen(ex){
+  const d=ex.days===1?'tomorrow':ex.days<=6?weekDayName(ex.target):dayOf(ex.target).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return (ex.opens===ex.target?'opens ':'is ')+d;
+}
+function studyOfferHTML(){
+  let ex=[]; try{ const B=listBuckets(); ex=studyExams(B).filter(e=>!studyBlocks(e.key).length && studyPlan(e,B).length); }catch(e){}
+  if(!ex.length) return '';
+  return `<div class="stoffer">`+ex.slice(0,3).map(e=>`<button class="stoff" data-stoffer="${esc(e.key)}" type="button"><span>Plan study for ${esc(studyShort(e.text))}</span><b>${esc(weekDayName(e.target,true))}</b></button>`).join('')+`</div>`;
+}
+function openStudy(key){
+  PLAN.pick=null; PLAN.study={key:key, off:{}, props:[]};
+  swCloseAll(); try{ closeSheet(); }catch(e){}
+  const w=document.getElementById('planwrap'); w.hidden=false;
+  document.body.classList.add('sheet-open');
+  paintPlan();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+}
+function paintStudy(sh){
+  const st=PLAN.study, B=(()=>{ try{ return listBuckets(); }catch(e){ return null; } })();
+  const ex=studyExams(B||undefined).find(e=>e.key===st.key);
+  const head=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">STUDY BLOCKS</span>`+
+    `<h2 id="plantitle">${ex?esc(studyShort(ex.text)):'Exam'}</h2></div>`+
+    `<button class="shclose" data-plan="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+  const props=ex?studyPlan(ex,B||undefined):[];
+  st.props=props;
+  if(!ex || !props.length){
+    sh.innerHTML=head+`<p class="plhint">${ex?'There is no room left before it to plan sessions.':'That exam is not coming up any more.'}</p>`+
+      `<div class="shbtns"><button class="shdone" data-plan="close" type="button">Done</button></div>`;
+    return;
+  }
+  const kept=props.filter(p=>!st.off[p.n]).length;
+  sh.innerHTML=head+
+    `<p class="plhint">${esc(studyShort(ex.text))} <b>${esc(studyWhen(ex))}</b>. Sessions fall on the lightest days before it. Tap a day to leave it out.</p>`+
+    `<div class="pldays">`+props.map(p=>{
+      const off=!!st.off[p.n], d=dayOf(p.iso), L=p.L;
+      const load=[L.school?L.school+' school':'', L.tasks.length?L.tasks.length+' task'+(L.tasks.length>1?'s':''):''].filter(Boolean).join(' · ')||'Free';
+      return `<div class="plday stdrow${off?' off':''}${p.heavy?' heavy':''}" data-stk="${p.n}" role="button" tabindex="0" aria-pressed="${!off}" aria-label="${esc(weekDayName(p.iso))}, session ${p.n} of ${p.of}${off?', left out':''}">`+
+        `<div class="pldh"><span class="pldn">${esc(weekDayName(p.iso))}</span><span class="plddate">${esc(d.toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>`+
+        `<span class="pldl">${esc(load)}${p.heavy?' · heavy':''}</span></div>`+
+        `<div class="stdlab">${esc(studyLabel(ex,p))}</div></div>`;
+    }).join('')+`</div>`+
+    `<div class="tcbtns"><button class="tcgo" data-st="sched" type="button"${kept?'':' disabled'}>Schedule ${kept===1?'this day':'these days'}</button></div>`+
+    `<div class="shacts"><button class="shact" data-st="some" type="button"${kept?'':' disabled'}>Put on Someday instead</button>`+
+    `<button class="shact" data-st="never" type="button">Not for this exam</button></div>`;
+}
+function studyAct(v){
+  const st=PLAN.study; if(!st) return;
+  if(v==='never'){ studyOffAdd(st.key); toast('Will not suggest study blocks for this one'); closePlan(); return; }
+  const ex=studyExams().find(e=>e.key===st.key);
+  const props=(st.props||[]).filter(p=>!st.off[p.n]);
+  if(!ex || !props.length){ toast('Leave at least one day in'); return; }
+  const sched=v==='sched', t=today();
+  props.forEach(p=>addCustom(studyLabel(ex,p), sched && p.iso>=t ? p.iso : null, {study:st.key, studyFor:ex.text}));
+  toast(sched?props.length+(props.length>1?' study days added':' study day added'):props.length+(props.length>1?' ideas':' idea')+' on Someday');
+  closePlan();
+}
 function openPlan(){
-  PLAN.pick=null;
+  PLAN.pick=null; PLAN.study=null;
   try{ localStorage.setItem('protocol_planask',today()); }catch(e){}
   swCloseAll(); try{ closeSheet(); }catch(e){}
   const w=document.getElementById('planwrap'); w.hidden=false;
@@ -10936,6 +11084,7 @@ function openPlan(){
 }
 function closePlan(){
   const w=document.getElementById('planwrap'); if(w.hidden) return;
+  PLAN.study=null;
   w.classList.remove('up');
   if(!(typeof SETOPEN!=='undefined'&&SETOPEN)) document.body.classList.remove('sheet-open');
   setTimeout(()=>{ w.hidden=true; },360);
@@ -10943,6 +11092,7 @@ function closePlan(){
 }
 function paintPlan(glowDay){
   const sh=document.getElementById('plansheet'), t=today();
+  if(PLAN.study){ paintStudy(sh); return; }
   const some=someday();
   const pick=PLAN.pick && some.find(c=>c.id===PLAN.pick);
   const days=[0,1,2,3,4,5,6].map(i=>addDaysISO(t,i));
@@ -10951,7 +11101,7 @@ function paintPlan(glowDay){
   sh.innerHTML=`<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">PLAN THE WEEK</span>`+
     `<h2 id="plantitle">Give Someday a day</h2></div>`+
     `<button class="shclose" data-plan="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
-    weekReviewHTML()+
+    weekReviewHTML()+studyOfferHTML()+
     `<p class="plhint">${hint}</p>`+
     (some.length?`<div class="plsome">`+some.map(c=>`<button class="plitem${c.id===PLAN.pick?' on':''}" data-pk="${esc(c.id)}" type="button" aria-pressed="${c.id===PLAN.pick}">${esc(c.l)}</button>`).join('')+`</div>`:'')+
     `<div class="pldays${pick?' armed':''}">`+(()=>{ let B=null; try{ B=listBuckets(); }catch(e){} return days.map(iso=>{
@@ -10971,6 +11121,15 @@ function paintPlan(glowDay){
 document.getElementById('planback').addEventListener('click',closePlan);
 document.getElementById('plansheet').addEventListener('click',e=>{
   if(e.target.closest('[data-plan="close"]')){ closePlan(); return; }
+  const so=e.target.closest('[data-stoffer]');
+  if(so){ openStudy(so.dataset.stoffer); return; }
+  if(PLAN.study){
+    const sb=e.target.closest('[data-st]');
+    if(sb){ studyAct(sb.dataset.st); return; }
+    const sk=e.target.closest('[data-stk]');
+    if(sk){ const n=sk.dataset.stk; PLAN.study.off[n]=!PLAN.study.off[n]; paintPlan(); }
+    return;
+  }
   const pk=e.target.closest('[data-pk]');
   if(pk){ PLAN.pick = PLAN.pick===pk.dataset.pk ? null : pk.dataset.pk; paintPlan(); return; }
   const pb=e.target.closest('[data-pback]');
@@ -10983,7 +11142,7 @@ document.getElementById('plansheet').addEventListener('click',e=>{
   }
 });
 document.getElementById('plansheet').addEventListener('keydown',e=>{
-  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-pday]')){ e.preventDefault(); e.target.click(); }
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-pday],[data-stk]')){ e.preventDefault(); e.target.click(); }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !document.getElementById('planwrap').hidden) closePlan(); });
 
@@ -11008,6 +11167,8 @@ function whichCard(){
   if((h>=21 || h<(+S.dayStart||4)) && !waved('sweep') && sweepItems().length) return 'sweep';
   /* Sunday's card is the week in review now, so it shows even with Someday empty */
   if(dayOf(today()).getDay()===0 && !waved('plan')) return 'plan';
+  /* an exam close enough that its prep wants spreading out */
+  if(!waved('study') && studyNext()) return 'study';
   if(!waved('stale') && staleSomeday().length) return 'stale';
   return null;
 }
@@ -11015,9 +11176,10 @@ function paintCards(){
   const m=document.getElementById('cardmount'); if(!m) return;
   const k=whichCard();
   /* paint() runs on every tick; only rebuild the card when what it says changed */
-  let wb=null, wa=null;
+  let wb=null, wa=null, sx=null;
   if(k==='plan'){ wb=weekBack(); wa=weekAhead(); }
-  const sig=!k?'':k+':'+(k==='sweep'?sweepItems().map(i=>i.id).join(','):k==='plan'?JSON.stringify([wb,wa.due,wa.peak&&wa.peak.iso,wa.exams.length]):staleSomeday().length);
+  if(k==='study') sx=studyNext();
+  const sig=!k?'':k+':'+(k==='sweep'?sweepItems().map(i=>i.id).join(','):k==='plan'?JSON.stringify([wb,wa.due,wa.peak&&wa.peak.iso,wa.exams.length]):k==='study'?(sx?sx.key+':'+sx.target+':'+sx.days+':'+sx.text:''):staleSomeday().length);
   if(m.dataset.sig===sig) return;
   m.dataset.sig=sig;
   if(!k){ m.innerHTML=''; return; }
@@ -11044,6 +11206,13 @@ function paintCards(){
       `<div class="tclist">`+rows.map(r=>`<div class="tcrow"><span class="tcl">${esc(r[0])}</span><span class="tcv ${r[2]}">${esc(r[1])}</span></div>`).join('')+`</div>`+
       `<p class="tcp">${n?n+' thing'+(n>1?'s':'')+' on Someday waiting for a day.':'Someday is empty.'}</p>`+
       `<div class="tcbtns"><button class="tcgo" data-card="plan" type="button">Plan the week</button></div></div>`;
+  } else if(k==='study'){
+    if(!sx){ m.innerHTML=''; return; }
+    m.innerHTML=`<div class="tcard"><div class="tch"><span class="tce">EXAM</span>${x}</div>`+
+      `<h3>${esc(studyShort(sx.text))} ${esc(studyWhen(sx))}</h3>`+
+      `<p class="tcp">Spread a few short study sessions over the days before it. Nothing is added until you pick.</p>`+
+      `<div class="tcbtns"><button class="tcgo" data-card="study" type="button">Plan study blocks</button>`+
+      `<button class="tcb" style="align-self:center" data-card="studyoff" type="button">Not this one</button></div></div>`;
   } else {
     const n=staleSomeday().length;
     m.innerHTML=`<div class="tcard"><div class="tch"><span class="tce">SOMEDAY</span>${x}</div>`+
@@ -11062,6 +11231,8 @@ document.getElementById('cardmount').addEventListener('click',e=>{
   if(v.indexOf('wave:')===0){ wave(v.slice(5)); paintCards(); return; }
   if(v==='plan'){ wave('plan'); openPlan(); return; }
   if(v==='stale'){ wave('stale'); openTriage('someday'); return; }
+  if(v==='study'){ const ex=studyNext(); if(ex) openStudy(ex.key); return; }
+  if(v==='studyoff'){ const ex=studyNext(); if(ex){ studyOffAdd(ex.key); toast('Will not suggest study blocks for this one'); } paintCards(); return; }
   if(v==='alltmr'){
     const it=sweepItems(); it.forEach(i=>sweepMove(i.kind,i.id,tm));
     commit({rebuild:true}); try{ paintLists(); }catch(err){}
@@ -12292,6 +12463,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.05-a', note:"STUDY BLOCKS FOR EXAMS: when an exam (any title with “exam” or “midterm”) is within ten days and has no study sessions yet, Today shows an Exam card with Plan study blocks. It opens a sheet that proposes up to three sessions spread over the days before the exam (fewer when there is less room), each on the lightest day in its stretch: another exam on a day or a heavy day counts against it, a tie goes to the later day so the last one lands nearest the exam, and today is only offered in the daytime. Tap a day to leave it out, then Schedule these days (they become ordinary one-offs on those days, counted like any other) or Put on Someday instead (ideas that count for nothing until you give them a day). Nothing is added until you pick. Not this one on the card, or Not for this exam in the sheet, stops the suggestions for that exam on this device. For a window exam the sessions are planned before it opens, since that is the first day you could take it. Plan the week lists each exam that still needs sessions at the top, so it can be started from there too. A bare “final” is not treated as an exam, since it is as often a paper or a project. No Worker update."},
   {v:'2026.11.04-d', note:"TIME WINDOWS: some things are not due at a moment, they are open across a stretch, like an exam that opens Monday morning and closes Tuesday night. Tap any date, then Add time window, tap the day it opens and the day it closes, set the two times, and save. It shows as a glowing capsule that fills as the window is used up, with the days marked along the top and the nights shaded: lavender while it is open, coral in the last stretch, blue before it opens, green once you mark it done. On Today a window gets its own card from a day and a half before it opens until the day it closes, with Mark done and Edit window. On the closing day it is an ordinary row with a thin bar, so nothing is listed twice and the school count is unchanged. Lists shows the same thin bar under the row. It works on assignments and one-offs. The closing moment is the due date and time, so late, sorting and the sync behave as before, and a Learning Suite or Canvas refresh no longer overwrites a window you set. A Learning Suite item that arrives with an opens date is not a window until you make it one."},
   {v:'2026.11.04-c', note:"CANVAS DUPLICATES AFTER A RENAME. When a professor renames an assignment after you pasted it (“Quiz 10: Books 4-6” became “Quiz 10: Books 4-6, 8, and 10”), the Canvas sync did not recognise your pasted copy and filed a second one. It now treats two titles as the same piece of work when one starts with the other (eight characters or more) and they are due the same day: your pasted row is adopted and takes Canvas’ new name. A one-time cleanup on the next Canvas check merges copies already filed, keeping the Canvas row (and carrying over a tick if you had checked the pasted one) and telling you how many it merged. No Worker update."},
   {v:'2026.11.04-b', note:"LEARNING SUITE: ONLY ASSIGNMENTS NOW. Read from a real course feed, which mixes two things: the Schedule tab (what happens in class, like “Experiment 8”, lab check-out, exam windows) and the grade book (what you hand in). Schedule items are left out. For quizzes and assignments with a window, the feed's start is when they OPEN and its end is when they close, so the due date is now the last day of the window and the start shows as an opens date — “Pre-Lab Experiment 11” was showing the day it opened as the day it was due. The first time a confirmed feed checks after this update, items the old version filed that are not assignments are removed (ticked-off items and anything you added yourself stay), and the toast says how many. A Learning Suite item with the same name and date as one already filed from Canvas is skipped. The preview now says how many schedule notes it left out. No Worker update needed this time."},
