@@ -2918,6 +2918,16 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     </div>
   </section>
 
+  <section id="grades">
+    <div class="shelfhead" id="gradeshead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Grades</h2><span class="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">A running grade for each course. Score an assignment by swiping it left on the date list once it is ticked and tapping <b>Score</b>, add one here, or paste a batch. Scores are kept separately from assignments, so clearing a list or a Canvas refresh never loses them. Add weights if your syllabus uses them; leave them off and every point counts the same.</p>
+      <div id="grmount"></div>
+    </div>
+  </section>
+
   <section id="canvas">
     <div class="shelfhead" id="canvashead" role="button" tabindex="0" aria-expanded="false">
       <h2>Canvas</h2><span class="caret">Open</span>
@@ -3043,6 +3053,10 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 <div class="sheetwrap schedwrap" id="schedwrap" hidden>
   <div class="sheetback" id="schedback"></div>
   <div class="sheet schedsheet" id="schedsheet" role="dialog" aria-modal="true" aria-labelledby="schedtitle" tabindex="-1"></div>
+</div>
+<div class="sheetwrap grwrap" id="grwrap" hidden>
+  <div class="sheetback" id="grback"></div>
+  <div class="sheet grsheet" id="grsheet" role="dialog" aria-modal="true" aria-labelledby="grtitle" tabindex="-1"></div>
 </div>
 <div class="sheetwrap planwrap" id="planwrap" hidden>
   <div class="sheetback" id="planback"></div>
@@ -7432,6 +7446,405 @@ function findListItem(key){
   const i=(l.items||[]).find(x=>x.id===m[2]); if(!i) return null;
   return {list:l, item:i};
 }
+/* =========================================================
+   GRADES. A ledger of scores per course, kept apart from the assignments on
+   purpose: Clear done, Clear all and a Canvas or Learning Suite refresh all
+   remove or rewrite assignments, and a score has to outlive every one of them.
+   Each entry is {id, lid (the course list), text, grp (assignment group), got,
+   pts, it (the assignment it was scored from, when there is one)}. got is null
+   for work that is known but not graded yet, so its points count as what is
+   left. Lives in S.grades, so it syncs with the rest of the state and needs no
+   Worker change.
+
+   Two ways to grade a course:
+   - no weights: total points earned over total points possible
+   - weights: each group's percent, weighted, over only the groups that have a
+     score so far (what Canvas shows as a running grade)
+   ========================================================= */
+const GR_SCALE=[[93,'A'],[90,'A-'],[87,'B+'],[83,'B'],[80,'B-'],[77,'C+'],[73,'C'],[70,'C-'],[67,'D+'],[63,'D'],[60,'D-']];
+const GR_TARGETS=[['A',93],['A-',90],['B+',87],['B',83],['B-',80]];
+function grLetter(p){
+  if(p==null || !isFinite(p)) return '';
+  for(let i=0;i<GR_SCALE.length;i++) if(p>=GR_SCALE[i][0]-1e-9) return GR_SCALE[i][1];
+  return 'E';
+}
+function grState(){
+  S.grades=S.grades||{}; const G=S.grades;
+  G.rows=G.rows||[]; G.course=G.course||{};
+  return G;
+}
+function grNum(v){
+  if(v==null) return null;
+  const s=String(v).replace(/,/g,'').trim(); if(!s) return null;
+  const n=parseFloat(s); return isFinite(n)?n:null;
+}
+function grFmt(n){ if(n==null) return ''; return String(Math.round(n*100)/100); }
+function grPct(p){ return (p==null||!isFinite(p))?'\u2014':(Math.round(p*10)/10)+'%'; }
+function grCourses(){
+  const G=grState();
+  return (S.lists||[]).filter(l=>listOnBoard(l) || (l.items||[]).some(i=>itemDue(i)) || G.rows.some(r=>r.lid===l.id));
+}
+function grGroups(lid){
+  const G=grState(), g={};
+  G.rows.forEach(r=>{ if(r.lid===lid && r.grp) g[r.grp]=1; });
+  Object.keys((G.course[lid]||{}).w||{}).forEach(k=>{ g[k]=1; });
+  return Object.keys(g).sort((a,b)=>a.toLowerCase()<b.toLowerCase()?-1:1);
+}
+function grFind(lid,iid){ return grState().rows.find(r=>r.lid===lid && r.it===iid)||null; }
+/* What a row's chip says: only graded work shows a score. */
+function grLabel(lid,iid){
+  const r=grFind(lid,iid);
+  return (r && r.got!=null && r.pts>0) ? grFmt(r.got)+'/'+grFmt(r.pts) : '';
+}
+function grUpsert(o){
+  const G=grState();
+  let r=o.id?G.rows.find(x=>x.id===o.id):null;
+  if(!r && o.it) r=G.rows.find(x=>x.lid===o.lid && x.it===o.it)||null;
+  if(!r){ r={id:newId('g'), lid:o.lid, t:Date.now()}; G.rows.push(r); }
+  r.text=String(o.text||'').trim()||'Untitled';
+  if(o.grp) r.grp=String(o.grp).trim(); else delete r.grp;
+  r.got=(o.got==null)?null:o.got;
+  r.pts=o.pts;
+  if(o.it) r.it=o.it;
+  r.u=Date.now();
+  return r;
+}
+function grRemove(id){
+  const G=grState(), i=G.rows.findIndex(x=>x.id===id);
+  if(i<0) return null;
+  return G.rows.splice(i,1)[0];
+}
+/* One course, worked out. groups holds earned (E), graded possible (P), and
+   possible-but-not-graded-yet (R) per group. A (already banked) and B (how much
+   of the grade is still open) describe the final grade as A + B * x, where x is
+   the average fraction you score on the work that is left. */
+function grCourse(lid){
+  const G=grState(), rows=G.rows.filter(r=>r.lid===lid), cfg=G.course[lid]||{}, w=cfg.w||{};
+  const weighted=Object.keys(w).some(k=>+w[k]>0);
+  const groups={};
+  let tE=0, tP=0, n=0;
+  rows.forEach(r=>{
+    const k=weighted?(r.grp||'Other'):'All';
+    const g=groups[k]||(groups[k]={k:k,E:0,P:0,R:0,w:weighted?(+w[k]||0):100});
+    if(r.pts>0){
+      if(r.got!=null){ g.E+=r.got; g.P+=r.pts; tE+=r.got; tP+=r.pts; n++; }
+      else g.R+=r.pts;
+    }
+  });
+  if(weighted) Object.keys(w).forEach(k=>{
+    if(+w[k]>0 && !groups[k]) groups[k]={k:k,E:0,P:0,R:0,w:+w[k]};
+  });
+  const gs=Object.keys(groups).map(k=>groups[k]).filter(g=>g.w>0);
+  let num=0, den=0;
+  gs.forEach(g=>{ if(g.P>0){ num+=g.w*g.E/g.P; den+=g.w; } });
+  const Wt=gs.reduce((a,g)=>a+g.w,0);
+  let A=0, B=0;
+  gs.forEach(g=>{ const T=g.P+g.R; if(T>0){ A+=g.w*g.E/T; B+=g.w*g.R/T; } else B+=g.w; });
+  const unweighted=weighted?rows.filter(r=>!(+w[r.grp||'Other']>0)).length:0;
+  return {rows:rows, weighted:weighted, pct:den>0?num/den*100:null, n:n, tE:tE, tP:tP,
+          Wt:Wt, A:Wt?A/Wt:0, B:Wt?B/Wt:0, unweighted:unweighted};
+}
+/* What would it take to finish at `target` percent? */
+function grNeed(c,target){
+  if(!(c.Wt>0)) return null;
+  const t=target/100;
+  if(c.B<1e-9) return c.A>=t-1e-9 ? {kind:'secured'} : {kind:'none'};
+  const x=(t-c.A)/c.B;
+  if(x<=1e-9) return {kind:'secured'};
+  if(x>1+1e-9) return {kind:'out', x:x*100};
+  return {kind:'need', x:x*100};
+}
+
+/* Reading scores out of pasted text. Two shapes:
+   - Canvas' grades page, which writes each assignment as title, group, a due
+     line, then the score. Recognised the same way the assignment importer does.
+   - one per line, the way a person types it: "Quiz 3  18/20  Quizzes".
+   An ungraded "-/20" gives the points with no score, so it counts as work that
+   is still coming. */
+function grScoreish(l){
+  return /^[\s\d.,\/%()\u2013\u2014-]+$/.test(l) || /^click to test/i.test(l) ||
+         /^[\u2013\u2014-]?\s*\/\s*\d/.test(l) || /^\d+(\.\d+)?\s*\/\s*\d/.test(l) ||
+         /^\d+(\.\d+)?\s*(pts?|points)\b/i.test(l);
+}
+function grPair(s){
+  let m=/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/.exec(s);
+  if(m) return {got:+m[1], pts:+m[2]};
+  m=/[-\u2013\u2014]\s*\/\s*(\d+(?:\.\d+)?)/.exec(s);
+  if(m) return {got:null, pts:+m[1]};
+  return null;
+}
+function parseGradeText(text){
+  const lines=String(text||'').split(/\r?\n/).map(l=>l.replace(/\u00a0/g,' ').trim()).filter(Boolean);
+  const out=[];
+  if(assignmentFormat(lines)==='grades'){
+    let buf=[], cur=null;
+    const recs=[];
+    lines.forEach(ln=>{
+      if(GRADEDUE.test(ln)){
+        const title=buf.length>1?buf[buf.length-2]:buf[buf.length-1];
+        const grp=buf.length>1?buf[buf.length-1]:'';
+        if(title){ cur={text:cleanTitle(title,false), grp:grp, due:parseDue(ln.split('\t')[0]), sc:[]}; recs.push(cur); }
+        else cur=null;
+        buf=[]; return;
+      }
+      if(grScoreish(ln)){ if(cur && !buf.length) cur.sc.push(ln); return; }
+      if(ln.length>120 || /[.!?]\s+[A-Z]/.test(ln)) return;
+      buf.push(ln);
+    });
+    recs.forEach(r=>{
+      const p=grPair(r.sc.join(' '));
+      if(p && r.text) out.push({text:r.text, grp:r.grp, due:r.due, got:p.got, pts:p.pts});
+    });
+    return out;
+  }
+  const tidy=s=>String(s||'').replace(/^[\s(\u2013\u2014:|,-]+|[\s)\u2013\u2014:|,-]+$/g,'').replace(/\s{2,}/g,' ').trim();
+  lines.forEach(ln=>{
+    let m=/^(.*?)\s*[\s:\u2013\u2014|,-]\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*(?:pts?|points)?\s*(.*)$/i.exec(ln);
+    if(m){ const t=tidy(m[1]); if(t) out.push({text:t, grp:tidy(m[4]), due:null, got:+m[2], pts:+m[3]}); return; }
+    m=/^(.*?)\s*[\u2013\u2014-]\s*\/\s*(\d+(?:\.\d+)?)\s*(?:pts?|points)?\s*(.*)$/i.exec(ln);
+    if(m){ const t=tidy(m[1]); if(t) out.push({text:t, grp:tidy(m[3]), due:null, got:null, pts:+m[2]}); }
+  });
+  return out;
+}
+/* File parsed scores into one course. An existing entry with the same name is
+   updated rather than doubled, and an ungraded line never erases a score you
+   already have. Scores are linked to the matching assignment when there is one. */
+function grImport(lid,list){
+  const G=grState(), l=listById(lid);
+  const norm=s=>String(s||'').toLowerCase().replace(/\s+/g,' ').trim();
+  let added=0, updated=0, linked=0;
+  list.forEach(a=>{
+    if(!a.text || !(a.pts>0)) return;
+    const item=l && (l.items||[]).find(i=>norm(i.text)===norm(a.text) && (!a.due || !itemDue(i) || itemDue(i)===a.due));
+    let r=G.rows.find(x=>x.lid===lid && ((item && x.it===item.id) || norm(x.text)===norm(a.text)));
+    if(r){
+      if(a.got!=null) r.got=a.got;
+      r.pts=a.pts;
+      if(a.grp && !r.grp) r.grp=a.grp;
+      if(item && !r.it){ r.it=item.id; linked++; }
+      updated++;
+    } else {
+      r={id:newId('g'), lid:lid, text:a.text, got:(a.got==null?null:a.got), pts:a.pts, t:Date.now()};
+      if(a.grp) r.grp=a.grp;
+      if(item){ r.it=item.id; linked++; }
+      G.rows.push(r); added++;
+    }
+    r.u=Date.now();
+  });
+  return {added:added, updated:updated, linked:linked};
+}
+
+/* ---- the score sheet: one assignment, or a score added by hand ---- */
+let GRS=null;
+function grOtherSheetOpen(){
+  return ['schedwrap','planwrap','addwrap'].some(id=>{ const w=document.getElementById(id); return w && !w.hidden; });
+}
+function grSheetOpen(o){
+  const l=listById(o.lid); if(!l) return;
+  const G=grState();
+  const ex=o.id?G.rows.find(r=>r.id===o.id):(o.iid?grFind(o.lid,o.iid):null);
+  const it=o.iid?(l.items||[]).find(x=>x.id===o.iid):null;
+  const name=ex?ex.text:(it?it.text:'');
+  GRS={lid:o.lid, id:ex?ex.id:null, iid:o.iid||(ex&&ex.it)||null};
+  const sh=document.getElementById('grsheet');
+  sh.innerHTML=
+    `<div class="shgrab"></div><div class="shhead"><div class="shtitles"><span class="sheye">${esc(listCode(l.name))} \u00b7 SCORE</span>`+
+    `<h2 id="grtitle">${name?esc(name):'Add a score'}</h2></div>`+
+    `<button class="shclose" data-grx="close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`+
+    `<div class="grform">`+
+      `<label class="grl">Name<input id="grsn" type="text" autocomplete="off" autocapitalize="sentences" maxlength="160" value="${esc(name)}"></label>`+
+      `<div class="grpair"><label class="grl">Earned<input id="grsg" type="text" inputmode="decimal" autocomplete="off" placeholder="blank if not graded" value="${ex&&ex.got!=null?esc(grFmt(ex.got)):''}"></label>`+
+      `<span class="grof" aria-hidden="true">/</span>`+
+      `<label class="grl">Out of<input id="grsp" type="text" inputmode="decimal" autocomplete="off" value="${ex&&ex.pts>0?esc(grFmt(ex.pts)):''}"></label></div>`+
+      `<label class="grl">Group<input id="grsq" type="text" list="grsgl" autocomplete="off" autocapitalize="words" maxlength="40" placeholder="Quizzes, Exams, Labs\u2026" value="${ex&&ex.grp?esc(ex.grp):''}"></label>`+
+      `<datalist id="grsgl">${grGroups(o.lid).map(g=>`<option value="${esc(g)}"></option>`).join('')}</datalist>`+
+      `<div class="grprev" id="grsprev" aria-live="polite"></div>`+
+    `</div>`+
+    `<div class="shbtns"><button class="shdone" data-grx="save" type="button">Save</button></div>`+
+    `<div class="shacts">${ex?`<button class="shact" data-grx="remove" type="button">Remove score</button>`:''}`+
+    `<button class="shact" data-grx="close" type="button">Cancel</button></div>`;
+  const w=document.getElementById('grwrap'); w.hidden=false; document.body.classList.add('sheet-open');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('up')));
+  grSheetPrev();
+  setTimeout(()=>{ const i=document.getElementById(name?'grsg':'grsn'); if(i) try{ i.focus({preventScroll:true}); }catch(e){} },380);
+}
+function grSheetClose(){
+  const w=document.getElementById('grwrap'); if(!w || w.hidden) return;
+  w.classList.remove('up');
+  if(!(typeof SETOPEN!=='undefined' && SETOPEN) && !grOtherSheetOpen()) document.body.classList.remove('sheet-open');
+  setTimeout(()=>{ if(!w.classList.contains('up')) w.hidden=true; },360);
+  GRS=null;
+}
+function grSheetPrev(){
+  const el=document.getElementById('grsprev'); if(!el) return;
+  const got=grNum((document.getElementById('grsg')||{}).value), pts=grNum((document.getElementById('grsp')||{}).value);
+  if(pts>0 && got!=null){ const p=got/pts*100; el.textContent=grPct(p)+' \u00b7 '+grLetter(p); }
+  else if(pts>0) el.textContent='Not graded yet \u2014 counts as upcoming work';
+  else el.textContent='';
+}
+function grRepaint(){
+  try{ flipPaint(paintLists); }catch(e){ try{ paintLists(); }catch(_){} }
+  try{ paintGrades(); }catch(e){}
+  try{ if(typeof SETOPEN!=='undefined' && SETOPEN) paintSettings(); }catch(e){}
+}
+function grSheetSave(){
+  if(!GRS) return;
+  const name=document.getElementById('grsn').value.trim();
+  const got=grNum(document.getElementById('grsg').value), pts=grNum(document.getElementById('grsp').value);
+  const grp=document.getElementById('grsq').value.trim();
+  if(!name){ toast('Give it a name'); return; }
+  if(!(pts>0)){ toast('Enter what it is out of'); return; }
+  if(got!=null && got<0){ toast('A score cannot be negative'); return; }
+  grUpsert({lid:GRS.lid, id:GRS.id, it:GRS.iid, text:name, grp:grp, got:got, pts:pts});
+  grSheetClose(); save(S); grRepaint();
+  toast(got==null?'Saved as upcoming':'Saved '+grFmt(got)+'/'+grFmt(pts));
+}
+function grSheetRemove(){
+  if(!GRS || !GRS.id) return;
+  const gone=grRemove(GRS.id); if(!gone) return;
+  grSheetClose(); save(S); grRepaint();
+  toast('Score removed',()=>{ grState().rows.push(gone); save(S); grRepaint(); });
+}
+document.getElementById('grback').addEventListener('click',grSheetClose);
+document.getElementById('grsheet').addEventListener('click',e=>{
+  const b=e.target.closest('[data-grx]'); if(!b) return;
+  const v=b.dataset.grx;
+  if(v==='close') grSheetClose(); else if(v==='save') grSheetSave(); else if(v==='remove') grSheetRemove();
+});
+document.getElementById('grsheet').addEventListener('input',e=>{ if(e.target.closest('#grsg,#grsp')) grSheetPrev(); });
+/* A group you have used before usually has the same size of assignment. */
+document.getElementById('grsheet').addEventListener('change',e=>{
+  if(!e.target.closest('#grsq') || !GRS) return;
+  const pi=document.getElementById('grsp'); if(!pi || pi.value.trim()) return;
+  const g=e.target.value.trim().toLowerCase(); if(!g) return;
+  const prev=grState().rows.filter(r=>r.lid===GRS.lid && (r.grp||'').toLowerCase()===g && r.pts>0)
+    .sort((a,b)=>(b.u||b.t||0)-(a.u||a.t||0))[0];
+  if(prev){ pi.value=grFmt(prev.pts); grSheetPrev(); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && GRS) grSheetClose(); });
+/* The Score button behind an assignment row. */
+document.addEventListener('click',e=>{
+  const b=e.target.closest && e.target.closest('[data-grscore]'); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const f=findListItem(b.dataset.grscore); if(!f) return;
+  try{ swCloseAll(); }catch(_){}
+  grSheetOpen({lid:f.list.id, iid:f.item.id});
+},true);
+
+/* ---- the Grades settings page ---- */
+const GROPEN=new Set();
+function grRowScore(r){
+  if(r.got!=null && r.pts>0) return `<span class="grrs">${esc(grFmt(r.got))}/${esc(grFmt(r.pts))}<i>${esc(grPct(r.got/r.pts*100))}</i></span>`;
+  return `<span class="grrs up">\u2014/${esc(grFmt(r.pts||0))}<i>upcoming</i></span>`;
+}
+function grCardHTML(l){
+  const c=grCourse(l.id), G=grState(), cfg=G.course[l.id]||{}, tg=+cfg.tg||93, w=cfg.w||{};
+  const code=listCode(l.name), hex=courseHex(listTint(l.id));
+  const open=k=>GROPEN.has(l.id+':'+k)?' open':'';
+  const big=c.pct==null?`<div class="grbig"><b class="grnone">\u2014</b></div>`:`<div class="grbig"><b>${esc(grPct(c.pct))}</b><span>${esc(grLetter(c.pct))}</span></div>`;
+  const sub=c.n?`${c.n} scored \u00b7 ${esc(grFmt(c.tE))}/${esc(grFmt(c.tP))} pts${c.weighted?' \u00b7 weighted by group':''}`:
+    (c.rows.length?'Nothing graded yet':'No scores yet');
+  const rows=c.rows.slice().sort((a,b)=>(b.u||b.t||0)-(a.u||a.t||0));
+  const list=rows.length?rows.map(r=>
+    `<button class="grrow" type="button" data-gredit="${esc(r.id)}" data-glid="${esc(l.id)}"><span class="grrl">${esc(r.text)}</span>`+
+    `${r.grp?`<span class="grrg">${esc(r.grp)}</span>`:''}${grRowScore(r)}</button>`).join(''):
+    `<p class="grhint">Nothing yet. Swipe a ticked assignment left and tap Score, or add one here.</p>`;
+  const groups=grGroups(l.id);
+  const wrows=groups.map(g=>
+    `<label class="grwrow"><span>${esc(g)}</span><input type="text" inputmode="decimal" data-grw="${esc(l.id)}" data-grwg="${esc(g)}" value="${+w[g]>0?esc(grFmt(+w[g])):''}" placeholder="0" aria-label="Weight of ${esc(g)}"><i>%</i></label>`).join('');
+  const wsum=Object.keys(w).reduce((a,k)=>a+(+w[k]>0?+w[k]:0),0);
+  const wnote=c.weighted
+    ?`Weights add to ${esc(grFmt(wsum))}%${Math.abs(wsum-100)>0.01?' (fine \u2014 they are used as ratios)':''}.`+(c.unweighted?` ${c.unweighted} score${c.unweighted>1?'s':''} sit in a group with no weight and are left out.`:'')
+    :'No weights set, so every point counts the same. Set a weight on any group to switch to weighted.';
+  const need=grNeed(c,tg);
+  const tl=(GR_TARGETS.find(x=>x[1]===tg)||[String(tg)+'%'])[0];
+  let ans;
+  if(!need) ans='Add upcoming work with points, or a weighted group with nothing entered yet (like the final), and this can say what you need.';
+  else if(need.kind==='secured') ans=`<b>${esc(tl)}</b> (${tg}%) is already locked in, whatever the rest turns out to be.`;
+  else if(need.kind==='need') ans=`To finish with <b>${esc(tl)}</b> (${tg}%) you need about <b>${esc(grPct(need.x))}</b> on what is left.`;
+  else if(need.kind==='out') ans=`<b>${esc(tl)}</b> (${tg}%) would take <b>${esc(grPct(need.x))}</b> on what is left, which is out of reach on the work entered.`;
+  else ans=`Nothing is left to count in what you have entered, so the grade cannot move to <b>${esc(tl)}</b>.`;
+  return `<div class="grc" data-grc="${esc(l.id)}">`+
+    `<div class="grchead"><i class="grdot" style="background:${hex}"></i>`+
+    `<div class="grname"><b>${esc(code)}</b><span>${esc(l.name)}</span></div>${big}</div>`+
+    `<div class="grsub">${sub}</div>`+
+    `<details class="grdet" data-grk="${esc(l.id)}:s"${open('s')}><summary>Scores${rows.length?' ('+rows.length+')':''}</summary><div class="grin">${list}`+
+      `<button class="reset grbtn" type="button" data-gradd="${esc(l.id)}">Add a score</button></div></details>`+
+    `<details class="grdet" data-grk="${esc(l.id)}:w"${open('w')}><summary>Weights</summary><div class="grin">`+
+      `<p class="grhint">${wnote}</p>${wrows}`+
+      `<div class="grwadd"><input type="text" data-grwn="${esc(l.id)}" placeholder="Group, like Final" autocomplete="off" maxlength="40" aria-label="New group name">`+
+      `<input type="text" inputmode="decimal" data-grwv="${esc(l.id)}" placeholder="%" autocomplete="off" aria-label="Its weight">`+
+      `<button class="reset grbtn" type="button" data-grwadd="${esc(l.id)}">Add</button></div>`+
+      (c.weighted?`<button class="reset grbtn" type="button" data-grwclear="${esc(l.id)}">Go back to total points</button>`:'')+
+    `</div></details>`+
+    `<details class="grdet" data-grk="${esc(l.id)}:t"${open('t')}><summary>What do I need?</summary><div class="grin">`+
+      `<div class="grtg">${GR_TARGETS.map(([n,v])=>`<button type="button" class="grchip${v===tg?' on':''}" data-grtg="${v}" data-glid="${esc(l.id)}">${esc(n)}<i>${v}%</i></button>`).join('')}</div>`+
+      `<p class="grans">${ans}</p>`+
+      `<p class="grhint">Counts only the upcoming work you have added here. Cutoffs are the usual A 93, A- 90, B+ 87 \u2014 your syllabus wins.</p>`+
+    `</div></details>`+
+  `</div>`;
+}
+function paintGrades(){
+  const m=document.getElementById('grmount'); if(!m) return;
+  const pg=document.getElementById('setpage'), st=pg?pg.scrollTop:0;
+  const cs=grCourses();
+  if(!cs.length){
+    m.innerHTML=`<p class="grhint">No courses yet. Once your course lists are set up (Canvas, Learning Suite or by hand) they show up here.</p>`;
+    return;
+  }
+  const sel=document.getElementById('grpsel'), keep=sel?sel.value:'', txt=document.getElementById('grptxt'), keepTxt=txt?txt.value:'';
+  m.innerHTML=cs.map(grCardHTML).join('')+
+    `<div class="grc grpaste"><div class="grname"><b>PASTE SCORES</b></div>`+
+    `<p class="grhint">One per line like <i>Quiz 3  18/20  Quizzes</i>, or paste a Canvas grades page. Ungraded work shown as <i>-/20</i> is kept as upcoming.</p>`+
+    `<select id="grpsel" aria-label="Course">${cs.map(l=>`<option value="${esc(l.id)}">${esc(listCode(l.name))} \u00b7 ${esc(l.name)}</option>`).join('')}</select>`+
+    `<textarea id="grptxt" rows="4" placeholder="Quiz 3  18/20  Quizzes" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>`+
+    `<button class="reset grbtn" type="button" id="grpgo">Import scores</button></div>`;
+  const s2=document.getElementById('grpsel'); if(s2 && keep && cs.some(l=>l.id===keep)) s2.value=keep;
+  const t2=document.getElementById('grptxt'); if(t2) t2.value=keepTxt;
+  if(pg) pg.scrollTop=st;
+}
+(function wireGrades(){
+  const m=document.getElementById('grmount'); if(!m) return;
+  m.addEventListener('toggle',e=>{
+    const d=e.target.closest && e.target.closest('details[data-grk]'); if(!d) return;
+    if(d.open) GROPEN.add(d.dataset.grk); else GROPEN.delete(d.dataset.grk);
+  },true);
+  const cfgOf=lid=>{ const G=grState(); return G.course[lid]||(G.course[lid]={}); };
+  m.addEventListener('click',e=>{
+    let b=e.target.closest('[data-gradd]'); if(b){ grSheetOpen({lid:b.dataset.gradd}); return; }
+    b=e.target.closest('[data-gredit]'); if(b){ grSheetOpen({lid:b.dataset.glid, id:b.dataset.gredit}); return; }
+    b=e.target.closest('[data-grtg]');
+    if(b){ cfgOf(b.dataset.glid).tg=+b.dataset.grtg; save(S); paintGrades(); return; }
+    b=e.target.closest('[data-grwadd]');
+    if(b){
+      const lid=b.dataset.grwadd, card=b.closest('.grc');
+      const n=card.querySelector('[data-grwn]').value.trim(), v=grNum(card.querySelector('[data-grwv]').value);
+      if(!n){ toast('Name the group'); return; }
+      if(!(v>0)){ toast('Give it a weight above 0'); return; }
+      cfgOf(lid).w=cfgOf(lid).w||{}; cfgOf(lid).w[n]=v;
+      GROPEN.add(lid+':w'); save(S); paintGrades(); return;
+    }
+    b=e.target.closest('[data-grwclear]');
+    if(b){ const c=cfgOf(b.dataset.grwclear); const was=c.w; delete c.w; save(S); paintGrades();
+      toast('Using total points',()=>{ cfgOf(b.dataset.grwclear).w=was; save(S); paintGrades(); }); return; }
+    if(e.target.closest('#grpgo')){
+      const lid=document.getElementById('grpsel').value, txt=document.getElementById('grptxt').value;
+      const found=parseGradeText(txt);
+      if(!found.length){ toast('No scores found \u2014 try Quiz 3  18/20'); return; }
+      const r=grImport(lid,found);
+      document.getElementById('grptxt').value='';
+      save(S); grRepaint();
+      toast((r.added?r.added+' added':'')+(r.added&&r.updated?', ':'')+(r.updated?r.updated+' updated':'')+(r.linked?' \u00b7 '+r.linked+' matched an assignment':''));
+    }
+  });
+  m.addEventListener('change',e=>{
+    const i=e.target.closest('[data-grw]'); if(!i) return;
+    const c=cfgOf(i.dataset.grw), v=grNum(i.value);
+    c.w=c.w||{};
+    if(v>0) c.w[i.dataset.grwg]=v; else delete c.w[i.dataset.grwg];
+    GROPEN.add(i.dataset.grw+':w'); save(S); paintGrades();
+  });
+})();
 function dueChip(d,at){
   const t=today();
   /* The time is the point of the chip on the day itself \u2014 11:59pm and 2pm are
@@ -8657,7 +9070,7 @@ function listBuckets(){
       const row={lid:l.id, iid:i.id, list:l.name, code:listCode(l.name),
                  tint:listTint(l.id), text:i.text, due:itemDue(i), at:itemTime(i),
                  opens:itemOpens(i), done:!!i.done, pin:isPinned(i), top:itemTop(i),
-                 inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win, est:+i.est>0?+i.est:0};
+                 inclass:!!i.inclass, oat:winHM(i.opensAt), win:!!i.win, est:+i.est>0?+i.est:0, sc:grLabel(l.id,i.id)};
       /* Only work whose day has actually gone by drops into the Done fold.
          Ticking something off should not make it leave the section you are
          looking at while it is still today's problem. */
@@ -8781,6 +9194,7 @@ const SWSUN='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12"
 const SWCAP='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11v5c0 1.5 2.5 3 5 3s5-1.5 5-3v-5"/></svg>';
 const SWBIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 const SWCLK='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>';
+const SWGRADE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/><path d="M4 20h16"/></svg>';
 const SWHIDE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.5 9.5 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3.2 4.2M6.6 6.6C4.4 8 2.9 10 2 12c1 2.5 5 7 10 7a9.6 9.6 0 0 0 4.4-1"/></svg>';
 function dateRow(r,big,inlist){
   const late=!!(r.due && r.due<today());
@@ -8793,6 +9207,8 @@ function dateRow(r,big,inlist){
       `title="${r.top?'Pinned to the top — tap to release':'Keep this at the top of its day'}" aria-label="${r.top?'Unpin':'Pin to top'}">${SWPIN}<span>${r.top?'Unpin':'Pin'}</span></button>`;
   const estBtn=key=>`<button class="dact destact${r.est?' on':''}" data-est="${esc(key)}" `+
       `title="${r.est?'About '+estText(r.est)+' — tap to change':'How long will this take?'}" aria-label="Time estimate">${SWCLK}<span>${r.est?estText(r.est):'Time'}</span></button>`;
+  const scoreBtn=key=>`<button class="dact dscoreact${r.sc?' on':''}" data-grscore="${esc(key)}" `+
+      `title="${r.sc?'Scored '+r.sc+' — tap to change':'Add the score you got'}" aria-label="Score">${SWGRADE}<span>${r.sc?esc(r.sc):'Score'}</span></button>`;
   const udel=r.user?`<button class="dact ddelact" data-udel="${esc(r.rid)}" aria-label="Delete this repeat">${SWBIN}<span>Delete</span></button>`:'';
   if(r.routine && r.rep){
     attrs=`data-rrep="${esc(r.rid)}"`;
@@ -8827,7 +9243,7 @@ function dateRow(r,big,inlist){
       : `<button class="dwhen dpick dsomeday" type="button" data-csched="l:${k}" title="Give it a date">add date</button>`;
     trayL=`<button class="dact dtodayact${r.pin?' on':''}" data-lpin="${k}" aria-pressed="${!!r.pin}" `+
       `title="${r.pin?'On today’s board — tap to take it off':'Put this on today’s board'}" aria-label="${r.pin?'Not today':'Put this on today’s board'}">${SWSUN}<span>${r.pin?'Not today':'Today'}</span></button>`;
-    trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+estBtn('l:'+k)+
+    trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+((r.done||r.sc)?scoreBtn('l:'+k):estBtn('l:'+k))+
       `<button class="dact dclassact${r.inclass?' on':''}" data-lclass="l:${k}" aria-pressed="${!!r.inclass}" `+
         `title="${r.inclass?'Done in class — tap if it is on your own':'Mark as done in class'}" aria-label="Done in class">${SWCAP}<span>${r.inclass?'Own work':'In class'}</span></button>`+
       `<button class="dact ddelact" data-lidel="${k}" aria-label="Delete item">${SWBIN}<span>Delete</span></button>`;
@@ -8849,6 +9265,7 @@ function dateRow(r,big,inlist){
           `<i class="ddot" style="--c:${TINTHEX[tint]||'#80868F'}"></i>`+
           `<span class="dcode ${codeCls}" title="${esc(r.list||'')}">${esc(code)}</span>`)+
           (onToday?`<span class="donday">· on today</span>`:'')+
+          (r.sc&&!r.routine&&!r.task?`<span class="dgr">\u00b7 ${esc(r.sc)}</span>`:'')+
           (r.est&&!r.routine?`<span class="dest">· ≈${esc(estText(r.est))}</span>`:'')+
           (big&&r.list&&!r.task&&!r.routine&&r.list.toUpperCase().indexOf(String(r.code).toUpperCase())!==0?`<span class="dlist">· ${esc(r.list)}</span>`:'')+
         `</div>`+
@@ -10519,7 +10936,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    permanently hidden, which was work nobody could see. */
 const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>{ paintHist(); try{ paintSkips(); }catch(e){} }, money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
-                    review:()=>paintReview(), canvas:()=>paintCanvas(), lsuite:()=>paintLS(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
+                    review:()=>paintReview(), grades:()=>paintGrades(), canvas:()=>paintCanvas(), lsuite:()=>paintLS(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
   const sec=document.getElementById(id); if(!sec) return;
   const open=force!==undefined?force:!sec.classList.contains('open');
@@ -10531,6 +10948,7 @@ function setPanel(id,force){
 const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
   {id:'alerts', label:'Alerts',   open:f=>setPanel('alerts',f)},
+  {id:'grades', label:'Grades',   open:f=>setPanel('grades',f)},
   {id:'canvas', label:'Canvas',   open:f=>setPanel('canvas',f)},
   {id:'lsuite', label:'Learning Suite', open:f=>setPanel('lsuite',f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
@@ -10646,11 +11064,11 @@ document.getElementById('histcopy').addEventListener('click',()=>{
    THE SETTINGS SCREEN.
    ========================================================= */
 const SETGROUPS=[
-  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['canvas','Canvas'],['lsuite','Learning Suite']]],
+  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['grades','Grades'],['canvas','Canvas'],['lsuite','Learning Suite']]],
   ['The protocol',[['@opt','Show optional steps'],['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
   ['This device',[['sync','Sync'],['about','About & backup']]]
 ];
-const SETTITLE={canvas:'Canvas',lsuite:'Learning Suite',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
+const SETTITLE={grades:'Grades',canvas:'Canvas',lsuite:'Learning Suite',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
   shelf:'Products',guide:'Product guide',money:'Monthly cost',sync:'Sync',about:'About & backup'};
 function setSub(id){
   try{
@@ -10659,6 +11077,7 @@ function setSub(id){
     if(id==='sync'){ const c=document.getElementById('syncchip'); if(!c) return '';
       const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
+    if(id==='grades'){ const n=grState().rows.filter(r=>r.got!=null).length; return n?n+' scored':''; }
     if(id==='canvas') return cvSub();
     if(id==='lsuite') return lsSub();
     if(id==='money'){ const m=document.getElementById('mtotal'); return m?esc(m.textContent)+'/mo':''; }
@@ -12517,6 +12936,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.06-a', note:"GRADES: a running grade for each course. Settings, Grades shows every course with its percent and letter, the scores behind it, and what you would need on the rest to finish with an A, A-, B+, B or B-. Add a score three ways: swipe a ticked assignment left on the By date list and tap Score (it shows what you got right on the row afterwards), add one by hand from the Grades page, or paste a batch, either one per line like “Quiz 3  18/20  Quizzes” or a Canvas grades page. Leave Earned blank to file work as upcoming, so its points count as what is left. Scores are kept apart from assignments, so Clear done, Clear all and a Canvas or Learning Suite refresh never lose them. Weights are optional: give any group a weight (Quizzes 20, Exams 50, Final 30) and the grade is weighted, counting only groups that have a score so far, the way Canvas does; with none set it is total points earned over total points possible. A weighted group with nothing in it yet, like the final, counts as all still to come. Cutoffs are the usual A 93, A- 90, B+ 87. The Canvas grades-page paste reading is written from how that page lays out its rows and has not been tried on a real paste yet; the one-per-line form is the safe path. No Worker update."},
   {v:'2026.11.05-c', note:"LAUNDRY, SPELLED OUT ON THE DATE LIST: Laundry is now two rows that say what is in the wash. Every Sunday: Laundry \u2014 clothes (cold), with the dryer pile on low and the rack pile hung up. Every other Sunday (starting Nov 8): Laundry \u2014 towels + bedding (warm / high), with the sheets pulled apart before they go in the dryer. Both are on the By date list for the next two weeks, so you can see which Sundays are a two-load day. Tap a row for what goes in it. If you had changed Laundry's days in Full schedule, that setting still applies to the clothes row. No Worker update."},
   {v:'2026.11.05-b', note:"TIME ESTIMATES: swipe any assignment or one-off left and tap Time to say how long it will take. Each tap steps 15m, 30m, 45m, 1h, 1h 30m, 2h, 3h, then clears it. The row shows ≈45m next to its course, a day opened in Lists shows how much is planned, and Plan the week adds the minutes to each day (“2 school · ~2h 30m”). A day with about four hours or more estimated now counts as heavy, the same as three school things. Items with no estimate count as nothing rather than a guess. Stored on the item, so it syncs and survives a Canvas or Learning Suite refresh. No Worker update."},
   {v:'2026.11.05-a', note:"STUDY BLOCKS FOR EXAMS: when an exam (any title with “exam” or “midterm”) is within ten days and has no study sessions yet, Today shows an Exam card with Plan study blocks. It opens a sheet that proposes up to three sessions spread over the days before the exam (fewer when there is less room), each on the lightest day in its stretch: another exam on a day or a heavy day counts against it, a tie goes to the later day so the last one lands nearest the exam, and today is only offered in the daytime. Tap a day to leave it out, then Schedule these days (they become ordinary one-offs on those days, counted like any other) or Put on Someday instead (ideas that count for nothing until you give them a day). Nothing is added until you pick. Not this one on the card, or Not for this exam in the sheet, stops the suggestions for that exam on this device. For a window exam the sessions are planned before it opens, since that is the first day you could take it. Plan the week lists each exam that still needs sessions at the top, so it can be started from there too. A bare “final” is not treated as an exam, since it is as often a paper or a project. No Worker update."},
@@ -12796,6 +13216,70 @@ header.gh .title{ font-family:'Fraunces',Georgia,serif; font-style:italic; font-
     padding-bottom:26px; transform:translateY(-44%) scale(.97); opacity:0; transition:transform .3s var(--ease),opacity .22s; }
   .sheetwrap.up .sheet{ transform:translateY(-50%); opacity:1; }
 }
+</style>
+<style id="grades-css">
+/* ---- grades ---- */
+.grwrap{z-index:114;}
+.grsheet .shact{text-transform:none;}
+.grform{display:flex;flex-direction:column;gap:14px;margin-top:18px;}
+.grl{display:flex;flex-direction:column;gap:6px;flex:1 1 0;min-width:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);}
+.grl input{width:100%;height:48px;padding:0 14px;border-radius:12px;border:1px solid var(--hair-2);background:#0E0F12;color:var(--ink);
+  font-family:'Geist',sans-serif;font-size:16px;letter-spacing:0;text-transform:none;}
+.grl input:focus-visible{outline:2px solid var(--done);outline-offset:1px;}
+.grl input::placeholder{color:var(--dimmer);font-size:14px;}
+.grpair{display:flex;align-items:flex-end;gap:10px;}
+.grof{height:48px;display:grid;place-items:center;font-size:22px;color:var(--dimmer);}
+.grprev{min-height:20px;font-size:14px;color:var(--school);font-weight:600;}
+.grc{margin:0 0 12px;padding:14px 14px 4px;border:1px solid var(--hair);border-radius:16px;background:var(--card-2);}
+.grchead{display:flex;align-items:center;gap:10px;}
+.grdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+.grname{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
+.grname b{font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;letter-spacing:.1em;font-weight:600;}
+.grname span{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.grbig{display:flex;align-items:baseline;gap:8px;}
+.grbig b{font-size:26px;font-weight:600;letter-spacing:-.02em;}
+.grbig span{font-family:'Geist Mono',ui-monospace,monospace;font-size:14px;color:var(--school);}
+.grnone{color:var(--dimmer);}
+.grsub{margin:8px 0 8px;font-size:12.5px;color:var(--dimmer);}
+.grdet{border-top:1px solid var(--hair);}
+.grdet>summary{list-style:none;cursor:pointer;padding:12px 0;font-size:13.5px;color:var(--dim);display:flex;justify-content:space-between;align-items:center;}
+.grdet>summary::-webkit-details-marker{display:none;}
+.grdet>summary::after{content:'+';color:var(--dimmer);font-size:17px;line-height:1;}
+.grdet[open]>summary{color:var(--ink);}
+.grdet[open]>summary::after{content:'\2212';}
+.grin{padding:0 0 12px;}
+.grhint{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--dimmer);}
+.grrow{width:100%;display:flex;align-items:center;gap:10px;padding:11px 0;border:0;border-bottom:1px solid var(--hair);background:none;
+  color:var(--ink);font:inherit;font-size:14px;text-align:left;cursor:pointer;}
+.grrl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.grrg{flex:0 0 auto;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--dimmer);}
+.grrs{flex:0 0 auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+.grrs i{font-style:normal;font-size:10.5px;color:var(--dimmer);}
+.grrs.up{color:var(--dimmer);}
+.grbtn{display:block;width:100%;margin-top:10px;}
+.grwrow{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px;}
+.grwrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.grwrow i,.grwadd i{font-style:normal;color:var(--dimmer);}
+.grc input[type=text],.grc select,.grc textarea{height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--hair-2);background:#0E0F12;
+  color:var(--ink);font-family:'Geist',sans-serif;font-size:16px;}
+.grwrow input{width:76px;text-align:right;}
+.grwadd{display:flex;gap:8px;margin-top:10px;align-items:center;}
+.grwadd input:first-child{flex:1;min-width:0;}
+.grwadd input:nth-child(2){width:64px;text-align:right;}
+.grwadd .grbtn{width:auto;margin:0;padding:0 16px;height:42px;}
+.grtg{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+.grchip{height:44px;padding:0 14px;border-radius:22px;border:1px solid rgba(255,255,255,.12);background:#15171C;color:var(--ink);font-family:inherit;
+  font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.grchip i{font-style:normal;font-size:11.5px;font-weight:400;color:var(--dim);}
+.grchip.on{border-color:rgba(167,139,250,.55);color:var(--school);}
+.grans{margin:0 0 10px;font-size:14.5px;line-height:1.5;color:var(--ink);}
+.grans b{color:var(--school);}
+.grpaste select,.grpaste textarea{width:100%;margin-bottom:10px;}
+.grpaste select{display:block;}
+.grpaste textarea{height:auto;padding:10px 12px;line-height:1.4;resize:vertical;}
+.grpaste .grbtn{margin-bottom:12px;}
+.destact.dscoreact,.dscoreact{background:#4A3F12;color:#FFE9A0;}
+.dgr{color:var(--school);margin-left:2px;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;}
 </style>
 </body>
 </html>
