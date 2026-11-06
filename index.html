@@ -5334,8 +5334,10 @@ const ROUTINES=[
   note:"Sunday prep usually goes off by Thursday. A short second session beats throwing food out."},
 
  /* ---- Household ---- */
- {id:'hh_laundry', group:'Household', l:'Laundry', sched:{dow:[0]},
-  note:"Wash deodorant-stained shirts BEFORE the dryer sets it; heat makes that stain permanent.\n\nTHE ORDER, when sheets, towels and clothes all land on the same day: sheets and pillowcases first, towels second, clothes last. Sheets go first because the bed has to be remade before you're tired, and if anything gets abandoned half-done it should be the load you can live without overnight.\n\nSHARED MACHINES change the math. The trick is running loads in PARALLEL, not in sequence \u2014 three washers at once is thirty-five minutes; three washers back to back is nearly two hours plus the waiting between. Carry everything down in one trip, presorted into separate bags so you're loading three machines in four minutes rather than sorting on the floor. Go at an off-peak hour \u2014 early weekend mornings and late weekday mornings are usually empty; Sunday afternoon and weekday evenings are the worst. Set a phone timer for the exact cycle length and be back before it ends: in a shared room, laundry left sitting gets moved onto a table by whoever's next, and that's if they're being polite. If machines are genuinely scarce, split it \u2014 bedding and towels midweek, clothes on the weekend \u2014 rather than fighting for four machines on one day."},
+ {id:'hh_laundry', group:'Household', l:'Laundry \u2014 clothes (cold)', sched:{dow:[0]},
+  note:"WHAT GOES IN: everything in the dryer hamper and the rack hamper. Wash it all together on COLD, no sorting by colour. Then split it: the dryer pile goes in on LOW heat, the rack pile hangs overnight (athletic and stretchy things, anything you want to last; Provo's dry air does most of the drying). One load, about $4. Towels and bedding are their own load, every other Sunday, and show up as a separate row.\n\nWash deodorant-stained shirts BEFORE the dryer sets it; heat makes that stain permanent.\n\nTHE ORDER, when sheets, towels and clothes all land on the same day: sheets and pillowcases first, towels second, clothes last. Sheets go first because the bed has to be remade before you're tired, and if anything gets abandoned half-done it should be the load you can live without overnight.\n\nSHARED MACHINES change the math. The trick is running loads in PARALLEL, not in sequence \u2014 three washers at once is thirty-five minutes; three washers back to back is nearly two hours plus the waiting between. Carry everything down in one trip, presorted into separate bags so you're loading three machines in four minutes rather than sorting on the floor. Go at an off-peak hour \u2014 early weekend mornings and late weekday mornings are usually empty; Sunday afternoon and weekday evenings are the worst. Set a phone timer for the exact cycle length and be back before it ends: in a shared room, laundry left sitting gets moved onto a table by whoever's next, and that's if they're being polite. If machines are genuinely scarce, split it \u2014 bedding and towels midweek, clothes on the weekend \u2014 rather than fighting for four machines on one day."},
+ {id:'hh_laundry2', group:'Household', l:'Laundry \u2014 towels + bedding (warm / high)', sched:{everyDays:14, anchor:'2026-11-08'},
+  note:"WHAT GOES IN: the towels and bedding bag only: bath towels, hand towels, sheets, pillowcases. Wash on WARM, dry on HIGH. About $4, every other Sunday, the same day as the clothes load.\n\nPULL THE SHEETS APART before they go in the dryer so they don't wrap the towels and trap damp. That is how a $4 load turns into a second $2 dry. No fabric softener on towels (it coats the fibres and they stop absorbing); half a cap of detergent; clean the lint trap every time.\n\nSheets first when the bed matters: strip, wash, dry and remake in one go."},
  {id:'hh_pillow',  group:'Household', l:'Change pillowcase', sched:{everyDays:7},
   note:"The highest-leverage skincare change nobody makes. You sleep hot, so oil and sweat load the fabric every night.\n\nYOU WANT AT LEAST TWO CASES, ideally three. The point of a spare is that the swap and the wash are separate events: strip the dirty one, put a clean one on immediately, and the dirty one waits in the hamper until laundry day. With only one case, changing it means washing it, which means the change can only happen when a machine is free \u2014 and in practice that means it slides to whenever laundry happens instead of every seven days. A pillowcase is around ten dollars and it's the cheapest thing in this entire routine that reliably changes an outcome. Buy two more.\n\nUntil then: wash it on laundry day and accept that the cadence is whatever your laundry cadence is. Don't sleep on a bare pillow waiting for the dryer."},
  {id:'hh_sheets',  group:'Household', l:'Change sheets', sched:{everyDays:7},
@@ -7222,6 +7224,13 @@ function seedLists(){
   if(S.lists.length) return 0;
   S.lists=LISTSEED.map(n=>({id:newId('L'),name:n,items:[],shut:false}));
   return S.lists.length;
+}
+function seedLaundry(){
+  if(S.laundrySeeded) return false;      /* once only \u2014 taking it off the date list stays off */
+  S.laundrySeeded=true;
+  S.rplan=S.rplan||{};
+  ['hh_laundry','hh_laundry2'].forEach(id=>{ if(!(id in S.rplan)) S.rplan[id]=true; });
+  return true;
 }
 function listById(id){ return (S.lists||[]).find(l=>l.id===id)||null; }
 /* =========================================================
@@ -9781,7 +9790,7 @@ listsRoot.addEventListener('keydown',e=>{
   }
 });
 
-if(seedLists()) save(S);
+if(seedLists()|seedLaundry()) save(S);
 paintLists();
 showView(S.tab==='lists'?'lists':'today');
 
@@ -12250,7 +12259,7 @@ function syncAdopt(remote){
   S.lists=S.lists||[];
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
   seedLinks();     /* ...and may predate links this build ships with */
-  seedLists();
+  seedLists(); seedLaundry();
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
@@ -12480,7 +12489,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S.lists=S.lists||[];
   migrateIds(S);   /* a backup written before the id split still holds numbers */
   seedLinks();     /* and predates any link default added since it was written */
-  seedLists();
+  seedLists(); seedLaundry();
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
@@ -12508,6 +12517,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.05-c', note:"LAUNDRY, SPELLED OUT ON THE DATE LIST: Laundry is now two rows that say what is in the wash. Every Sunday: Laundry \u2014 clothes (cold), with the dryer pile on low and the rack pile hung up. Every other Sunday (starting Nov 8): Laundry \u2014 towels + bedding (warm / high), with the sheets pulled apart before they go in the dryer. Both are on the By date list for the next two weeks, so you can see which Sundays are a two-load day. Tap a row for what goes in it. If you had changed Laundry's days in Full schedule, that setting still applies to the clothes row. No Worker update."},
   {v:'2026.11.05-b', note:"TIME ESTIMATES: swipe any assignment or one-off left and tap Time to say how long it will take. Each tap steps 15m, 30m, 45m, 1h, 1h 30m, 2h, 3h, then clears it. The row shows ≈45m next to its course, a day opened in Lists shows how much is planned, and Plan the week adds the minutes to each day (“2 school · ~2h 30m”). A day with about four hours or more estimated now counts as heavy, the same as three school things. Items with no estimate count as nothing rather than a guess. Stored on the item, so it syncs and survives a Canvas or Learning Suite refresh. No Worker update."},
   {v:'2026.11.05-a', note:"STUDY BLOCKS FOR EXAMS: when an exam (any title with “exam” or “midterm”) is within ten days and has no study sessions yet, Today shows an Exam card with Plan study blocks. It opens a sheet that proposes up to three sessions spread over the days before the exam (fewer when there is less room), each on the lightest day in its stretch: another exam on a day or a heavy day counts against it, a tie goes to the later day so the last one lands nearest the exam, and today is only offered in the daytime. Tap a day to leave it out, then Schedule these days (they become ordinary one-offs on those days, counted like any other) or Put on Someday instead (ideas that count for nothing until you give them a day). Nothing is added until you pick. Not this one on the card, or Not for this exam in the sheet, stops the suggestions for that exam on this device. For a window exam the sessions are planned before it opens, since that is the first day you could take it. Plan the week lists each exam that still needs sessions at the top, so it can be started from there too. A bare “final” is not treated as an exam, since it is as often a paper or a project. No Worker update."},
   {v:'2026.11.04-d', note:"TIME WINDOWS: some things are not due at a moment, they are open across a stretch, like an exam that opens Monday morning and closes Tuesday night. Tap any date, then Add time window, tap the day it opens and the day it closes, set the two times, and save. It shows as a glowing capsule that fills as the window is used up, with the days marked along the top and the nights shaded: lavender while it is open, coral in the last stretch, blue before it opens, green once you mark it done. On Today a window gets its own card from a day and a half before it opens until the day it closes, with Mark done and Edit window. On the closing day it is an ordinary row with a thin bar, so nothing is listed twice and the school count is unchanged. Lists shows the same thin bar under the row. It works on assignments and one-offs. The closing moment is the due date and time, so late, sorting and the sync behave as before, and a Learning Suite or Canvas refresh no longer overwrites a window you set. A Learning Suite item that arrives with an opens date is not a window until you make it one."},
