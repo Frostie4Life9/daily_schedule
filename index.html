@@ -2918,6 +2918,16 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
     </div>
   </section>
 
+  <section id="hours">
+    <div class="shelfhead" id="hourshead" role="button" tabindex="0" aria-expanded="false">
+      <h2>Pre-med hours</h2><span class="caret">Open</span>
+    </div>
+    <div class="shelfbody">
+      <p class="shelfnote">A running log of the hours an application asks for. Tap <b>+1h</b> on a category the moment you finish, or log a longer stretch (and a note) for any of the last 30 days. Set a goal on a category to get a progress bar. Entries sync with the rest of the app, and Copy as CSV gets them out for a spreadsheet or your application.</p>
+      <div id="hrmount"></div>
+    </div>
+  </section>
+
   <section id="grades">
     <div class="shelfhead" id="gradeshead" role="button" tabindex="0" aria-expanded="false">
       <h2>Grades</h2><span class="caret">Open</span>
@@ -7845,6 +7855,179 @@ function paintGrades(){
     GROPEN.add(i.dataset.grw+':w'); save(S); paintGrades();
   });
 })();
+/* =========================================================
+   PRE-MED HOURS. A running log of the hours an application asks for: clinical,
+   shadowing, volunteering, research, MCAT study. Each entry is one stretch of
+   time on one day: {id, c (category), d (the day), m (minutes), n (a note)}.
+   Lives in S.hours with the rest of the state, so it syncs and needs no Worker
+   change. Categories are yours to add to; each can carry a goal in hours,
+   which draws a progress bar. Days follow the app's own day boundary, so
+   logging at 1am files under the evening you meant.
+   ========================================================= */
+const HR_DEFAULTS=[['clinical','Clinical'],['shadow','Shadowing'],['volunteer','Volunteering'],['research','Research'],['mcat','MCAT study']];
+function hrState(){
+  S.hours=S.hours||{}; const H=S.hours;
+  H.cats=H.cats||[]; H.log=H.log||[];
+  if(!H.seeded){ if(!H.cats.length) HR_DEFAULTS.forEach(d=>H.cats.push({id:d[0],name:d[1]})); H.seeded=true; }
+  return H;
+}
+function hrText(m){
+  m=Math.round(+m||0); if(m<=0) return '0h';
+  return m<600 ? estText(m) : (Math.round(m/6)/10)+'h';
+}
+/* "1.5", "1:30", "90m", "1h 30m". A bare number is hours. */
+function hrParse(s){
+  const x=String(s||'').trim().toLowerCase().replace(/,/g,'.'); if(!x) return null;
+  let m=/^(\d+):(\d{1,2})$/.exec(x); if(m) return (+m[1])*60+(+m[2]);
+  m=/^(\d+(?:\.\d+)?)$/.exec(x); if(m) return Math.round(parseFloat(m[1])*60);
+  m=/^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/.exec(x);
+  if(m && (m[1]||m[2])) return Math.round((m[1]?parseFloat(m[1])*60:0)+(m[2]?+m[2]:0));
+  return null;
+}
+function hrCat(id){ return hrState().cats.find(c=>c.id===id)||null; }
+function hrAdd(cid,m,d,note){
+  const e={id:newId('h'), c:cid, d:d, m:Math.round(m), u:Date.now()};
+  if(note) e.n=String(note).trim().slice(0,120);
+  hrState().log.push(e);
+  return e;
+}
+function hrTotals(cid){
+  const t=today(), from=addDaysISO(t,-6); let all=0, wk=0;
+  hrState().log.forEach(e=>{ if(e.c!==cid) return; all+=e.m; if(e.d>=from && e.d<=t) wk+=e.m; });
+  return {all:all, wk:wk};
+}
+/* The same seven days the week review calls LAST 7 DAYS: the seven before today. */
+function hrWeekBack(){
+  const t=today(), from=addDaysISO(t,-7), to=addDaysISO(t,-1), H=hrState();
+  let m=0; H.log.forEach(e=>{ if(e.d>=from && e.d<=to) m+=e.m; });
+  return {m:m, any:H.log.length>0};
+}
+let HRSEL=null;
+function hrDayLabel(iso){
+  const t=today();
+  if(iso===t) return 'Today';
+  if(iso===addDaysISO(t,-1)) return 'Yesterday';
+  return dayOf(iso).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function hrCsv(){
+  const H=hrState(), q=s=>'"'+String(s||'').replace(/"/g,'""')+'"';
+  return 'date,category,minutes,note\n'+H.log.slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:(a.u||0)-(b.u||0))
+    .map(e=>[e.d,q((hrCat(e.c)||{}).name||e.c),e.m,q(e.n)].join(',')).join('\n');
+}
+const HR_SHOW=15;
+let HRALL=false;
+function paintHours(){
+  const m=document.getElementById('hrmount'); if(!m) return;
+  const pg=document.getElementById('setpage'), st=pg?pg.scrollTop:0;
+  const H=hrState(), t=today();
+  if(!HRSEL || !hrCat(HRSEL)) HRSEL=(H.cats[0]||{}).id||null;
+  const keep={m:(document.getElementById('hrmin')||{}).value||'', n:(document.getElementById('hrnote')||{}).value||'', d:(document.getElementById('hrday')||{}).value||''};
+  let allM=0, wkM=0; H.cats.forEach(c=>{ const x=hrTotals(c.id); allM+=x.all; wkM+=x.wk; });
+  const sum=`<div class="grc"><div class="grchead"><div class="grname"><b>ALL CATEGORIES</b><span>${esc(H.log.length)} entr${H.log.length===1?'y':'ies'}</span></div>`+
+    `<div class="grbig"><b>${esc(hrText(allM))}</b></div></div><div class="grsub">${esc(hrText(wkM))} in the last 7 days</div></div>`;
+  const cards=H.cats.map(c=>{
+    const x=hrTotals(c.id), goal=+c.goal>0?+c.goal:0;
+    const pct=goal?Math.min(100,x.all/(goal*60)*100):0;
+    return `<div class="grc" data-hrc="${esc(c.id)}"><div class="grchead"><div class="grname"><b>${esc(c.name.toUpperCase())}</b>`+
+      `<span>${esc(hrText(x.wk))} in the last 7 days</span></div><div class="grbig"><b>${esc(hrText(x.all))}</b></div></div>`+
+      (goal?`<div class="hrbar" role="img" aria-label="${Math.round(pct)}% of ${goal} hours"><i style="width:${pct.toFixed(1)}%"></i></div>`+
+        `<div class="grsub">${esc(hrText(x.all))} of ${esc(grFmt(goal))}h goal${pct>=100?' · reached':''}</div>`:'')+
+      `<div class="hrq">${[30,60,120].map(v=>`<button type="button" class="grchip" data-hrq="${esc(c.id)}|${v}">+${esc(estText(v))}</button>`).join('')}</div></div>`;
+  }).join('');
+  const days=[]; for(let i=0;i<30;i++){ const iso=addDaysISO(t,-i); days.push(`<option value="${iso}">${esc(hrDayLabel(iso))}</option>`); }
+  const form=`<div class="grc"><div class="grname"><b>LOG TIME</b></div>`+
+    `<div class="grtg hrpick">${H.cats.map(c=>`<button type="button" class="grchip${c.id===HRSEL?' on':''}" data-hrcat="${esc(c.id)}">${esc(c.name)}</button>`).join('')}</div>`+
+    `<div class="hrf"><input id="hrmin" type="text" inputmode="decimal" autocomplete="off" placeholder="Hours, like 1.5 or 45m" aria-label="Time spent">`+
+    `<select id="hrday" aria-label="Day">${days.join('')}</select></div>`+
+    `<input id="hrnote" type="text" class="hrnote" autocomplete="off" maxlength="120" placeholder="Note (where, who, what you did)" aria-label="Note">`+
+    `<button class="reset grbtn" type="button" data-hrlog="1">Log it</button></div>`;
+  const log=H.log.slice().sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:(b.u||0)-(a.u||0));
+  const shown=HRALL?log:log.slice(0,HR_SHOW);
+  const hist=`<div class="grc"><div class="grname"><b>HISTORY</b></div>`+
+    (log.length?shown.map(e=>`<div class="hrrow"><div class="hrmain"><span class="hrl">${esc((hrCat(e.c)||{}).name||'Other')} <i>${esc(hrDayLabel(e.d))}</i></span>`+
+        `${e.n?`<span class="hrn">${esc(e.n)}</span>`:''}</div><b>${esc(hrText(e.m))}</b>`+
+        `<button type="button" class="hrx" data-hrdel="${esc(e.id)}" aria-label="Delete this entry"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('')+
+      (log.length>HR_SHOW?`<button class="reset grbtn" type="button" data-hrmore="1">${HRALL?'Show fewer':'Show all '+log.length}</button>`:'')+
+      `<button class="reset grbtn" type="button" data-hrcsv="1">Copy as CSV</button>`
+      :`<p class="grhint">Nothing logged yet. Tap +1h on a category, or use Log time.</p>`)+`</div>`;
+  const manage=`<div class="grc"><details class="grdet" id="hrmanage"><summary>Categories and goals</summary><div class="grin">`+
+    `<p class="grhint">A goal draws a progress bar on its category. A category can be removed only while it has no entries.</p>`+
+    H.cats.map(c=>{ const has=H.log.some(e=>e.c===c.id);
+      return `<div class="grwrow"><span>${esc(c.name)}</span><input type="text" inputmode="decimal" data-hrgoal="${esc(c.id)}" value="${+c.goal>0?esc(grFmt(+c.goal)):''}" placeholder="goal" aria-label="Goal hours for ${esc(c.name)}"><i>h</i>`+
+        `<button type="button" class="hrx" data-hrcatdel="${esc(c.id)}"${has?' disabled title="Has entries"':''} aria-label="Remove ${esc(c.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`; }).join('')+
+    `<div class="grwadd"><input type="text" id="hrnewcat" placeholder="New category" autocomplete="off" maxlength="30" aria-label="New category name"><button class="reset grbtn" type="button" data-hrcatadd="1">Add</button></div>`+
+    `</div></details></div>`;
+  const wasOpen=!!(document.getElementById('hrmanage')||{}).open;
+  m.innerHTML=sum+cards+form+hist+manage;
+  if(wasOpen){ const d=document.getElementById('hrmanage'); if(d) d.open=true; }
+  const a=document.getElementById('hrmin'), b=document.getElementById('hrnote'), c=document.getElementById('hrday');
+  if(a) a.value=keep.m; if(b) b.value=keep.n; if(c && keep.d) c.value=keep.d;
+  if(pg) pg.scrollTop=st;
+}
+function hrRepaint(){
+  try{ paintHours(); }catch(e){}
+  try{ if(typeof SETOPEN!=='undefined' && SETOPEN) paintSettings(); }catch(e){}
+  try{ if(typeof paintCards==='function') paintCards(); }catch(e){}
+}
+(function wireHours(){
+  const m=document.getElementById('hrmount'); if(!m) return;
+  const undoable=(msg,e)=>toast(msg,()=>{ const i=hrState().log.findIndex(x=>x.id===e.id); if(i>-1){ hrState().log.splice(i,1); save(S); hrRepaint(); } });
+  m.addEventListener('click',e=>{
+    let b=e.target.closest('[data-hrq]');
+    if(b){
+      const [cid,mins]=b.dataset.hrq.split('|'); const c=hrCat(cid); if(!c) return;
+      const en=hrAdd(cid,+mins,today(),''); save(S); hrRepaint();
+      undoable('Logged '+estText(+mins)+' · '+c.name,en); return;
+    }
+    b=e.target.closest('[data-hrcat]');
+    if(b){ HRSEL=b.dataset.hrcat; m.querySelectorAll('[data-hrcat]').forEach(x=>x.classList.toggle('on',x===b)); return; }
+    if(e.target.closest('[data-hrlog]')){
+      const mins=hrParse(document.getElementById('hrmin').value), day=document.getElementById('hrday').value;
+      const note=document.getElementById('hrnote').value.trim();
+      if(!HRSEL || !hrCat(HRSEL)){ toast('Pick a category'); return; }
+      if(!(mins>0)){ toast('Enter the time, like 1.5 or 45m'); return; }
+      if(mins>1440){ toast('Over 24 hours in one entry — use 45m for minutes'); return; }
+      const en=hrAdd(HRSEL,mins,day,note);
+      document.getElementById('hrmin').value=''; document.getElementById('hrnote').value='';
+      save(S); hrRepaint();
+      undoable('Logged '+hrText(mins)+' · '+hrCat(HRSEL).name,en); return;
+    }
+    b=e.target.closest('[data-hrdel]');
+    if(b){
+      const i=hrState().log.findIndex(x=>x.id===b.dataset.hrdel); if(i<0) return;
+      const gone=hrState().log.splice(i,1)[0]; save(S); hrRepaint();
+      toast('Entry removed',()=>{ hrState().log.push(gone); save(S); hrRepaint(); }); return;
+    }
+    if(e.target.closest('[data-hrmore]')){ HRALL=!HRALL; paintHours(); return; }
+    if(e.target.closest('[data-hrcsv]')){
+      const n=hrState().log.length; if(!n){ toast('Nothing to copy yet'); return; }
+      copyText(hrCsv(), n+' entr'+(n===1?'y':'ies')+' copied'); return;
+    }
+    if(e.target.closest('[data-hrcatadd]')){
+      const inp=document.getElementById('hrnewcat'), name=inp.value.trim();
+      if(!name){ toast('Name the category'); return; }
+      const H=hrState();
+      if(H.cats.some(c=>c.name.toLowerCase()===name.toLowerCase())){ toast('Already there'); return; }
+      const c={id:newId('hc'),name:name}; H.cats.push(c); HRSEL=c.id;
+      save(S); paintHours(); const d=document.getElementById('hrmanage'); if(d) d.open=true; return;
+    }
+    b=e.target.closest('[data-hrcatdel]');
+    if(b && !b.disabled){
+      const H=hrState(), i=H.cats.findIndex(c=>c.id===b.dataset.hrcatdel); if(i<0) return;
+      if(H.log.some(x=>x.c===H.cats[i].id)){ toast('It has entries, so it stays'); return; }
+      const gone=H.cats.splice(i,1)[0]; if(HRSEL===gone.id) HRSEL=null;
+      save(S); paintHours(); const d=document.getElementById('hrmanage'); if(d) d.open=true;
+      toast(gone.name+' removed',()=>{ H.cats.splice(Math.min(i,H.cats.length),0,gone); save(S); paintHours(); });
+    }
+  });
+  m.addEventListener('change',e=>{
+    const i=e.target.closest('[data-hrgoal]'); if(!i) return;
+    const c=hrCat(i.dataset.hrgoal); if(!c) return;
+    const v=grNum(i.value);
+    if(v>0) c.goal=v; else delete c.goal;
+    save(S); paintHours(); const d=document.getElementById('hrmanage'); if(d) d.open=true;
+  });
+})();
 function dueChip(d,at){
   const t=today();
   /* The time is the point of the chip on the day itself \u2014 11:59pm and 2pm are
@@ -10936,7 +11119,7 @@ histhead.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preve
    permanently hidden, which was work nobody could see. */
 const PANEL_PAINT={ alerts:()=>paintAlerts(), hist:()=>{ paintHist(); try{ paintSkips(); }catch(e){} }, money:()=>paintMoney(),
                     guide:()=>paintGuide(), plan:()=>paintSchedule(),
-                    review:()=>paintReview(), grades:()=>paintGrades(), canvas:()=>paintCanvas(), lsuite:()=>paintLS(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
+                    review:()=>paintReview(), grades:()=>paintGrades(), hours:()=>paintHours(), canvas:()=>paintCanvas(), lsuite:()=>paintLS(), shelf:()=>{}, sync:()=>{}, about:()=>{} };
 function setPanel(id,force){
   const sec=document.getElementById(id); if(!sec) return;
   const open=force!==undefined?force:!sec.classList.contains('open');
@@ -10949,6 +11132,7 @@ const DRAWTABS=[
   {id:'review', label:'Review',   open:f=>toggleReview(f)},
   {id:'alerts', label:'Alerts',   open:f=>setPanel('alerts',f)},
   {id:'grades', label:'Grades',   open:f=>setPanel('grades',f)},
+  {id:'hours',  label:'Pre-med hours', open:f=>setPanel('hours',f)},
   {id:'canvas', label:'Canvas',   open:f=>setPanel('canvas',f)},
   {id:'lsuite', label:'Learning Suite', open:f=>setPanel('lsuite',f)},
   {id:'hist',   label:'Streak',   open:f=>toggleH(f)},
@@ -11064,11 +11248,11 @@ document.getElementById('histcopy').addEventListener('click',()=>{
    THE SETTINGS SCREEN.
    ========================================================= */
 const SETGROUPS=[
-  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['grades','Grades'],['canvas','Canvas'],['lsuite','Learning Suite']]],
+  ['Your days',[['review','Review'],['hist','Streak & history'],['alerts','Alerts & timers'],['grades','Grades'],['hours','Pre-med hours'],['canvas','Canvas'],['lsuite','Learning Suite']]],
   ['The protocol',[['@opt','Show optional steps'],['plan','Full schedule'],['shelf','Products'],['guide','Product guide'],['money','Monthly cost']]],
   ['This device',[['sync','Sync'],['about','About & backup']]]
 ];
-const SETTITLE={grades:'Grades',canvas:'Canvas',lsuite:'Learning Suite',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
+const SETTITLE={grades:'Grades',hours:'Pre-med hours',canvas:'Canvas',lsuite:'Learning Suite',review:'Review',hist:'Streak & history',alerts:'Alerts & timers',plan:'Full schedule',
   shelf:'Products',guide:'Product guide',money:'Monthly cost',sync:'Sync',about:'About & backup'};
 function setSub(id){
   try{
@@ -11077,6 +11261,7 @@ function setSub(id){
     if(id==='sync'){ const c=document.getElementById('syncchip'); if(!c) return '';
       const t=esc(c.textContent.replace(/^Sync:\s*/,'')); return c.dataset.s==='err'?`<em class="hot">${t}</em>`:t; }
     if(id==='about') return esc(BUILD);
+    if(id==='hours'){ let m=0; hrState().log.forEach(e=>{ m+=e.m; }); return m?esc(hrText(m)):''; }
     if(id==='grades'){ const n=grState().rows.filter(r=>r.got!=null).length; return n?n+' scored':''; }
     if(id==='canvas') return cvSub();
     if(id==='lsuite') return lsSub();
@@ -11400,6 +11585,7 @@ function weekReviewHTML(){
   const back=[];
   if(b.seen) back.push(`<div class="wkrow"><span>Protocol finished</span><b>${b.full} of ${b.seen} days</b></div>`);
   b.aside.forEach(x=>back.push(`<div class="wkrow"><span>Set aside: ${esc(x.l)}</span><b class="wkwarn">${x.n} days</b></div>`));
+  { const hw=hrWeekBack(); if(hw.any) back.push(`<div class="wkrow"><span>Pre-med hours</span><b>${esc(hrText(hw.m))}</b></div>`); }
   back.push(`<div class="wkrow"><span>One-offs finished</span><b>${b.finished}</b></div>`);
   const ahead=[`<div class="wkrow"><span>School due</span><b>${a.due}</b></div>`];
   a.heavy.forEach(d=>ahead.push(`<div class="wkrow"><span>Heavy: ${esc(weekDayName(d.iso))}</span><b class="wkwarn">${d.school} school${d.tasks?' + '+d.tasks+' task'+(d.tasks>1?'s':''):''}${d.mins?' · ~'+estText(d.mins):''}</b></div>`));
@@ -12936,6 +13122,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.06-b', note:"PRE-MED HOURS: Settings, Pre-med hours is a running log for the hours an application asks for. It starts with Clinical, Shadowing, Volunteering, Research and MCAT study; add your own under Categories and goals. Tap +30m, +1h or +2h on a category the moment you finish, or use Log time for a longer stretch (type 1.5, 1:30 or 45m) with a note, on any of the last 30 days. Each category shows its total and the last 7 days, and a goal in hours draws a progress bar. History lists the latest entries with a delete on each (and an Undo), and Copy as CSV gets everything out for a spreadsheet or an application. The Sunday week in review and Plan the week gain a Pre-med hours line once you have logged anything. Days follow the 4am boundary like the rest of the app. Syncs with everything else; no Worker update."},
   {v:'2026.11.06-a', note:"GRADES: a running grade for each course. Settings, Grades shows every course with its percent and letter, the scores behind it, and what you would need on the rest to finish with an A, A-, B+, B or B-. Add a score three ways: swipe a ticked assignment left on the By date list and tap Score (it shows what you got right on the row afterwards), add one by hand from the Grades page, or paste a batch, either one per line like “Quiz 3  18/20  Quizzes” or a Canvas grades page. Leave Earned blank to file work as upcoming, so its points count as what is left. Scores are kept apart from assignments, so Clear done, Clear all and a Canvas or Learning Suite refresh never lose them. Weights are optional: give any group a weight (Quizzes 20, Exams 50, Final 30) and the grade is weighted, counting only groups that have a score so far, the way Canvas does; with none set it is total points earned over total points possible. A weighted group with nothing in it yet, like the final, counts as all still to come. Cutoffs are the usual A 93, A- 90, B+ 87. The Canvas grades-page paste reading is written from how that page lays out its rows and has not been tried on a real paste yet; the one-per-line form is the safe path. No Worker update."},
   {v:'2026.11.05-c', note:"LAUNDRY, SPELLED OUT ON THE DATE LIST: Laundry is now two rows that say what is in the wash. Every Sunday: Laundry \u2014 clothes (cold), with the dryer pile on low and the rack pile hung up. Every other Sunday (starting Nov 8): Laundry \u2014 towels + bedding (warm / high), with the sheets pulled apart before they go in the dryer. Both are on the By date list for the next two weeks, so you can see which Sundays are a two-load day. Tap a row for what goes in it. If you had changed Laundry's days in Full schedule, that setting still applies to the clothes row. No Worker update."},
   {v:'2026.11.05-b', note:"TIME ESTIMATES: swipe any assignment or one-off left and tap Time to say how long it will take. Each tap steps 15m, 30m, 45m, 1h, 1h 30m, 2h, 3h, then clears it. The row shows ≈45m next to its course, a day opened in Lists shows how much is planned, and Plan the week adds the minutes to each day (“2 school · ~2h 30m”). A day with about four hours or more estimated now counts as heavy, the same as three school things. Items with no estimate count as nothing rather than a guess. Stored on the item, so it syncs and survives a Canvas or Learning Suite refresh. No Worker update."},
@@ -13216,6 +13403,28 @@ header.gh .title{ font-family:'Fraunces',Georgia,serif; font-style:italic; font-
     padding-bottom:26px; transform:translateY(-44%) scale(.97); opacity:0; transition:transform .3s var(--ease),opacity .22s; }
   .sheetwrap.up .sheet{ transform:translateY(-50%); opacity:1; }
 }
+</style>
+<style id="hours-css">
+/* ---- pre-med hours ---- */
+.hrq{display:flex;gap:8px;margin:12px 0 10px;flex-wrap:wrap;}
+.hrbar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin:10px 0 2px;overflow:hidden;}
+.hrbar i{display:block;height:100%;border-radius:3px;background:var(--school);transition:width .4s var(--ease);}
+.hrpick{margin:12px 0;}
+.hrf{display:flex;gap:8px;margin-bottom:8px;}
+.hrf input{flex:1 1 0;min-width:0;}
+.hrf select{flex:0 0 42%;min-width:0;}
+.grc .hrnote{width:100%;margin-bottom:2px;}
+.hrrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--hair);}
+.hrmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.hrl{font-size:14px;}
+.hrl i{font-style:normal;font-size:12px;color:var(--dimmer);margin-left:6px;}
+.hrn{font-size:12.5px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hrrow b{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-weight:500;}
+.hrx{flex:0 0 auto;width:34px;height:34px;border-radius:17px;border:0;background:transparent;color:var(--dimmer);display:grid;place-items:center;cursor:pointer;}
+.hrx svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;}
+.hrx:active{background:#22252C;}
+.hrx:disabled{opacity:.25;cursor:default;}
+.grwrow .hrx{margin-left:-4px;}
 </style>
 <style id="grades-css">
 /* ---- grades ---- */
