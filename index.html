@@ -5533,21 +5533,20 @@ function rkey(r){ return ROUTINES.indexOf(r)>-1 ? 'r:'+r.id : r.id; }
    window. planDate() only ever answers "the next one", which put Thursday's
    shave on the calendar but never Sunday's. These rows are a preview: the
    next time is the one you tick or move, and the rest follow from the
-   schedule. Daily items are included too, but only the ones you put on the
-   date list yourself (the plan button): that is what lets "Ask Mia about
-   dinner" show on every day instead of only today. */
+   schedule. Daily items are left out -- a daily task you plan shows on today
+   only, and tomorrow's copy appears when tomorrow comes. */
 function repeatDates(r,first,until){
   const out=[];
   if(!first || !plannable(r)) return out;
   const sc=schedOf(r), t=today();
   const from=first<t?t:first;
   if(sc.mode==='dow'){
-    if(!sc.dow.length) return out;
+    if(!sc.dow.length || sc.dow.length>=7) return out;
     const sk=skipOf(r.id);
     for(let d=addDaysISO(from,1); d<=until; d=addDaysISO(d,1))
       if(sc.dow.indexOf(dayOf(d).getDay())>-1 && d!==sk) out.push(d);
   } else if(sc.mode==='everyDays'){
-    const n=Math.max(1,+sc.everyDays);
+    const n=Math.max(1,+sc.everyDays); if(n<2) return out;
     for(let d=addDaysISO(from,n); d<=until; d=addDaysISO(d,n)) out.push(d);
   }
   return out;
@@ -6095,7 +6094,7 @@ function buildRows(){
           resched: st.sched?reschedPanel(st.id,ss.from):'',
           buttons: kitchenBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
-                   asideBtns(st.id,keepBtn(st.id,!!st.opt)+(st.sched&&plannable(st)?planBtn(st.id):''))
+                   asideBtns(st.id,keepBtn(st.id,!!st.opt)+(!st.sub&&plannable(st)?planBtn(st.id):''))
         }));
       });
       if(p.bulk && vis.length && !collapsed){
@@ -9331,6 +9330,16 @@ function listBuckets(){
     put(Object.assign({},base,{due:d, done:doneOn(r.id)===t && d===t}));
     repeatDates(r,d,fn).forEach(x=>put(Object.assign({},base,{due:x, done:false, rep:true})));
   });
+  /* PLANNED DAILY STEPS: an ordinary step of the protocol (Floss, Breakfast...)
+     you put on the date list with its plan button. It shows on TODAY only --
+     tomorrow's copy appears when tomorrow comes -- and ticking it here ticks it
+     on the board. */
+  PHASES.forEach(ph=>variantSteps(ph).forEach(st=>{
+    if(st.sched || st.sub || !S.rplan || !S.rplan[st.id]) return;
+    try{ if(stepData(st).hidden) return; }catch(e){}
+    put({routine:true, step:true, rid:st.id, text:st.l, at:null, top:false, code:'ROUTINE',
+         list:'Daily', user:false, due:t, done:S.checked.indexOf(st.id)>-1});
+  }));
   const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
     const x=a.at||'99:99', y=b.at||'99:99';
@@ -9411,6 +9420,10 @@ function dateRow(r,big,inlist){
     attrs=`data-rrep="${esc(r.rid)}"`;
     whenEl=`<span class="dwhen">${esc(dayLabel(r.due))}</span>`;
     trayR=`<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list — the routine itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`+udel;
+  } else if(r.routine && r.step){
+    attrs=`data-rit="${esc(r.rid)}"`;
+    whenEl=`<span class="dwhen">Today</span>`;
+    trayR=`<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list \u2014 the step itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`;
   } else if(r.routine){
     attrs=`data-rit="${esc(r.rid)}"`;
     grip=`<span class="lgrip dgrip" data-rgrip="${esc(r.rid)}" role="button" tabindex="-1" aria-label="Drag to another day" title="Drag to another day">${GRIP}</span>`;
@@ -10110,7 +10123,15 @@ listsRoot.addEventListener('click',e=>{
   if(rrp && !e.target.closest('button, a, input, label')){ toast('A later time \u2014 tick the next one, or this one on its day'); return; }
   const rit=e.target.closest('[data-rit]');
   if(rit && !e.target.closest('button, a, input, label, .dgrip')){
-    const id=rit.dataset.rit, r=schedItem(id); if(!plannable(r)) return;
+    const id=rit.dataset.rit, r=schedItem(id);
+    if(!r){
+      /* an ordinary protocol step on the date list: tick it like on the board */
+      JUST={k:'R:'+id,t:Date.now()};
+      const k=S.checked.indexOf(id);
+      if(k>-1) S.checked.splice(k,1); else S.checked.push(id);
+      commit({rebuild:true,schedule:true}); paintLists(); return;
+    }
+    if(!plannable(r)) return;
     JUST={k:'R:'+id,t:Date.now()};
     const t=today(), key=rkey(r);
     if(doneOn(id)===t && planDate(r)===t){
@@ -13136,6 +13157,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.08-b', note:"DAILY TASKS ON THE DATE LIST, TODAY ONLY: every step on the board now has a plan button, not just the scheduled ones. Tap it and the step shows on today's By date list, ticks the same as on the board, and tomorrow's copy appears when tomorrow comes. The change in the last build that listed a daily task on every day of the next two weeks is undone, so the three Ask Mia steps show once a day, today's. Tap plan again, or Hide on the date-list row, to take one off. No Worker update."},
   {v:'2026.11.08-a', note:"ASK MIA, THREE TIMES A DAY: three new daily steps sit right before each meal on the board. Ask Mia about breakfast comes just before Breakfast in the morning, and Ask Mia about lunch and Ask Mia about dinner come just before Lunch and Dinner under Through the day. They are ordinary steps, so they count in your protocol and you tick them off like the rest. DAILY TASKS ON THE DATE LIST: a task that repeats every day can now go on the By date list. Before, a daily row showed only for today because a row on every day was thought to be noise; now any daily task you put on the date list (the plan button) shows on each of the next two weeks, and the three Ask Mia steps are on it already. Tap plan on any of them to take it off. Nothing else that is daily is added to the date list unless you choose it. No Worker update."},
   {v:'2026.11.06-b', note:"PRE-MED HOURS: Settings, Pre-med hours is a running log for the hours an application asks for. It starts with Clinical, Shadowing, Volunteering, Research and MCAT study; add your own under Categories and goals. Tap +30m, +1h or +2h on a category the moment you finish, or use Log time for a longer stretch (type 1.5, 1:30 or 45m) with a note, on any of the last 30 days. Each category shows its total and the last 7 days, and a goal in hours draws a progress bar. History lists the latest entries with a delete on each (and an Undo), and Copy as CSV gets everything out for a spreadsheet or an application. The Sunday week in review and Plan the week gain a Pre-med hours line once you have logged anything. Days follow the 4am boundary like the rest of the app. Syncs with everything else; no Worker update."},
   {v:'2026.11.06-a', note:"GRADES: a running grade for each course. Settings, Grades shows every course with its percent and letter, the scores behind it, and what you would need on the rest to finish with an A, A-, B+, B or B-. Add a score three ways: swipe a ticked assignment left on the By date list and tap Score (it shows what you got right on the row afterwards), add one by hand from the Grades page, or paste a batch, either one per line like “Quiz 3  18/20  Quizzes” or a Canvas grades page. Leave Earned blank to file work as upcoming, so its points count as what is left. Scores are kept apart from assignments, so Clear done, Clear all and a Canvas or Learning Suite refresh never lose them. Weights are optional: give any group a weight (Quizzes 20, Exams 50, Final 30) and the grade is weighted, counting only groups that have a score so far, the way Canvas does; with none set it is total points earned over total points possible. A weighted group with nothing in it yet, like the final, counts as all still to come. Cutoffs are the usual A 93, A- 90, B+ 87. The Canvas grades-page paste reading is written from how that page lays out its rows and has not been tried on a real paste yet; the one-per-line form is the safe path. No Worker update."},
