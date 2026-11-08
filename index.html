@@ -3206,6 +3206,7 @@ const PHASES = [
     {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps {am_floss}–{am_tongue} are now hygiene only, not prevention."}
   ]},
   {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
+  {id:'ask_mia_b', l:"Ask Mia about breakfast", group:'Morning — before the shower', sched:{dow:[0,1,2,3,4,5,6]}, note:"Every day, and before you eat, so her answer can actually change the plan. Send it now and check this off once you have asked."},
   {id:'breakfast', l:"Breakfast", note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
   {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."},
   {id:'shave_face', l:"Trim face \u2014 electric", opt:1, group:'Morning \u2014 before the shower', sched:{everyDays:3}, note:"Scheduled, not daily \u2014 set the interval or the days in the schedule panel. Facial hair grows about a third of a millimetre a day, so at any guard length above the shortest one a daily pass removes almost nothing and just costs you skin. Every two to four days is the range that actually holds a length; three is a reasonable middle to start from.\n\nThe exception is the LINES. Cheek line and neckline show stray growth faster than the bulk does, because there the contrast is against bare skin rather than against more hair. If you want those cleaner between trims, run the trimmer over just the edges without touching the guard \u2014 that's ten seconds and it doesn't shorten anything.\n\nHERE, BEFORE THE SHOWER, on purpose: a trimmer needs hair dry and stiff enough to stand up and get caught, and waterlogged hair lies flat and slips past the blades \u2014 which is the opposite of wet-shaving advice, where softened hair genuinely does cut better. Doing it now also means the clippings rinse off you in the shower instead of landing in the sink and inside your collar. Face should be clean and dry; grease and product gum the cutter and give you an uneven cut.\n\nTHE PASS: guard on and set before you turn it on, skin pulled taut with your free hand, head held flat against your face rather than pressed in, moving slowly against the grain \u2014 with a guard that gives an even length rather than a closer cut. Overlap each stroke slightly, and go over a patchy area from two directions.\n\nTHE LINES LAST: cheek line, then the neckline, in the best light you have. These are the only parts anyone actually notices and the only parts that are hard to undo. Check both sides straight-on rather than at an angle before you put it down.\n\nBrush the cutter out every time \u2014 blades hold moisture and clippings, and that is what dulls them.", warns:[
@@ -3306,7 +3307,9 @@ const PHASES = [
   {id:'mirror', l:"Mirror check", note:"Collar, teeth, fly."}
  ]},
  {name:"Through the day", steps:[
+  {id:'ask_mia_l', l:"Ask Mia about lunch", group:'Through the day', sched:{dow:[0,1,2,3,4,5,6]}, note:"Every day, ahead of lunch. Ask her before the gap in your schedule closes, not once you are already hungry."},
   {id:'lunch', l:"Lunch", note:"An actual meal, sitting down. Grabbing something between classes and eating it walking isn't the same thing \u2014 check this when you've had a real one.\n\nThe failure mode on a campus day is a long block with no gap wide enough to eat in, so it slides to 4pm and then wrecks dinner. If your schedule has that shape, the fix is packing something the night before rather than finding time you don't have."},
+  {id:'ask_mia_d', l:"Ask Mia about dinner", group:'Through the day', sched:{dow:[0,1,2,3,4,5,6]}, note:"Every day, ahead of dinner, so there is time to cook or go out before the kitchen closes."},
   {id:'dinner', l:"Dinner", note:"Lands before the night sequence, not after. Step {pm_brush} closes the kitchen, so this has to happen earlier than it tends to feel like it should.\n\nA late study session is the thing most likely to push it past that line. Eating at 10pm and then closing the kitchen twenty minutes later means the cutoff is doing nothing."}
  ]},
  {name:"End of day", steps:[
@@ -5530,19 +5533,21 @@ function rkey(r){ return ROUTINES.indexOf(r)>-1 ? 'r:'+r.id : r.id; }
    window. planDate() only ever answers "the next one", which put Thursday's
    shave on the calendar but never Sunday's. These rows are a preview: the
    next time is the one you tick or move, and the rest follow from the
-   schedule. Daily items are left out -- a row on every day says nothing. */
+   schedule. Daily items are included too, but only the ones you put on the
+   date list yourself (the plan button): that is what lets "Ask Mia about
+   dinner" show on every day instead of only today. */
 function repeatDates(r,first,until){
   const out=[];
   if(!first || !plannable(r)) return out;
   const sc=schedOf(r), t=today();
   const from=first<t?t:first;
   if(sc.mode==='dow'){
-    if(!sc.dow.length || sc.dow.length>=7) return out;
+    if(!sc.dow.length) return out;
     const sk=skipOf(r.id);
     for(let d=addDaysISO(from,1); d<=until; d=addDaysISO(d,1))
       if(sc.dow.indexOf(dayOf(d).getDay())>-1 && d!==sk) out.push(d);
   } else if(sc.mode==='everyDays'){
-    const n=Math.max(1,+sc.everyDays); if(n<2) return out;
+    const n=Math.max(1,+sc.everyDays);
     for(let d=addDaysISO(from,n); d<=until; d=addDaysISO(d,n)) out.push(d);
   }
   return out;
@@ -7254,6 +7259,15 @@ function seedLaundry(){
   S.laundrySeeded=true;
   S.rplan=S.rplan||{};
   ['hh_laundry','hh_laundry2'].forEach(id=>{ if(!(id in S.rplan)) S.rplan[id]=true; });
+  return true;
+}
+/* The three daily "Ask Mia" steps go on the date list the first time this build
+   loads. Once only: taking one off the date list afterwards stays off. */
+function seedMia(){
+  if(S.miaSeeded) return false;
+  S.miaSeeded=true;
+  S.rplan=S.rplan||{};
+  ['ask_mia_b','ask_mia_l','ask_mia_d'].forEach(id=>{ if(!(id in S.rplan)) S.rplan[id]=true; });
   return true;
 }
 function listById(id){ return (S.lists||[]).find(l=>l.id===id)||null; }
@@ -10390,7 +10404,7 @@ listsRoot.addEventListener('keydown',e=>{
   }
 });
 
-if(seedLists()|seedLaundry()) save(S);
+if(seedLists()|seedLaundry()|seedMia()) save(S);
 paintLists();
 showView(S.tab==='lists'?'lists':'today');
 
@@ -12864,7 +12878,7 @@ function syncAdopt(remote){
   S.lists=S.lists||[];
   migrateIds(S);   /* the other device may still be on a pre-id-split build */
   seedLinks();     /* ...and may predate links this build ships with */
-  seedLists(); seedLaundry();
+  seedLists(); seedLaundry(); seedMia();
   if(S.date!==today()){ S.date=today(); S.checked=[]; S.mtime=Date.now(); }
   S.syncedAt=+S.mtime||0;
   save(S);
@@ -13094,7 +13108,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
   S.lists=S.lists||[];
   migrateIds(S);   /* a backup written before the id split still holds numbers */
   seedLinks();     /* and predates any link default added since it was written */
-  seedLists(); seedLaundry();
+  seedLists(); seedLaundry(); seedMia();
   save(S); rebuild(); paintOpt();
   SLOTS.forEach(sl=>{
     const p=S.products[sl.id]||{};
@@ -13122,6 +13136,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.08-a', note:"ASK MIA, THREE TIMES A DAY: three new daily steps sit right before each meal on the board. Ask Mia about breakfast comes just before Breakfast in the morning, and Ask Mia about lunch and Ask Mia about dinner come just before Lunch and Dinner under Through the day. They are ordinary steps, so they count in your protocol and you tick them off like the rest. DAILY TASKS ON THE DATE LIST: a task that repeats every day can now go on the By date list. Before, a daily row showed only for today because a row on every day was thought to be noise; now any daily task you put on the date list (the plan button) shows on each of the next two weeks, and the three Ask Mia steps are on it already. Tap plan on any of them to take it off. Nothing else that is daily is added to the date list unless you choose it. No Worker update."},
   {v:'2026.11.06-b', note:"PRE-MED HOURS: Settings, Pre-med hours is a running log for the hours an application asks for. It starts with Clinical, Shadowing, Volunteering, Research and MCAT study; add your own under Categories and goals. Tap +30m, +1h or +2h on a category the moment you finish, or use Log time for a longer stretch (type 1.5, 1:30 or 45m) with a note, on any of the last 30 days. Each category shows its total and the last 7 days, and a goal in hours draws a progress bar. History lists the latest entries with a delete on each (and an Undo), and Copy as CSV gets everything out for a spreadsheet or an application. The Sunday week in review and Plan the week gain a Pre-med hours line once you have logged anything. Days follow the 4am boundary like the rest of the app. Syncs with everything else; no Worker update."},
   {v:'2026.11.06-a', note:"GRADES: a running grade for each course. Settings, Grades shows every course with its percent and letter, the scores behind it, and what you would need on the rest to finish with an A, A-, B+, B or B-. Add a score three ways: swipe a ticked assignment left on the By date list and tap Score (it shows what you got right on the row afterwards), add one by hand from the Grades page, or paste a batch, either one per line like “Quiz 3  18/20  Quizzes” or a Canvas grades page. Leave Earned blank to file work as upcoming, so its points count as what is left. Scores are kept apart from assignments, so Clear done, Clear all and a Canvas or Learning Suite refresh never lose them. Weights are optional: give any group a weight (Quizzes 20, Exams 50, Final 30) and the grade is weighted, counting only groups that have a score so far, the way Canvas does; with none set it is total points earned over total points possible. A weighted group with nothing in it yet, like the final, counts as all still to come. Cutoffs are the usual A 93, A- 90, B+ 87. The Canvas grades-page paste reading is written from how that page lays out its rows and has not been tried on a real paste yet; the one-per-line form is the safe path. No Worker update."},
   {v:'2026.11.05-c', note:"LAUNDRY, SPELLED OUT ON THE DATE LIST: Laundry is now two rows that say what is in the wash. Every Sunday: Laundry \u2014 clothes (cold), with the dryer pile on low and the rack pile hung up. Every other Sunday (starting Nov 8): Laundry \u2014 towels + bedding (warm / high), with the sheets pulled apart before they go in the dryer. Both are on the By date list for the next two weeks, so you can see which Sundays are a two-load day. Tap a row for what goes in it. If you had changed Laundry's days in Full schedule, that setting still applies to the clothes row. No Worker update."},
