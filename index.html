@@ -6929,7 +6929,6 @@ function dtBase(){ return {contacts:3, weigh:1, am_water:1, breakfast:15, shave_
   body_rinse:0.5, sh_face_rinse:0.5, plug_mouse:0.5, cleanse2:0.5}; }
 /* minutes after the start before these may begin: lunch, dinner, the evening */
 function dtAfter(){ return {ask_mia_l:300, ask_mia_d:600, bottle_rinse:840, cleanse1:840}; }
-function dtMorningIds(){ return ['contacts','weigh','socks','am_water','meds']; }
 function fmtClock(ms){
   return new Date(ms).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).replace(/\s*([AP])M$/i,(m,x)=>x.toLowerCase()+'m');
 }
@@ -6963,10 +6962,10 @@ function dtStamp(n,on){
   if(!S.tickAt || S.tickAt.d!==d) S.tickAt={d:d,m:{}};
   if(on){
     S.tickAt.m[n]=Date.now();
-    /* The first morning step starts the day if you did not, backdated by what that step takes. */
-    if((!S.begun || S.begun.d!==d) && dtMorningIds().indexOf(n)>-1){
-      const row=document.querySelector('.step[data-n="'+cssEsc(n)+'"]');
-      S.begun={d:d,t:Date.now()-(row?Math.round(dtMin(row)):1)*6e4,auto:1};
+    /* Ticking the first daily step (Contacts) starts the day. */
+    if(!S.begun || S.begun.d!==d){
+      const first=dailyRows().filter(r=>!r.classList.contains('notoday')&&!r.classList.contains('off'))[0];
+      if(first && first.dataset.n===n) S.begun={d:d,t:Date.now()};
     }
   } else delete S.tickAt.m[n];
 }
@@ -6975,7 +6974,7 @@ function paintDayTime(p){
   if(box.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;
   let h;
   if(!p){
-    h=`<button class="dtstart" type="button" data-dtstart="1">Start my day</button><span class="dthint">Gives each step a target time</span>`;
+    h=`<span class="dthint">Tick your first step to start the day and get a target time on each one</span>`;
   } else if(DTS && DTS.edit){
     const d=new Date(p.start), v=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
     h=`<span class="dthint">Day started at</span><input class="dtinput" id="dtinput" type="time" value="${v}">`+
@@ -7007,9 +7006,6 @@ function paintTimes(){
 }
 document.addEventListener('click',function(e){
   const t=e.target; if(!t || !t.closest) return;
-  if(t.closest('[data-dtstart]')){
-    S.begun={d:today(),t:Date.now()}; save(S); paint(); toast('Day started '+fmtClock(S.begun.t)); return;
-  }
   if(t.closest('[data-dtedit]')){ DTS.edit=true; const b=document.getElementById('daytime'); if(b) b.dataset.h=''; paintTimes(); return; }
   if(t.closest('[data-dtcancel]')){ DTS.edit=false; const b=document.getElementById('daytime'); if(b) b.dataset.h=''; paintTimes(); return; }
   if(t.closest('[data-dtclear]')){
@@ -13323,6 +13319,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.08-d', note:"NO START BUTTON: the day now starts when you tick the first step on the board (Contacts). That moment is your start time and the target times appear on every step. The Start my day button is gone; before you tick anything, Today just says to tick your first step. You can still tap the Started time to correct it, or Clear it. No Worker update."},
   {v:'2026.11.08-c', note:"TIMESTAMPS: a target clock time on every step, built from when you start your day. Tap Start my day at the top of Today (or tick contacts, weigh in, socks, water or medication and it starts for you, backdated by that step) and each step gets a time chip: the start plus the estimated minutes of everything above it. A minute a step by default, a step's own timer when it has one, and longer for the trim, breakfast, lunch, dinner and a few more. Lunch, dinner and the evening are held to about 5, 10 and 14 hours after you start, so the morning does not stack up on top of them. Up Next shows the target for the step you are on and how far ahead or behind you are, refreshed every 30 seconds. Once a step is ticked, its chip turns green and shows when you actually ticked it. Tap the Started time to correct it (Set, Cancel or Clear), and tap any step's chip to step that step's estimate up (1, 2, 3, 5, 10, 15, 20, 30, 45, 60 min, then back to default). Steps set aside for today drop out of the plan. Times are for reading only and are never counted, so the streak and the counts behave as before. Syncs with everything else; no Worker update."},
   {v:'2026.11.08-b', note:"DAILY TASKS ON THE DATE LIST, TODAY ONLY: every step on the board now has a plan button, not just the scheduled ones. Tap it and the step shows on today's By date list, ticks the same as on the board, and tomorrow's copy appears when tomorrow comes. The change in the last build that listed a daily task on every day of the next two weeks is undone, so the three Ask Mia steps show once a day, today's. Tap plan again, or Hide on the date-list row, to take one off. No Worker update."},
   {v:'2026.11.08-a', note:"ASK MIA, THREE TIMES A DAY: three new daily steps sit right before each meal on the board. Ask Mia about breakfast comes just before Breakfast in the morning, and Ask Mia about lunch and Ask Mia about dinner come just before Lunch and Dinner under Through the day. They are ordinary steps, so they count in your protocol and you tick them off like the rest. DAILY TASKS ON THE DATE LIST: a task that repeats every day can now go on the By date list. Before, a daily row showed only for today because a row on every day was thought to be noise; now any daily task you put on the date list (the plan button) shows on each of the next two weeks, and the three Ask Mia steps are on it already. Tap plan on any of them to take it off. Nothing else that is daily is added to the date list unless you choose it. No Worker update."},
