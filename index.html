@@ -1052,6 +1052,25 @@ body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
 .untimer svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;}
 .undone:active,.untimer:active{transform:scale(.96);}
 
+/* ---------------- pinned timers ---------------- */
+.timerpin{margin-top:18px;display:flex;flex-direction:column;gap:8px;}
+.timerpin[hidden]{display:none;}
+.timerpin:not([hidden]) + .upnext{margin-top:10px;}
+.tpin{position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;padding:12px 14px 14px;
+  background:#15181C;border:1px solid rgba(255,138,122,.4);border-radius:18px;}
+.tpin.fin{border-color:rgba(94,230,176,.4);}
+.tptxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.tpeye{font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.14em;color:var(--live);white-space:nowrap;}
+.tpin.fin .tpeye{color:var(--done);}
+.tpname{font-size:16px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tptime{font-family:'Geist Mono',ui-monospace,monospace;font-size:20px;font-variant-numeric:tabular-nums;color:var(--live);white-space:nowrap;}
+.tpin.fin .tptime{color:var(--done);}
+.tpbtn{flex:0 0 auto;height:38px;padding:0 14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:transparent;
+  color:var(--dim);font-family:inherit;font-size:13.5px;font-weight:500;cursor:pointer;transition:transform .16s ease;}
+.tpbtn:active{transform:scale(.96);}
+.tpbar{position:absolute;left:0;bottom:0;height:3px;width:var(--p,0%);background:var(--live);}
+.tpin.fin .tpbar{background:var(--done);}
+
 /* ---------------- controls row ---------------- */
 .controls{gap:6px;padding:18px 0 0;}
 .ctl{font-family:'Geist',sans-serif;font-size:13px;letter-spacing:0;text-transform:none;font-weight:500;
@@ -2772,6 +2791,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 <div id="view-today" role="tabpanel" aria-labelledby="tab-today">
   <div id="cardmount"></div>
   <div class="daytime" id="daytime"></div>
+  <div class="timerpin" id="timerpin" hidden></div>
   <div class="upnext" id="upnext" hidden></div>
   <div class="controls" hidden>
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
@@ -6766,6 +6786,7 @@ function paintInner(){
   paintFolds();
   try{ paintTimes(); }catch(e){}
   paintUpNext();
+  try{ paintTimerPins(); }catch(e){}
   flashTick();
   runPending();
 }
@@ -7171,6 +7192,57 @@ function syncUpTimer(){
   b.classList.toggle('running',r.classList.contains('running'));
 }
 setInterval(syncUpTimer,500);
+
+/* =========================================================
+   PINNED TIMERS. Any step whose timer is running stays at the top of Today,
+   above Up Next, whether or not it has been ticked: you tick the mouthwash
+   and move on, and its countdown is still in front of you until it ends.
+   When it finishes it holds there for TPIN_HOLD more so you can see it is
+   done, then goes. Like Up Next, this is a view of the row's own timer, not
+   a second timer: Stop presses that row's button, so nothing can disagree
+   with the board. A step already shown on the Up Next tile is not repeated.
+   TIMERDONE is stepId -> when it finished; it is only a display hold.
+   ========================================================= */
+var TIMERDONE={}, TPIN_HOLD=30000, TPKEY='', TPIDS={};
+function timerPinList(){
+  const now=Date.now(), out=[], seen={};
+  document.querySelectorAll('.step.running').forEach(r=>{ out.push({r:r,id:r.dataset.n,run:true}); seen[r.dataset.n]=1; });
+  Object.keys(TIMERDONE||{}).forEach(id=>{
+    if(seen[id] || now-TIMERDONE[id]>=TPIN_HOLD){ delete TIMERDONE[id]; return; }
+    const r=document.querySelector('.step[data-n="'+cssEsc(id)+'"]');
+    if(r) out.push({r:r,id:id,run:false});
+  });
+  return out.filter(o=>!(o.id===UPKEY && !o.r.classList.contains('done')));
+}
+function paintTimerPins(){
+  const box=document.getElementById('timerpin'); if(!box) return;
+  const list=timerPinList();
+  if(!list.length){ if(!box.hidden){ box.hidden=true; box.innerHTML=''; } TPKEY=''; TPIDS={}; return; }
+  const key=list.map(o=>o.id+(o.run?'r':'d')).join('|');
+  if(key!==TPKEY){
+    box.innerHTML=list.map(o=>`<div class="tpin ${o.run?'run':'fin'}" data-tp="${esc(o.id)}">`+
+      `<div class="tptxt"><span class="tpeye">${o.run?'TIMER RUNNING':'TIMER DONE'}</span><span class="tpname">${esc(dtName(o.r))}</span></div>`+
+      `<span class="tptime"></span><button class="tpbtn" type="button" data-tpact="${esc(o.id)}">${o.run?'Stop':'Dismiss'}</button><i class="tpbar"></i></div>`).join('');
+    const was=TPIDS, now={};
+    list.forEach(o=>{ now[o.id]=1; if(!was[o.id]){ const el=box.querySelector('.tpin[data-tp="'+cssEsc(o.id)+'"]'); if(el) arrive(el,0,-6); } });
+    TPIDS=now; TPKEY=key; box.hidden=false;
+  }
+  list.forEach(o=>{
+    const el=box.querySelector('.tpin[data-tp="'+cssEsc(o.id)+'"]'); if(!el) return;
+    const tm=o.r.querySelector('.timer');
+    const t=o.run?(tm?tm.textContent.trim():''):'Done';
+    const te=el.querySelector('.tptime'); if(te && te.textContent!==t) te.textContent=t;
+    const p=o.run&&tm?(parseFloat(tm.style.getPropertyValue('--p'))||0):100;
+    el.style.setProperty('--p',Math.max(0,Math.min(100,p)).toFixed(1)+'%');
+  });
+}
+setInterval(function(){ try{ paintTimerPins(); }catch(err){} },500);
+document.getElementById('timerpin').addEventListener('click',e=>{
+  const b=e.target.closest('[data-tpact]'); if(!b) return;
+  const id=b.dataset.tpact, r=document.querySelector('.step[data-n="'+cssEsc(id)+'"]');
+  if(r && r.classList.contains('running')){ const tm=r.querySelector('.timer'); if(tm) tm.click(); }
+  delete TIMERDONE[id]; paintTimerPins();
+});
 document.getElementById('upnext').addEventListener('click',e=>{
   const r=UPKEY&&document.querySelector('.step[data-n="'+cssEsc(UPKEY)+'"]'); if(!r) return;
   if(e.target.closest('[data-updone]')){ toggle(r); return; }
@@ -11108,7 +11180,8 @@ function wireRows(){
     const setP=v=>btn.style.setProperty('--p',v.toFixed(1));
     const stop=()=>{ if(raf)cancelAnimationFrame(raf); raf=null;
       delete RUNTIMERS[tid];
-      row.classList.remove('running'); sweep.style.width='0'; setP(0); };
+      row.classList.remove('running'); sweep.style.width='0'; setP(0);
+      try{ delete TIMERDONE[tid]; paintTimerPins(); }catch(err){} };
     function tick(){
       const left=Math.max(0,end-Date.now());
       const pct=100-left/(total*1000)*100;
@@ -11120,6 +11193,8 @@ function wireRows(){
         delete RUNTIMERS[tid];
         row.classList.remove('running'); sweep.style.width='0';
         row.classList.add('rang'); face.textContent='done'; setP(100);
+        /* Hold it at the top for a few more seconds so the finish is seen. */
+        try{ TIMERDONE[tid]=Date.now(); paintTimerPins(); }catch(err){}
         beep(); if(navigator.vibrate)navigator.vibrate([120,80,120]);
         toast(row.querySelector('.label').textContent.replace('optional','').trim()+' \u00b7 time');
         return;
@@ -11131,6 +11206,7 @@ function wireRows(){
       if(row.classList.contains('running')){ stop(); face.textContent=fmt(total); return; }
       row.classList.remove('rang'); row.classList.add('running');
       end=Date.now()+total*1000; RUNTIMERS[tid]=end; tick();
+      try{ delete TIMERDONE[tid]; paintTimerPins(); }catch(err){}
       /* rAF stops the moment this tab is backgrounded, so a dwell that ends
          while you are in another app rings late or not at all. The in-page
          timer stays \u2014 it is the visible one \u2014 but the Clock gets the same
@@ -11152,6 +11228,7 @@ function wireRows(){
          still be relevant. */
       if(Date.now()-resume < 30*60*1000){
         row.classList.add('rang'); face.textContent='done'; setP(100);
+        try{ TIMERDONE[tid]=resume; }catch(err){}   /* pinned only if it ended under 30s ago */
       }
     }
   });
@@ -13428,6 +13505,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-f', note:"RUNNING TIMERS STAY ON TOP. A step with a timer running (the mouthwash, the deodorant) now keeps a small card at the top of Today, above Up Next, showing its name and the countdown, even after you tick the step and move on. Stop on the card stops that timer. When the timer ends the card turns green and says Done, holds for 30 more seconds so you can see it finished, then goes away (Dismiss closes it sooner). A step already shown on the Up Next tile is not repeated. No Worker update."},
   {v:'2026.11.09-e', note:"TIMES NOW MEAN DONE BY, NOT START AT. You tick a step when you finish it, but each time chip was when the step should begin, so a long step like breakfast looked like it took 2 minutes: its chip sat just after the step above, and its own 15 minutes only showed up on the next row. Each chip is now when the step should be finished, the start plus everything above it plus its own length. Contacts is done at the start itself, since ticking it is what starts the day. Up Next reads Done by instead of Target, and ahead or behind is measured against that. Targets are still a fixed benchmark and never move to meet you; the Pace report is unchanged. Last step around is now the finish of the last step, so it reads about 3 minutes earlier than before. No Worker update."},
   {v:'2026.11.09-d', note:"TONGUE IS NOW A NOTE UNDER BRUSH, NOT ITS OWN STEP. Morning and evening, the separate Tongue row is gone and a bold line under Brush says to do your tongue after the teeth (back to front, 3 to 4 passes, rinse the tool between). One tick for the whole brush. Brush already counts 2.5 minutes in the day clock, so the time the tongue used to claim is covered. A Tongue tick from before this build is simply ignored. No Worker update."},
   {v:'2026.11.09-c', note:"A MOVED LAB NO LONGER LEAVES A COPY BEHIND. When Learning Suite moved a lab to another day, a row you had typed in by hand kept its old date and the feed filed a second copy on the new day. Now a lone hand-entered row with the same title within two weeks is taken over by the feed and follows the new date. Rows already linked to the feed moved fine before. No Worker update."},
