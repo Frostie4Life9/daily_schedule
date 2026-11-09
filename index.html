@@ -1373,6 +1373,11 @@ body.on-lists.lv-list .newlist{display:flex;margin-top:16px;}
 .dvest{margin-left:auto;font-family:'Geist',sans-serif;font-size:12px;color:var(--dimmer);align-self:center;}
 .dhideact{background:#273052;color:#DCE3FF;}
 .ddelact{background:var(--live);color:#2A0E0A;}
+.dlinkact{background:#1E3A5F;color:#D6E8FF;}
+a.dlink{display:inline-flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0;padding:3px 9px;margin:1px 0;border-radius:11px;background:rgba(142,162,255,.14);color:var(--opt);font-size:12px;font-weight:600;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+a.dlink svg{width:12px;height:12px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+a.dlink:active{background:rgba(142,162,255,.26);}
+.drow.done a.dlink{opacity:.6;}
 .dact.on{box-shadow:inset 0 -3px 0 rgba(255,255,255,.35);}
 .drow.peek .dfg{animation:g-peek 1.5s 1.1s ease-in-out both;}
 .drow.peek .dtrayR{animation:g-peekshow 1.5s 1.1s ease-in-out both;}
@@ -9727,10 +9732,56 @@ const SWBIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v
 const SWCLK='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>';
 const SWGRADE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/><path d="M4 20h16"/></svg>';
 const SWHIDE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.5 9.5 0 0 1 12 5c5 0 9 4.5 10 7a13 13 0 0 1-3.2 4.2M6.6 6.6C4.4 8 2.9 10 2 12c1 2.5 5 7 10 7a9.6 9.6 0 0 0 4.4-1"/></svg>';
+/* LINKS ON LIST ITEMS. An item can carry a url: paste one into the add box
+   (alone, or after a name like "Seal charm https://...") and it is pulled out
+   into the link; swipe left and tap Link to add, change or remove one later.
+   An older item whose text is just a URL is read the same way, no migration. */
+const SWLINK='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>';
+const SWOUT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+const URLRE=/https?:\/\/[^\s<>"']+/i;
+function cleanUrl(u){
+  u=String(u||'').trim().replace(/[),.;!?]+$/,'');
+  if(!u) return '';
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(u)) u='https://'+u;
+  try{ const x=new URL(u);
+    [...x.searchParams.keys()].forEach(k=>{ if(/^(utm_|fbclid$|gclid$|igshid$|mc_|ref_?src$)/i.test(k)) x.searchParams.delete(k); });
+    return x.toString();
+  }catch(e){ return u; }
+}
+function linkHost(u){ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return ''; } }
+function linkTitle(u){
+  try{ const x=new URL(u);
+    const seg=decodeURIComponent(x.pathname.split('/').filter(Boolean).pop()||'')
+      .replace(/\.[a-z0-9]{2,5}$/i,'').replace(/[-_+]+/g,' ').trim();
+    if(seg && !/^\d+$/.test(seg) && seg.length<=80) return seg.charAt(0).toUpperCase()+seg.slice(1);
+    return linkHost(u)||u;
+  }catch(e){ return u; }
+}
+/* Split typed text into a name and a link. Text that is only a link gets a
+   name made from the address (needsquish.com/products/crunchy-seal-pup ->
+   "Crunchy seal pup"). */
+function splitLink(text){
+  const t=String(text||'').trim(), m=t.match(URLRE);
+  if(!m) return {text:t, url:''};
+  const url=cleanUrl(m[0]);
+  const rest=t.replace(m[0],'').replace(/\s{2,}/g,' ').replace(/^[\s\-–—:|]+|[\s\-–—:|]+$/g,'').trim();
+  return {text:rest||linkTitle(url), url};
+}
+function itemLink(i){
+  if(!i) return null;
+  if(i.url) return {url:i.url, text:i.text};
+  if(!URLRE.test(String(i.text||''))) return null;
+  return splitLink(i.text);
+}
+function listItemOf(lid,iid){
+  const l=listById(lid); return l ? (l.items||[]).find(x=>x.id===iid)||null : null;
+}
 function dateRow(r,big,inlist){
   const late=!!(r.due && r.due<today());
   const when=whenText(r);
   const kind=rowKind(r), tint=rowTint(r);
+  const lk=(!r.task&&!r.routine&&r.lid&&r.iid) ? itemLink(listItemOf(r.lid,r.iid)) : null;
+  const shown=lk ? lk.text : r.text;
   const code=r.task?'TASK':r.routine?'REPEATS':r.code;
   const codeCls=r.task?'dtaskcode':r.routine?'droutcode':'t-'+esc(r.tint);
   let id, attrs, trayL='', trayR='', grip='', whenEl;
@@ -9784,6 +9835,7 @@ function dateRow(r,big,inlist){
     trayL=`<button class="dact dtodayact${r.pin?' on':''}" data-lpin="${k}" aria-pressed="${!!r.pin}" `+
       `title="${r.pin?'On today’s board — tap to take it off':'Put this on today’s board'}" aria-label="${r.pin?'Not today':'Put this on today’s board'}">${SWSUN}<span>${r.pin?'Not today':'Today'}</span></button>`;
     trayR=topBtn('data-ltop',r.lid+'|'+r.iid)+((r.done||r.sc)?scoreBtn('l:'+k):estBtn('l:'+k))+
+      `<button class="dact dlinkact${lk?' on':''}" data-llink="${k}" title="${lk?'Change or remove the link':'Attach a link'}" aria-label="Link">${SWLINK}<span>Link</span></button>`+
       `<button class="dact dclassact${r.inclass?' on':''}" data-lclass="l:${k}" aria-pressed="${!!r.inclass}" `+
         `title="${r.inclass?'Done in class — tap if it is on your own':'Mark as done in class'}" aria-label="Done in class">${SWCAP}<span>${r.inclass?'Own work':'In class'}</span></button>`+
       `<button class="dact ddelact" data-lidel="${k}" aria-label="Delete item">${SWBIN}<span>Delete</span></button>`;
@@ -9800,10 +9852,11 @@ function dateRow(r,big,inlist){
     `<div class="dfg">`+
       `<div class="lbox">${CHECK}</div>`+
       `<div class="dmain">`+
-        `<div class="dtext">${esc(r.text)}${chips}</div>`+
+        `<div class="dtext">${esc(shown)}${chips}</div>`+
         `<div class="dmeta">`+(inlist?(r.due?`<span class="dduechip${late?' overdue':''}">${esc(dueChip(r.due,r.at))}</span>`:''):
           `<i class="ddot" style="--c:${TINTHEX[tint]||'#80868F'}"></i>`+
           `<span class="dcode ${codeCls}" title="${esc(r.list||'')}">${esc(code)}</span>`)+
+          (lk?`<a class="dlink" href="${esc(lk.url)}" target="_blank" rel="noopener noreferrer" title="${esc(lk.url)}">${SWOUT}<span>${esc(linkHost(lk.url)||'Open link')}</span></a>`:'')+
           (onToday?`<span class="donday">· on today</span>`:'')+
           (r.sc&&!r.routine&&!r.task?`<span class="dgr">\u00b7 ${esc(r.sc)}</span>`:'')+
           (r.est&&!r.routine?`<span class="dest">· ≈${esc(estText(r.est))}</span>`:'')+
@@ -10053,7 +10106,7 @@ function paintLists(){
         (items.length?open.map(rowFor).join(''):'<p class="lempty">Nothing here yet.</p>')+
         (done.length?`<div class="ldone">Done \u00b7 ${done.length}</div>`+done.map(rowFor).join(''):'')+
         `<div class="ladd">`+
-          `<input type="text" placeholder="Add to ${esc(l.name)}" data-ladd="${esc(l.id)}" autocomplete="off" maxlength="200">`+
+          `<input type="text" placeholder="Add to ${esc(l.name)}" data-ladd="${esc(l.id)}" autocomplete="off" maxlength="1500">`+
           `<input type="date" class="ldate" data-ldue="${esc(l.id)}" title="Due date (optional)">`+
           `<button data-laddgo="${esc(l.id)}">Add</button>`+
         `</div>`+
@@ -10157,10 +10210,11 @@ document.addEventListener('pointercancel',()=>endDrag(false));
 
 function addListItem(lid,text,due){
   const l=listById(lid); if(!l) return false;
-  const t=String(text||'').trim(); if(!t) return false;
+  const sp=splitLink(text); const t=sp.text; if(!t) return false;
   l.items=l.items||[];
   const d=/^\d{4}-\d\d-\d\d$/.test(due||'') ? due : undefined;
   const ni={id:newId('i'),text:t,done:false,due:d,added:new Date().toISOString()};
+  if(sp.url) ni.url=sp.url;
   l.items.push(ni);
   after(()=>document.querySelectorAll('#lists [data-lit="'+cssEsc(l.id+'|'+ni.id)+'"]').forEach(el=>{ arrive(el); glow(el); }));
   save(S); paintLists();
@@ -10252,6 +10306,25 @@ document.getElementById('listsclear').addEventListener('click',()=>{
   (S.lists||[]).forEach(l=>{ l.items=(l.items||[]).filter(i=>!i.done); });
   save(S); paintLists(); toast('Cleared');
 });
+
+/* A tap on an item's link opens it and must not tick the item; the Link
+   button in the swipe tray adds, changes or removes it. Captured at the
+   document so it behaves the same on every list view. */
+document.addEventListener('click',e=>{
+  if(e.target.closest('a.dlink')){ e.stopPropagation(); return; }
+  const lb=e.target.closest('[data-llink]'); if(!lb) return;
+  e.stopPropagation(); e.preventDefault();
+  const [lid,iid]=lb.dataset.llink.split('|');
+  const l=listById(lid); const item=listItemOf(lid,iid); if(!l||!item) return;
+  const cur=itemLink(item);
+  const v=prompt(cur?'Link for "'+cur.text+'" \u2014 clear it to remove':'Paste a link for "'+item.text+'"', cur?cur.url:'');
+  if(v===null) return;
+  if(cur && !item.url) item.text=cur.text;   /* text was the URL itself */
+  const u=cleanUrl(v);
+  if(u){ item.url=u; toast(cur?'Link changed':'Link added'); }
+  else { delete item.url; if(cur) toast('Link removed'); }
+  save(S); paintLists(); if(listOnBoard(l)) rebuild();
+},true);
 
 listsRoot.addEventListener('click',e=>{
   const del=e.target.closest('[data-lidel]');
@@ -13505,6 +13578,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-g', note:"LINKS ON LIST ITEMS. Any list item can carry a link now, shown as a small tappable pill under its name (the site's name, like needsquish.com) that opens the page without ticking the item. Paste a link into a list's add box on its own and the item is named from the address, or type a name first (Seal charm https://...) and the link rides along under it; tracking junk like utm_ tags is trimmed off. To add, change or remove a link on an item you already have, swipe it left and tap Link. Items you saved before that are just a pasted URL pick this up by themselves. No Worker update."},
   {v:'2026.11.09-f', note:"RUNNING TIMERS STAY ON TOP. A step with a timer running (the mouthwash, the deodorant) now keeps a small card at the top of Today, above Up Next, showing its name and the countdown, even after you tick the step and move on. Stop on the card stops that timer. When the timer ends the card turns green and says Done, holds for 30 more seconds so you can see it finished, then goes away (Dismiss closes it sooner). A step already shown on the Up Next tile is not repeated. No Worker update."},
   {v:'2026.11.09-e', note:"TIMES NOW MEAN DONE BY, NOT START AT. You tick a step when you finish it, but each time chip was when the step should begin, so a long step like breakfast looked like it took 2 minutes: its chip sat just after the step above, and its own 15 minutes only showed up on the next row. Each chip is now when the step should be finished, the start plus everything above it plus its own length. Contacts is done at the start itself, since ticking it is what starts the day. Up Next reads Done by instead of Target, and ahead or behind is measured against that. Targets are still a fixed benchmark and never move to meet you; the Pace report is unchanged. Last step around is now the finish of the last step, so it reads about 3 minutes earlier than before. No Worker update."},
   {v:'2026.11.09-d', note:"TONGUE IS NOW A NOTE UNDER BRUSH, NOT ITS OWN STEP. Morning and evening, the separate Tongue row is gone and a bold line under Brush says to do your tongue after the teeth (back to front, 3 to 4 passes, rinse the tool between). One tick for the whole brush. Brush already counts 2.5 minutes in the day clock, so the time the tongue used to claim is covered. A Tongue tick from before this build is simply ignored. No Worker update."},
