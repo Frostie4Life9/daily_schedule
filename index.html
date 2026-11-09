@@ -9571,11 +9571,25 @@ function listBuckets(){
     put({routine:true, step:true, rid:st.id, text:st.l, at:null, top:false, code:'ROUTINE',
          list:'Daily', user:false, due:t, done:S.checked.indexOf(st.id)>-1});
   }));
+  /* FOLLOW-UPS of a planned routine (Fold the laundry, Bring the bin back in).
+     A follow-up has no plan button of its own and is not plannable; it rides
+     on its parent. If the parent is on this list, the follow-up joins it on
+     the day the parent is ticked, and only then -- the same rule the board
+     uses -- so it can never sit here owed for a load you did not run. It
+     sorts straight after its parent and inherits the parent's pin. */
+  ROUTINES.filter(r=>r.afterOf).forEach(r=>{
+    const par=ROUTINES.find(x=>x.id===r.afterOf);
+    if(!par || !plannable(par) || !(S.rplan && S.rplan[par.id])) return;
+    if(!afterDue(r)) return;
+    put({routine:true, after:true, rid:r.id, text:r.l, sk:par.l+'\u0001'+r.l, at:null,
+         top:!!(S.rtop&&S.rtop[par.id]), code:'ROUTINE', list:'Recurring', user:false,
+         due:t, done:doneOn(r.id)===t});
+  });
   const bydate=topFirst((a,b)=>{
     if((a.due||'')!==(b.due||'')) return (a.due||'')<(b.due||'')?-1:1;
     const x=a.at||'99:99', y=b.at||'99:99';
     if(x!==y) return x<y?-1:1;
-    return a.text<b.text?-1:1;
+    return (a.sk||a.text)<(b.sk||b.text)?-1:1;
   });
   Object.keys(B).forEach(k=>B[k].sort(bydate));
   return B;
@@ -9651,6 +9665,11 @@ function dateRow(r,big,inlist){
     attrs=`data-rrep="${esc(r.rid)}"`;
     whenEl=`<span class="dwhen">${esc(dayLabel(r.due))}</span>`;
     trayR=`<button class="dact dhideact" data-runplan="${esc(r.rid)}" title="Take it off this list — the routine itself is unchanged" aria-label="Take off this list">${SWHIDE}<span>Hide</span></button>`+udel;
+  } else if(r.routine && r.after){
+    /* Nothing to move or hide: it exists today because its parent was ticked,
+       and it is gone tomorrow. Tick it here or on the board, same thing. */
+    attrs=`data-rit="${esc(r.rid)}"`;
+    whenEl=`<span class="dwhen">Today</span>`;
   } else if(r.routine && r.step){
     attrs=`data-rit="${esc(r.rid)}"`;
     whenEl=`<span class="dwhen">Today</span>`;
@@ -10360,6 +10379,19 @@ listsRoot.addEventListener('click',e=>{
       JUST={k:'R:'+id,t:Date.now()};
       const k=S.checked.indexOf(id);
       if(k>-1) S.checked.splice(k,1); else S.checked.push(id);
+      commit({rebuild:true,schedule:true}); paintLists(); return;
+    }
+    if(r.afterOf){
+      /* A follow-up: ticked on the day, unticked on the day, no date to move. */
+      JUST={k:'R:'+id,t:Date.now()};
+      const t=today(), key=rkey(r);
+      if(doneOn(id)===t){
+        unlogDone(id);
+        const k=S.checked.indexOf(key); if(k>-1) S.checked.splice(k,1);
+      } else {
+        logDone(id);
+        if(S.checked.indexOf(key)===-1) S.checked.push(key);
+      }
       commit({rebuild:true,schedule:true}); paintLists(); return;
     }
     if(!plannable(r)) return;
@@ -13388,6 +13420,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-b', note:"FOLLOW-UP STEPS NOW SHOW ON THE DATE LIST. If the first task is on the By date list (Do the laundry, Trash out), its follow-up (Fold the laundry, Hang the towels and put on the bedding, Bring the bin back in) now joins the By date list as soon as you tick the first one, under Today and straight below it. Tick it there or on the board, it is the same thing. If the first task is not on the date list, its follow-up stays on the board only, as before. It still only exists on a day you did the first task and is gone the next morning. No Worker update."},
   {v:'2026.11.09-a', note:"LAUNDRY NOW HAS A SECOND STEP, like the trash. The two laundry rows are now Do the laundry — clothes (cold) and Do the laundry — towels + bedding (warm / high). Tick the one you ran and its follow-up appears the same day: Fold the laundry after the clothes load, Hang the towels and put on the bedding after the towels and bedding load. The follow-up only exists on a day you actually did that load, and it is gone the next morning, so it never nags on a Sunday you skipped. On a two-load Sunday you get both. No Worker update."},
   {v:'2026.11.08-e', note:"PACE REPORT, and late steps turn red. Target times still do not move to meet you: they are the benchmark, not an average of how long you take. Protocol now notes how long each step really takes you (the time from the step above being ticked to this one) and, once a step has three days of it, lines your median up against its target. When steps are running over, a Pace report button appears beside the Started time and lists the worst first, with the total minutes over. Instant gaps are ignored as batch ticking and anything over an hour as a break; a long gap on a short step counts on purpose, because that is the drift to catch. The median keeps one forgotten tick from skewing a step. A step's chip also turns orange once its target has passed and it is still unticked. Nothing here changes a target or the streak. Syncs with everything else; no Worker update."},
   {v:'2026.11.08-d', note:"NO START BUTTON: the day now starts when you tick the first step on the board (Contacts). That moment is your start time and the target times appear on every step. The Start my day button is gone; before you tick anything, Today just says to tick your first step. You can still tap the Started time to correct it, or Clear it. No Worker update."},
