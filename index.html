@@ -1012,6 +1012,17 @@ body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
 .eta.was{color:var(--done);border-color:rgba(94,230,176,.3);}
 .step.cur .eta{color:var(--ink);border-color:rgba(255,255,255,.3);}
 @media (hover:hover) and (pointer:fine){ .eta:hover{color:var(--ink);border-color:rgba(255,255,255,.3);} }
+.eta.late{color:var(--warn);border-color:rgba(242,153,94,.45);}
+.step.cur .eta.late{color:var(--warn);border-color:rgba(242,153,94,.55);}
+.dtpanel{flex:0 0 100%;margin-top:4px;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.03);}
+.dtpanel .dthint{display:block;margin-bottom:10px;line-height:1.45;}
+.dtrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid rgba(255,255,255,.06);font-size:14px;color:var(--ink);}
+.dtrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dtrow .nu{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dtrow .ov{color:var(--warn);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dtrep{height:36px;padding:0 14px;border:1px solid rgba(242,153,94,.4);border-radius:12px;background:rgba(242,153,94,.07);color:var(--warn);
+  font-family:inherit;font-size:13.5px;cursor:pointer;transition:transform .16s ease;}
+.dtrep:active{transform:scale(.96);}
 .unwhen{font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums;margin-top:-4px;}
 .unwhen.late{color:var(--warn);}
 
@@ -6962,19 +6973,70 @@ function dtStamp(n,on){
   if(!S.tickAt || S.tickAt.d!==d) S.tickAt={d:d,m:{}};
   if(on){
     S.tickAt.m[n]=Date.now();
+    try{ dtLearn(n); }catch(err){}
     /* Ticking the first daily step (Contacts) starts the day. */
     if(!S.begun || S.begun.d!==d){
       const first=dailyRows().filter(r=>!r.classList.contains('notoday')&&!r.classList.contains('off'))[0];
       if(first && first.dataset.n===n) S.begun={d:d,t:Date.now()};
     }
-  } else delete S.tickAt.m[n];
+  } else {
+    delete S.tickAt.m[n];
+    if(S.pace && S.pace[n]) delete S.pace[n][d];
+  }
+}
+function dtName(r){
+  const l=r.querySelector('.label'), t=(l&&l.firstChild)?l.firstChild.textContent:r.dataset.n;
+  return String(t).replace(/\s+—.*$/,'').trim().slice(0,36);
+}
+function dtDur(m){
+  if(m<1) return Math.max(1,Math.round(m*60))+'s';
+  if(m<10) return (Math.round(m*10)/10)+' min';
+  return dtSpan(m);
+}
+/* One sample per step per day: the time from the step above it being ticked to this one.
+   Instant gaps are batch ticking and say nothing about pace, so they are dropped; very long
+   ones (over an hour) are a break or a forgotten tick. Everything in between counts, a long
+   gap on a short step included, because that is exactly the drift this is meant to show. */
+function dtLearn(n){
+  if(dtAfter()[n]!=null) return;
+  const rows=dailyRows().filter(r=>!r.classList.contains('notoday')&&!r.classList.contains('off'));
+  const i=rows.findIndex(r=>r.dataset.n===n); if(i<1) return;
+  const pm=S.tickAt.m[rows[i-1].dataset.n]; if(!pm) return;
+  const gap=(S.tickAt.m[n]-pm)/6e4;
+  if(gap<10/60 || gap>60) return;
+  S.pace=S.pace||{};
+  const o=S.pace[n]=S.pace[n]||{}; o[today()]=Math.round(gap*100)/100;
+  const ks=Object.keys(o).sort(); while(ks.length>21) delete o[ks.shift()];
+}
+/* Targets never move to meet you. This only lines your median time up against them. */
+function dtReport(){
+  const out=[]; if(!S.pace) return out;
+  dailyRows().forEach(r=>{
+    const id=r.dataset.n, o=S.pace[id]; if(!o) return;
+    const v=Object.keys(o).map(k=>o[k]).sort((a,b)=>a-b); if(v.length<3) return;
+    const m=v.length%2 ? v[(v.length-1)/2] : (v[v.length/2-1]+v[v.length/2])/2;
+    const tgt=dtMin(r), over=m-tgt; if(over<0.5) return;
+    out.push({id:id,name:dtName(r),tgt:tgt,med:m,over:over,n:v.length});
+  });
+  out.sort((a,b)=>b.over-a.over); return out;
+}
+function dtRepHTML(){
+  const rep=dtReport(); if(!rep.length) return '';
+  let h=`<button class="dtrep" type="button" data-dtrep="1">Pace report · ${rep.length}</button>`;
+  if(DTS.rep){
+    const tot=rep.reduce((a,x)=>a+x.over,0);
+    h+=`<div class="dtpanel"><span class="dthint">Where your time goes: your typical time on each step against its target. About <b>${esc(dtDur(tot))}</b> over, across these ${rep.length}. Targets stay put; this is only how far you are from them.</span>`+
+      rep.slice(0,8).map(x=>`<div class="dtrow"><span class="nm">${esc(x.name)}</span><span class="nu">target ${esc(dtDur(x.tgt))} · you ${esc(dtDur(x.med))} · ${x.n}d</span><span class="ov">+${esc(dtDur(x.over))}</span></div>`).join('')+
+      `<div class="dtrow"><button class="dtbtn" type="button" data-dtrep="1">Close</button></div></div>`;
+  }
+  return h;
 }
 function paintDayTime(p){
   const box=document.getElementById('daytime'); if(!box) return;
   if(box.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;
   let h;
   if(!p){
-    h=`<span class="dthint">Tick your first step to start the day and get a target time on each one</span>`;
+    h=`<span class="dthint">Tick your first step to start the day and get a target time on each one</span>`+dtRepHTML();
   } else if(DTS && DTS.edit){
     const d=new Date(p.start), v=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
     h=`<span class="dthint">Day started at</span><input class="dtinput" id="dtinput" type="time" value="${v}">`+
@@ -6982,7 +7044,7 @@ function paintDayTime(p){
       `<button class="dtbtn" type="button" data-dtclear="1">Clear</button>`;
   } else {
     h=`<button class="dtedit" type="button" data-dtedit="1" title="Change when your day started">Started <b>${esc(fmtClock(p.start))}</b></button>`+
-      (p.rows.length?`<span class="dthint">Last step around <b>${esc(fmtClock(p.end))}</b></span>`:'');
+      (p.rows.length?`<span class="dthint">Last step around <b>${esc(fmtClock(p.end))}</b></span>`:'')+dtRepHTML();
   }
   if(box.dataset.h!==h){ box.innerHTML=h; box.dataset.h=h; }
 }
@@ -6997,8 +7059,8 @@ function paintTimes(){
     let meta=body.querySelector(':scope > .meta');
     if(!meta){ meta=document.createElement('div'); meta.className='meta'; lab.after(meta); }
     const b=document.createElement('button'); b.type='button';
-    b.className='eta'+(isDone && stamped[o.id] ? ' was' : '');
-    b.dataset.eta=o.id;
+    b.className='eta'+(isDone && stamped[o.id] ? ' was' : (!isDone && Date.now()>at+6e4 ? ' late' : ''));
+    b.dataset.eta=o.id; if(!isDone) b.dataset.at=at;
     b.title=(isDone && stamped[o.id] ? 'Ticked at ' : 'Target ')+fmtClock(at)+' · about '+dtSpan(dtMin(o.r))+' — tap to change the estimate';
     b.textContent=fmtClock(at);
     meta.insertBefore(b,meta.firstChild);
@@ -7006,6 +7068,7 @@ function paintTimes(){
 }
 document.addEventListener('click',function(e){
   const t=e.target; if(!t || !t.closest) return;
+  if(t.closest('[data-dtrep]')){ DTS.rep=!DTS.rep; const b=document.getElementById('daytime'); if(b) b.dataset.h=''; paintTimes(); return; }
   if(t.closest('[data-dtedit]')){ DTS.edit=true; const b=document.getElementById('daytime'); if(b) b.dataset.h=''; paintTimes(); return; }
   if(t.closest('[data-dtcancel]')){ DTS.edit=false; const b=document.getElementById('daytime'); if(b) b.dataset.h=''; paintTimes(); return; }
   if(t.closest('[data-dtclear]')){
@@ -7033,6 +7096,8 @@ document.addEventListener('click',function(e){
   }
 });
 setInterval(function(){
+  const now=Date.now();
+  document.querySelectorAll('.step .eta[data-at]').forEach(c=>c.classList.toggle('late',now>(+c.dataset.at)+6e4));
   const el=document.querySelector('#upnext .unwhen'); if(!el) return;
   const at=+el.dataset.at; if(!at) return;
   const p=dtPace(at); el.textContent=p.s; el.classList.toggle('late',p.late);
@@ -13319,6 +13384,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.08-e', note:"PACE REPORT, and late steps turn red. Target times still do not move to meet you: they are the benchmark, not an average of how long you take. Protocol now notes how long each step really takes you (the time from the step above being ticked to this one) and, once a step has three days of it, lines your median up against its target. When steps are running over, a Pace report button appears beside the Started time and lists the worst first, with the total minutes over. Instant gaps are ignored as batch ticking and anything over an hour as a break; a long gap on a short step counts on purpose, because that is the drift to catch. The median keeps one forgotten tick from skewing a step. A step's chip also turns orange once its target has passed and it is still unticked. Nothing here changes a target or the streak. Syncs with everything else; no Worker update."},
   {v:'2026.11.08-d', note:"NO START BUTTON: the day now starts when you tick the first step on the board (Contacts). That moment is your start time and the target times appear on every step. The Start my day button is gone; before you tick anything, Today just says to tick your first step. You can still tap the Started time to correct it, or Clear it. No Worker update."},
   {v:'2026.11.08-c', note:"TIMESTAMPS: a target clock time on every step, built from when you start your day. Tap Start my day at the top of Today (or tick contacts, weigh in, socks, water or medication and it starts for you, backdated by that step) and each step gets a time chip: the start plus the estimated minutes of everything above it. A minute a step by default, a step's own timer when it has one, and longer for the trim, breakfast, lunch, dinner and a few more. Lunch, dinner and the evening are held to about 5, 10 and 14 hours after you start, so the morning does not stack up on top of them. Up Next shows the target for the step you are on and how far ahead or behind you are, refreshed every 30 seconds. Once a step is ticked, its chip turns green and shows when you actually ticked it. Tap the Started time to correct it (Set, Cancel or Clear), and tap any step's chip to step that step's estimate up (1, 2, 3, 5, 10, 15, 20, 30, 45, 60 min, then back to default). Steps set aside for today drop out of the plan. Times are for reading only and are never counted, so the streak and the counts behave as before. Syncs with everything else; no Worker update."},
   {v:'2026.11.08-b', note:"DAILY TASKS ON THE DATE LIST, TODAY ONLY: every step on the board now has a plan button, not just the scheduled ones. Tap it and the step shows on today's By date list, ticks the same as on the board, and tomorrow's copy appears when tomorrow comes. The change in the last build that listed a daily task on every day of the next two weeks is undone, so the three Ask Mia steps show once a day, today's. Tap plan again, or Hide on the date-list row, to take one off. No Worker update."},
