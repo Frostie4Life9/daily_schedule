@@ -6956,14 +6956,18 @@ function dtPlan(){
   const b=S.begun; if(!b || b.d!==today()) return null;
   const after=dtAfter(), rows=dailyRows().filter(r=>!r.classList.contains('notoday')&&!r.classList.contains('off'));
   let t=b.t; const out=[];
-  rows.forEach(r=>{
+  /* Each target is when the step should be DONE, because a step is ticked when it is finished,
+     not when it is started. The day starts at the first tick, so the first step is done at the
+     start itself; every step after it is done one step-length after the one above. */
+  rows.forEach((r,i)=>{
     const id=r.dataset.n; if(after[id]!=null) t=Math.max(t,b.t+after[id]*6e4);
-    out.push({r:r,id:id,at:t}); t+=dtMin(r)*6e4;
+    if(i>0) t+=dtMin(r)*6e4;
+    out.push({r:r,id:id,at:t});
   });
   return {rows:out,end:t,start:b.t};
 }
 function dtPace(at){
-  const diff=(Date.now()-at)/6e4; let s='Target '+fmtClock(at), late=false;
+  const diff=(Date.now()-at)/6e4; let s='Done by '+fmtClock(at), late=false;
   if(diff>=2){ s+=' · '+dtSpan(diff)+' behind'; late=true; }
   else if(diff>-2) s+=' · on pace';
   else if(diff>=-30) s+=' · '+dtSpan(-diff)+' ahead';
@@ -7038,7 +7042,7 @@ function paintDayTime(p){
   if(box.contains(document.activeElement) && document.activeElement.tagName==='INPUT') return;
   let h;
   if(!p){
-    h=`<span class="dthint">Tick your first step to start the day and get a target time on each one</span>`+dtRepHTML();
+    h=`<span class="dthint">Tick your first step to start the day and get a done-by time on each one</span>`+dtRepHTML();
   } else if(DTS && DTS.edit){
     const d=new Date(p.start), v=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
     h=`<span class="dthint">Day started at</span><input class="dtinput" id="dtinput" type="time" value="${v}">`+
@@ -7063,7 +7067,7 @@ function paintTimes(){
     const b=document.createElement('button'); b.type='button';
     b.className='eta'+(isDone && stamped[o.id] ? ' was' : (!isDone && Date.now()>at+6e4 ? ' late' : ''));
     b.dataset.eta=o.id; if(!isDone) b.dataset.at=at;
-    b.title=(isDone && stamped[o.id] ? 'Ticked at ' : 'Target ')+fmtClock(at)+' · about '+dtSpan(dtMin(o.r))+' — tap to change the estimate';
+    b.title=(isDone && stamped[o.id] ? 'Ticked at ' : 'Should be done by ')+fmtClock(at)+' · about '+dtSpan(dtMin(o.r))+' — tap to change the estimate';
     b.textContent=fmtClock(at);
     meta.insertBefore(b,meta.firstChild);
   });
@@ -13424,6 +13428,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-e', note:"TIMES NOW MEAN DONE BY, NOT START AT. You tick a step when you finish it, but each time chip was when the step should begin, so a long step like breakfast looked like it took 2 minutes: its chip sat just after the step above, and its own 15 minutes only showed up on the next row. Each chip is now when the step should be finished, the start plus everything above it plus its own length. Contacts is done at the start itself, since ticking it is what starts the day. Up Next reads Done by instead of Target, and ahead or behind is measured against that. Targets are still a fixed benchmark and never move to meet you; the Pace report is unchanged. Last step around is now the finish of the last step, so it reads about 3 minutes earlier than before. No Worker update."},
   {v:'2026.11.09-d', note:"TONGUE IS NOW A NOTE UNDER BRUSH, NOT ITS OWN STEP. Morning and evening, the separate Tongue row is gone and a bold line under Brush says to do your tongue after the teeth (back to front, 3 to 4 passes, rinse the tool between). One tick for the whole brush. Brush already counts 2.5 minutes in the day clock, so the time the tongue used to claim is covered. A Tongue tick from before this build is simply ignored. No Worker update."},
   {v:'2026.11.09-c', note:"A MOVED LAB NO LONGER LEAVES A COPY BEHIND. When Learning Suite moved a lab to another day, a row you had typed in by hand kept its old date and the feed filed a second copy on the new day. Now a lone hand-entered row with the same title within two weeks is taken over by the feed and follows the new date. Rows already linked to the feed moved fine before. No Worker update."},
   {v:'2026.11.09-b', note:"FOLLOW-UP STEPS NOW SHOW ON THE DATE LIST. If the first task is on the By date list (Do the laundry, Trash out), its follow-up (Fold the laundry, Hang the towels and put on the bedding, Bring the bin back in) now joins the By date list as soon as you tick the first one, under Today and straight below it. Tick it there or on the board, it is the same thing. If the first task is not on the date list, its follow-up stays on the board only, as before. It still only exists on a day you did the first task and is gone the next morning. No Worker update."},
