@@ -9120,7 +9120,13 @@ function lsApply(feed,dest,evs,o){
     const nn=lsNorm(e.text);
     const dup=dest.items.find(i=>i.cv && lsNorm(i.text)===nn && (!e.due || !itemDue(i) || Math.abs((new Date(i.due+'T00:00:00')-new Date(e.due+'T00:00:00'))/864e5)<=1));
     if(dup){ dupes++; return; }
-    const twin=dest.items.find(i=>!i.ls && !i.cv && String(i.text||'').toLowerCase()===lc && (!itemDue(i) || i.due===e.due));
+    /* A hand-entered row is adopted when the title matches and the date matches
+       or is close. If the feed moved the date (a lab shifted a couple of days),
+       a lone same-titled row within two weeks is still the same work; otherwise
+       the old row stays behind and the feed files a second copy. */
+    const twins=dest.items.filter(i=>!i.ls && !i.cv && String(i.text||'').toLowerCase()===lc);
+    const twin=twins.find(i=>!itemDue(i) || i.due===e.due) ||
+      (e.due && twins.length===1 && !twins[0].done && twins[0].due && Math.abs((new Date(twins[0].due+'T00:00:00')-new Date(e.due+'T00:00:00'))/864e5)<=14 ? twins[0] : null);
     if(twin){
       twin.ls=key; feed.seen[e.uid]=1; linked++;
       if(!twin.done && e.due) twin.due=e.due;
@@ -13420,6 +13426,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-c', note:"A MOVED LAB NO LONGER LEAVES A COPY BEHIND. When Learning Suite moved a lab to another day, a row you had typed in by hand kept its old date and the feed filed a second copy on the new day. Now a lone hand-entered row with the same title within two weeks is taken over by the feed and follows the new date. Rows already linked to the feed moved fine before. No Worker update."},
   {v:'2026.11.09-b', note:"FOLLOW-UP STEPS NOW SHOW ON THE DATE LIST. If the first task is on the By date list (Do the laundry, Trash out), its follow-up (Fold the laundry, Hang the towels and put on the bedding, Bring the bin back in) now joins the By date list as soon as you tick the first one, under Today and straight below it. Tick it there or on the board, it is the same thing. If the first task is not on the date list, its follow-up stays on the board only, as before. It still only exists on a day you did the first task and is gone the next morning. No Worker update."},
   {v:'2026.11.09-a', note:"LAUNDRY NOW HAS A SECOND STEP, like the trash. The two laundry rows are now Do the laundry — clothes (cold) and Do the laundry — towels + bedding (warm / high). Tick the one you ran and its follow-up appears the same day: Fold the laundry after the clothes load, Hang the towels and put on the bedding after the towels and bedding load. The follow-up only exists on a day you actually did that load, and it is gone the next morning, so it never nags on a Sunday you skipped. On a two-load Sunday you get both. No Worker update."},
   {v:'2026.11.08-e', note:"PACE REPORT, and late steps turn red. Target times still do not move to meet you: they are the benchmark, not an average of how long you take. Protocol now notes how long each step really takes you (the time from the step above being ticked to this one) and, once a step has three days of it, lines your median up against its target. When steps are running over, a Pace report button appears beside the Started time and lists the worst first, with the total minutes over. Instant gaps are ignored as batch ticking and anything over an hour as a break; a long gap on a short step counts on purpose, because that is the drift to catch. The median keeps one forgotten tick from skewing a step. A step's chip also turns orange once its target has passed and it is still unticked. Nothing here changes a target or the streak. Syncs with everything else; no Worker update."},
