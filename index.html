@@ -3240,10 +3240,9 @@ const PHASES = [
   {id:'am_rinse', l:"Mouthwash", slot:'mouthwash', note:"Before brushing, not after \u2014 rinsing afterward washes off the fluoride the toothpaste just left on your teeth. The one exception is a fluoride rinse, which belongs at midday instead, away from brushing at either end.", warns:[
     {when:'fluorideRinse', text:"Wrong slot. Used after brushing, a fluoride rinse washes away the much stronger fluoride your toothpaste just left behind — and used before, it's redundant. Move it to midday or after lunch (step {lunch}). This is the mistake almost everyone makes with mouthwash."}
   ]},
-  {id:'am_brush', l:"Brush", slot:'toothpaste', timer:120, pin:"Spit \u2014 don't rinse. The fluoride film left behind is the point.", note:"Two minutes. Soft bristles, 45°, small circles.", warns:[
-    {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps {am_floss}–{am_tongue} are now hygiene only, not prevention."}
+  {id:'am_brush', l:"Brush", slot:'toothpaste', timer:120, pin:["Spit \u2014 don't rinse. The fluoride film left behind is the point.","Then your tongue \u2014 back to front, 3\u20134 passes, rinse the tool between."], note:"Two minutes. Soft bristles, 45°, small circles.\n\nThe tongue is where morning breath lives, which is why it gets its own pass after the teeth.", warns:[
+    {when:'noFluoride', text:"Fluoride-free means no cavity protection — that's the entire active. Fine as a preference, but steps {am_floss}–{am_brush} are now hygiene only, not prevention."}
   ]},
-  {id:'am_tongue', sub:1, l:"Tongue", note:"Back to front, 3–4 passes, rinse the tool between. This is where morning breath lives."},
   {id:'ask_mia_b', l:"Ask Mia about breakfast", group:'Morning — before the shower', sched:{dow:[0,1,2,3,4,5,6]}, note:"Every day, and before you eat, so her answer can actually change the plan. Send it now and check this off once you have asked."},
   {id:'breakfast', l:"Breakfast", note:"Anything acidic softens enamel for ~30 min — a reason to brush before eating, not after."},
   {id:'creatine', sub:1, l:"Creatine", note:"5g. Timing doesn't matter, consistency does \u2014 every day including rest days. With food is marginally better for absorption, which is why it sits here."},
@@ -3368,8 +3367,7 @@ const PHASES = [
   {id:'pm_rinse', l:"Mouthwash", slot:'mouthwash', warns:[
     {when:'fluorideRinse', text:"Same problem as step {am_rinse} — a fluoride rinse here undoes the toothpaste. Midday is its slot."}
   ]},
-  {id:'pm_brush', l:"Brush", slot:'toothpaste', timer:120, pin:"Spit \u2014 don't rinse; it matters most at night. Nothing but water after this."},
-  {id:'pm_tongue', sub:1, l:"Tongue"},
+  {id:'pm_brush', l:"Brush", slot:'toothpaste', timer:120, pin:["Spit \u2014 don't rinse; it matters most at night. Nothing but water after this.","Then your tongue \u2014 back to front, 3\u20134 passes, rinse the tool between."]},
   {id:'nightguard', l:"Nightguard", opt:1, note:"If you grind."},
   {id:'pm_lips', l:"Lip balm", slot:'lipbalm', note:"The overnight one is the one that matters, which is why it sits after the oral block and not before it. Floss drags across your lips, mouthwash swishes over them and toothpaste is a detergent \u2014 stripping an occlusive is exactly what SLS does. Applied here it's still on you eight hours later. If your lips are already cracked and toothpaste stings them, a throwaway smear beforehand is fine; this is the coat that does the work."},
   {id:'journal', l:"Journal", group:'End of day', sched:{dow:[0,1,2,3,4,5,6]}, link:1, note:"Digital, on the phone, sitting up \u2014 desk, chair, edge of the bed, anywhere that is not lying down. Last thing before sleep, which is also the risk. Open the journal, not everything else.\n\nThe reason it is not \u201Cin bed\u201D: on a night you drop off in minutes it makes no difference, but on a night you do not, it turns the mattress into the place you lie awake scrolling. Sitting up costs nothing on the good nights and protects the bad ones.\n\nThe button on this row opens Day One straight to a new entry. Paste a different URL under Full schedule \u2192 End of day if you ever switch apps."},
@@ -6940,7 +6938,7 @@ list.addEventListener('keydown',e=>{
 var DTS={edit:false};
 function dtBase(){ return {contacts:3, weigh:1, am_water:1, breakfast:15, shave_face:5, shave_body:4, bodywash:2,
   bath_fill:5, bath_pre:1, am_patdry:3, towel_hair:2, styling:2, dressed:3, lunch:20, dinner:30, cleanse1:2, journal:5,
-  noseear:2, brows:2, creatine:0.5, am_tongue:0.5, pm_tongue:0.5, shampoo_rinse:0.5, cond_rinse:0.5, scrubber:0.5,
+  noseear:2, brows:2, creatine:0.5, shampoo_rinse:0.5, cond_rinse:0.5, scrubber:0.5,
   body_rinse:0.5, sh_face_rinse:0.5, plug_mouse:0.5, cleanse2:0.5}; }
 /* minutes after the start before these may begin: lunch, dinner, the evening */
 function dtAfter(){ return {ask_mia_l:300, ask_mia_d:600, bottle_rinse:840, cleanse1:840}; }
@@ -13426,6 +13424,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.09-d', note:"TONGUE IS NOW A NOTE UNDER BRUSH, NOT ITS OWN STEP. Morning and evening, the separate Tongue row is gone and a bold line under Brush says to do your tongue after the teeth (back to front, 3 to 4 passes, rinse the tool between). One tick for the whole brush. Brush already counts 2.5 minutes in the day clock, so the time the tongue used to claim is covered. A Tongue tick from before this build is simply ignored. No Worker update."},
   {v:'2026.11.09-c', note:"A MOVED LAB NO LONGER LEAVES A COPY BEHIND. When Learning Suite moved a lab to another day, a row you had typed in by hand kept its old date and the feed filed a second copy on the new day. Now a lone hand-entered row with the same title within two weeks is taken over by the feed and follows the new date. Rows already linked to the feed moved fine before. No Worker update."},
   {v:'2026.11.09-b', note:"FOLLOW-UP STEPS NOW SHOW ON THE DATE LIST. If the first task is on the By date list (Do the laundry, Trash out), its follow-up (Fold the laundry, Hang the towels and put on the bedding, Bring the bin back in) now joins the By date list as soon as you tick the first one, under Today and straight below it. Tick it there or on the board, it is the same thing. If the first task is not on the date list, its follow-up stays on the board only, as before. It still only exists on a day you did the first task and is gone the next morning. No Worker update."},
   {v:'2026.11.09-a', note:"LAUNDRY NOW HAS A SECOND STEP, like the trash. The two laundry rows are now Do the laundry — clothes (cold) and Do the laundry — towels + bedding (warm / high). Tick the one you ran and its follow-up appears the same day: Fold the laundry after the clothes load, Hang the towels and put on the bedding after the towels and bedding load. The follow-up only exists on a day you actually did that load, and it is gone the next morning, so it never nags on a Sunday you skipped. On a two-load Sunday you get both. No Worker update."},
