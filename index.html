@@ -7052,6 +7052,24 @@ function dtReport(){
   });
   out.sort((a,b)=>b.over-a.over); return out;
 }
+/* The step that cost the most today, against its fixed target. Read from the same
+   one-sample-per-step-per-day record the Pace report uses; shown once three steps
+   have a sample today, and only when the biggest overrun is two minutes or more. */
+function dtSlipToday(){
+  if(!S.pace) return null;
+  const d=today(); let best=null, n=0;
+  dailyRows().forEach(r=>{
+    const o=S.pace[r.dataset.n]; if(!o || o[d]==null) return;
+    n++; const over=o[d]-dtMin(r);
+    if(over>=2 && (!best || over>best.over)) best={name:dtName(r), over:over};
+  });
+  return (n>=3 && best) ? best : null;
+}
+function dtSlipHTML(){
+  let s=null; try{ s=dtSlipToday(); }catch(e){}
+  if(!s) return '';
+  return `<span class="dthint">Biggest slip today <b>${esc(s.name)}</b> +${esc(dtDur(s.over))}</span>`;
+}
 function dtRepHTML(){
   const rep=dtReport(); if(!rep.length) return '';
   let h=`<button class="dtrep" type="button" data-dtrep="1">Pace report · ${rep.length}</button>`;
@@ -7076,7 +7094,7 @@ function paintDayTime(p){
       `<button class="dtbtn" type="button" data-dtclear="1">Clear</button>`;
   } else {
     h=`<button class="dtedit" type="button" data-dtedit="1" title="Change when your day started">Started <b>${esc(fmtClock(p.start))}</b></button>`+
-      (p.rows.length?`<span class="dthint">Last step around <b>${esc(fmtClock(p.end))}</b></span>`:'')+dtRepHTML();
+      (p.rows.length?`<span class="dthint">Last step around <b>${esc(fmtClock(p.end))}</b></span>`:'')+dtSlipHTML()+dtRepHTML();
   }
   if(box.dataset.h!==h){ box.innerHTML=h; box.dataset.h=h; }
 }
@@ -11999,6 +12017,30 @@ function asideLabel(k){
   if(k.indexOf('r:')===0){ const r=ROUTINES.find(x=>x.id===k.slice(2)); return r&&r.l; }
   const st=PHASES.flatMap(p=>p.steps||[]).find(x=>x.id===k); return st&&st.l;
 }
+/* How the last week ran against the fixed targets: for every step that has a pace
+   sample on one of those days, the minutes it took beyond its target, added up. It
+   reads the same S.pace record as the Pace report and never changes a target.
+   Numbers are rounded here so the Sunday card's change-check stays steady. */
+function weekPace(from,to){
+  const out={n:0, tot:0, top:null};
+  if(!S.pace) return out;
+  const per=[];
+  dailyRows().forEach(r=>{
+    const o=S.pace[r.dataset.n]; if(!o) return;
+    const tgt=dtMin(r); let over=0, d=0;
+    Object.keys(o).forEach(k=>{
+      if(k<from || k>to) return;
+      d++; const x=o[k]-tgt; if(x>=0.5) over+=x;
+    });
+    if(!d) return;
+    out.n+=d; out.tot+=over;
+    if(over>=0.5) per.push({name:dtName(r), over:over});
+  });
+  per.sort((a,b)=>b.over-a.over);
+  out.tot=Math.round(out.tot);
+  out.top=per[0] ? {name:per[0].name, over:Math.round(per[0].over)} : null;
+  return out;
+}
 /* The seven days before today. Today is left out on purpose: on a Sunday
    morning it has barely started, and counting it would read as a miss. */
 function weekBack(){
@@ -12014,7 +12056,9 @@ function weekBack(){
     .filter(x=>x.l && x.n>=2).sort((a,b)=>b.n-a.n).slice(0,3)
     .map(x=>({l:x.l.split(' — ')[0], n:x.n}));
   const finished=(S.custom||[]).filter(c=>c.done && c.done>=from && c.done<=to).length;
-  return {full, seen, aside, finished, waiting:someday().length};
+  /* a pace read that cannot run yet (the board not built) must never stop the week review */
+  let pace={n:0, tot:0, top:null}; try{ pace=weekPace(from,to); }catch(e){}
+  return {full, seen, aside, finished, waiting:someday().length, pace:pace};
 }
 function weekAhead(){
   const t=today(); let B=null; try{ B=listBuckets(); }catch(e){}
@@ -12041,6 +12085,13 @@ function weekReviewHTML(){
   const back=[];
   if(b.seen) back.push(`<div class="wkrow"><span>Protocol finished</span><b>${b.full} of ${b.seen} days</b></div>`);
   b.aside.forEach(x=>back.push(`<div class="wkrow"><span>Set aside: ${esc(x.l)}</span><b class="wkwarn">${x.n} days</b></div>`));
+  /* three or more timed steps in the week before it says anything about pace */
+  if(b.pace && b.pace.n>=3){
+    if(b.pace.tot>=1){
+      back.push(`<div class="wkrow"><span>Time over targets</span><b class="wkwarn">${esc(dtDur(b.pace.tot))}</b></div>`);
+      if(b.pace.top) back.push(`<div class="wkrow"><span>Slowest: ${esc(b.pace.top.name)}</span><b class="wkwarn">+${esc(dtDur(b.pace.top.over))}</b></div>`);
+    } else back.push(`<div class="wkrow"><span>Pace vs targets</span><b>on target</b></div>`);
+  }
   { const hw=hrWeekBack(); if(hw.any) back.push(`<div class="wkrow"><span>Pre-med hours</span><b>${esc(hrText(hw.m))}</b></div>`); }
   back.push(`<div class="wkrow"><span>One-offs finished</span><b>${b.finished}</b></div>`);
   const ahead=[`<div class="wkrow"><span>School due</span><b>${a.due}</b></div>`];
@@ -12313,6 +12364,7 @@ function paintCards(){
     const n=wb.waiting, rows=[];
     if(wb.seen) rows.push(['Last week',`${wb.full} of ${wb.seen} days finished`,'']);
     if(wb.aside.length) rows.push(['Set aside most',`${wb.aside[0].l} · ${wb.aside[0].n} days`,'wkwarn']);
+    if(wb.pace && wb.pace.n>=3 && wb.pace.tot>=1) rows.push(['Over your targets', dtDur(wb.pace.tot)+(wb.pace.top?' · '+wb.pace.top.name+' most':''), 'wkwarn']);
     rows.push(['This week', wa.due+' school due', '']);
     if(wa.peak) rows.push(['Heaviest day', weekDayName(wa.peak.iso,true)+' · '+(wa.peak.school+wa.peak.tasks)+' things', 'wkwarn']);
     wa.exams.slice(0,2).forEach(e=>rows.push([e.l, weekDayName(e.iso,true), 'wkexam']));
@@ -13578,6 +13630,8 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.10-b', note:"BIGGEST SLIP TODAY. Once three steps have a time recorded today, the line under the Started time names the step that ran furthest past its target so far, with how many minutes over (Biggest slip today Breakfast +9 min). It only shows when the overrun is two minutes or more, so a day that is going well stays quiet. It reads the same record the Pace report does, and targets stay a fixed benchmark. Nothing new is stored. No Worker update."},
+  {v:'2026.11.10-a', note:"PACE IN YOUR WEEK. The week in review (Sunday's card and the top of Plan the week) now says how the last 7 days ran against your targets: Time over targets adds up the minutes your steps took beyond their target, and Slowest names the one that cost the most. If the week was on pace it says on target instead. It needs three timed steps in those days before it says anything, and like the rest of the week it leaves today out. It reads the Pace report's record, never changes a target, and does not touch the streak. Nothing new is stored. No Worker update."},
   {v:'2026.11.09-g', note:"LINKS ON LIST ITEMS. Any list item can carry a link now, shown as a small tappable pill under its name (the site's name, like needsquish.com) that opens the page without ticking the item. Paste a link into a list's add box on its own and the item is named from the address, or type a name first (Seal charm https://...) and the link rides along under it; tracking junk like utm_ tags is trimmed off. To add, change or remove a link on an item you already have, swipe it left and tap Link. Items you saved before that are just a pasted URL pick this up by themselves. No Worker update."},
   {v:'2026.11.09-f', note:"RUNNING TIMERS STAY ON TOP. A step with a timer running (the mouthwash, the deodorant) now keeps a small card at the top of Today, above Up Next, showing its name and the countdown, even after you tick the step and move on. Stop on the card stops that timer. When the timer ends the card turns green and says Done, holds for 30 more seconds so you can see it finished, then goes away (Dismiss closes it sooner). A step already shown on the Up Next tile is not repeated. No Worker update."},
   {v:'2026.11.09-e', note:"TIMES NOW MEAN DONE BY, NOT START AT. You tick a step when you finish it, but each time chip was when the step should begin, so a long step like breakfast looked like it took 2 minutes: its chip sat just after the step above, and its own 15 minutes only showed up on the next row. Each chip is now when the step should be finished, the start plus everything above it plus its own length. Contacts is done at the start itself, since ticking it is what starts the day. Up Next reads Done by instead of Target, and ahead or behind is measured against that. Targets are still a fixed benchmark and never move to meet you; the Pace report is unchanged. Last step around is now the finish of the last step, so it reads about 3 minutes earlier than before. No Worker update."},
