@@ -1784,17 +1784,20 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 .tcbtns{display:flex;gap:8px;margin-top:12px;}
 .tcgo{flex:1;height:44px;border:0;border-radius:14px;background:var(--extra);color:#08121C;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;}
 .tcgo:active{transform:scale(.98);}
-/* FOCUS CARD: one goal from a list you keep in view, on Today */
+/* FOCUS STRIP: one goal from a list you keep in view, at the end of the board */
 #focusmount:empty{display:none;}
-.tfocus{border-color:rgba(167,139,250,.34);}
-.tfocus .tce{color:#B9A6FF;}
-.tfocus h3{margin-top:2px;}
-.tfocus .tcgo{background:#B9A6FF;}
-.tfocus.tdone{border-color:rgba(94,230,176,.4);}
+#focusmount{margin-top:14px;display:flex;flex-direction:column;gap:8px;}
+.tfocus{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;border-radius:16px;background:var(--card);border:1px solid rgba(167,139,250,.28);}
+.tfocus.tdone{border-color:rgba(94,230,176,.32);}
+.tfl{flex:1;min-width:0;}
+.tfl .tce{display:block;font-size:10px;color:#B9A6FF;}
 .tfocus.tdone .tce{color:var(--done);}
-.tfocus.tdone h3{color:var(--dim);}
-.tfocus.tdone .tcgo{background:transparent;color:var(--done);border:1px solid rgba(94,230,176,.4);}
-.tfocus .tcb{align-self:center;}
+.tft{display:block;margin-top:2px;font-size:14px;line-height:1.3;color:var(--text,#E8EAED);}
+.tfocus.tdone .tft{color:var(--dim);text-decoration:line-through;text-decoration-color:rgba(255,255,255,.25);}
+.tfb{flex:0 0 auto;height:34px;padding:0 12px;border-radius:17px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--dim);font-family:inherit;font-size:13px;cursor:pointer;}
+.tfb:active{transform:scale(.95);}
+.tfb.tfgo{border:0;background:#B9A6FF;color:#08121C;font-weight:600;}
+.tfocus.tdone .tfb.tfgo{background:transparent;color:var(--done);border:1px solid rgba(94,230,176,.4);}
 /* ---- plan the week ---- */
 .planwrap{z-index:108;}
 .plhint{margin:16px 0 10px;font-size:14px;color:var(--dim);}
@@ -2809,7 +2812,6 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   <div class="daytime" id="daytime"></div>
   <div class="timerpin" id="timerpin" hidden></div>
   <div class="upnext" id="upnext" hidden></div>
-  <div id="focusmount"></div>
   <div class="controls" hidden>
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
@@ -2825,6 +2827,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
 
   <div id="setupnudge" role="button" tabindex="0"></div>
   <main id="list"></main>
+  <div id="focusmount"></div>
 
   <div class="foot">
     <b>Timers.</b> Tap the dial on a step to start its dwell. The ring fills clockwise as it runs and the row sweeps behind it; both go teal when the time is up. A check says you shampooed — the timer says you left it on long enough.<br><br>
@@ -12415,11 +12418,10 @@ function paintFocus(){
     const did=!!(l.fd && l.fd.iso===t && l.fd.id===it.id);
     const n=focusOpen(l).length;
     sigs.push(l.id+':'+it.id+':'+it.text+':'+did+':'+n+':'+l.name);
-    parts.push(`<div class="tcard tfocus${did?' tdone':''}"><div class="tch"><span class="tce">${esc(String(l.name).toUpperCase())}</span></div>`+
-      `<h3>${esc(it.text)}</h3>`+
-      `<p class="tcp">${did?'Done for today.':'Today’s goal, one of '+n+'.'}</p>`+
-      `<div class="tcbtns"><button class="tcgo" data-focus="did:${esc(l.id)}" type="button">${did?'Undo':'Did it today'}</button>`+
-      (n>1?`<button class="tcb" data-focus="next:${esc(l.id)}" type="button">Next goal</button>`:'')+`</div></div>`);
+    parts.push(`<div class="tfocus${did?' tdone':''}"><div class="tfl"><span class="tce">${esc(String(l.name).toUpperCase())}${n>1?' \u00b7 1 OF '+n:''}</span>`+
+      `<span class="tft">${esc(it.text)}</span></div>`+
+      `<button class="tfb tfgo" data-focus="did:${esc(l.id)}" type="button">${did?'Undo':'Did it'}</button>`+
+      (n>1&&!did?`<button class="tfb" data-focus="next:${esc(l.id)}" type="button">Next</button>`:'')+`</div>`);
   });
   const sig=sigs.join('|');
   if(m.dataset.sig===sig) return;
@@ -13736,7 +13738,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
-  {v:'2026.11.11-a', note:"KEEP A LIST IN VIEW ON TODAY. In Lists, every list has a new button, Show one on Today. Turn it on and one open item from that list shows as a card on Today, just under Up Next, and it is a different one each day, so goals you never open the Lists tab for (a therapy list, say) meet your eyes anyway. Did it today ticks the card for today only and does not finish the item, since a practice comes back tomorrow; Undo takes it back. Next goal swaps in another one. Finish an item in its list and it leaves the rotation. The card is not a step, so it never touches the streak or the Extras count, and it lives on the list itself, so it syncs and backs up with it. No Worker update."},
+  {v:'2026.11.11-a', note:"KEEP A LIST IN VIEW ON TODAY. In Lists, every list has a new button, Show one on Today. Turn it on and one open item from that list shows as a slim strip at the end of Today's steps, below the last one, and it is a different one each day, so goals you never open the Lists tab for (a therapy list, say) meet your eyes anyway. Did it ticks the strip for today only and does not finish the item, since a practice comes back tomorrow; Undo takes it back. Next swaps in another one. Finish an item in its list and it leaves the rotation. The strip is not a step, so it never touches the streak or the Extras count, and it lives on the list itself, so it syncs and backs up with it. No Worker update."},
   {v:'2026.11.10-c', note:"PRE-MED HOURS: TIME TO YOUR GOAL. A category with a goal now says how long it would take to reach it at your recent pace, under its progress bar (12h of 100h goal · about 25 weeks at this pace). The pace is the last four weeks of that category's hours, or fewer weeks if you started logging more recently, and it says nothing logged in 4 weeks when there is nothing to go on. A goal here is a total with no deadline, so this is not a verdict on being behind, just where the current rate would land you. It disappears once the goal is reached. Nothing new is stored. No Worker update."},
   {v:'2026.11.10-b', note:"BIGGEST SLIP TODAY. Once three steps have a time recorded today, the line under the Started time names the step that ran furthest past its target so far, with how many minutes over (Biggest slip today Breakfast +9 min). It only shows when the overrun is two minutes or more, so a day that is going well stays quiet. It reads the same record the Pace report does, and targets stay a fixed benchmark. Nothing new is stored. No Worker update."},
   {v:'2026.11.10-a', note:"PACE IN YOUR WEEK. The week in review (Sunday's card and the top of Plan the week) now says how the last 7 days ran against your targets: Time over targets adds up the minutes your steps took beyond their target, and Slowest names the one that cost the most. If the week was on pace it says on target instead. It needs three timed steps in those days before it says anything, and like the rest of the week it leaves today out. It reads the Pace report's record, never changes a target, and does not touch the streak. Nothing new is stored. No Worker update."},
