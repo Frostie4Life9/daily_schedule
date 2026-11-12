@@ -1798,6 +1798,13 @@ body.dragging-list .dsomehead{outline:1px dashed rgba(111,183,255,.35);outline-o
 .tfb:active{transform:scale(.95);}
 .tfb.tfgo{border:0;background:#B9A6FF;color:#08121C;font-weight:600;}
 .tfocus.tdone .tfb.tfgo{background:transparent;color:var(--done);border:1px solid rgba(94,230,176,.4);}
+body.on-lists #focusmount{display:none;}
+/* wide screens: the strip lives in the left panel under the day's counts, so it stacks */
+header.gh #focusmount{margin-top:18px;}
+header.gh .tfocus{flex-wrap:wrap;padding:14px 14px 12px;gap:10px;}
+header.gh .tfl{flex:1 1 100%;}
+header.gh .tft{font-size:15px;margin-top:4px;}
+header.gh .tfb{flex:1 1 0;height:36px;}
 /* ---- plan the week ---- */
 .planwrap{z-index:108;}
 .plhint{margin:16px 0 10px;font-size:14px;color:var(--dim);}
@@ -12428,6 +12435,17 @@ function paintFocus(){
   m.dataset.sig=sig;
   m.innerHTML=parts.join('');
 }
+(function(){
+  const m=document.getElementById('focusmount'), home=m.parentNode, nextSib=m.nextSibling;
+  const mq=window.matchMedia('(min-width:900px)');
+  function place(){
+    const side=document.querySelector('header.gh .gcards');
+    if(mq.matches && side){ if(m.previousElementSibling!==side) side.after(m); }
+    else if(m.parentNode!==home){ home.insertBefore(m,nextSib&&nextSib.parentNode===home?nextSib:null); }
+  }
+  place();
+  (mq.addEventListener?mq.addEventListener('change',place):mq.addListener(place));
+})();
 document.getElementById('focusmount').addEventListener('click',e=>{
   const b=e.target.closest('[data-focus]'); if(!b) return;
   const [act,lid]=b.dataset.focus.split(':');
@@ -13738,6 +13756,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.11-c', note:"FOCUS STRIP ON WIDE SCREENS. On a computer the list you keep in view now sits in the open space on the left, under the Protocol, Extras and School counts, instead of at the very bottom of the board. It stacks: the goal on top, Did it and Next below. On a phone it stays a slim strip at the end of Today's steps. It hides while you're in Lists. No Worker update."},
   {v:'2026.11.11-b', note:"FASTER UPDATE CHECK. The new-version bar now looks for an update every 30 seconds while the app is open, instead of only when you open it or come back to it. Each look reads only the file's header, about half a KB, and the full page is downloaded only when it has actually changed."},
   {v:'2026.11.11-a', note:"KEEP A LIST IN VIEW ON TODAY. In Lists, every list has a new button, Show one on Today. Turn it on and one open item from that list shows as a slim strip at the end of Today's steps, below the last one, and it is a different one each day, so goals you never open the Lists tab for (a therapy list, say) meet your eyes anyway. Did it ticks the strip for today only and does not finish the item, since a practice comes back tomorrow; Undo takes it back. Next swaps in another one. Finish an item in its list and it leaves the rotation. The strip is not a step, so it never touches the streak or the Extras count, and it lives on the list itself, so it syncs and backs up with it. No Worker update."},
   {v:'2026.11.10-c', note:"PRE-MED HOURS: TIME TO YOUR GOAL. A category with a goal now says how long it would take to reach it at your recent pace, under its progress bar (12h of 100h goal · about 25 weeks at this pace). The pace is the last four weeks of that category's hours, or fewer weeks if you started logging more recently, and it says nothing logged in 4 weeks when there is nothing to go on. A goal here is a total with no deadline, so this is not a verdict on being behind, just where the current rate would land you. It disappears once the goal is reached. Nothing new is stored. No Worker update."},
