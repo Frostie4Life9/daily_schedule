@@ -4083,6 +4083,25 @@ function kitchenBtn(id){
                      `title="Open the kitchen app" `+
                      `aria-label="Open the kitchen app">kitchen</a>` : '';
 }
+/* Get dressed -> The Rail. Same rules as the kitchen button above: a real
+   anchor with a target, no rel="noopener", and a fresh tab on a phone (a
+   page can only re-raise a tab it opened itself, by name, and only on
+   desktop). The same data-kitchen flag keeps a tap here from also ticking
+   the step off. */
+const RAIL_URL='https://frostie4life9.github.io/the-rail/';
+function railTarget(){
+  try{
+    if(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return '_blank';
+    if(navigator.maxTouchPoints>0) return '_blank';
+  }catch(e){}
+  return 'railapp';
+}
+function railBtn(id){
+  return id==='dressed' ? `<a class="kitchen" data-kitchen="1" href="${RAIL_URL}" `+
+                          `target="${railTarget()}" `+
+                          `title="Open The Rail" `+
+                          `aria-label="Open The Rail">rail</a>` : '';
+}
 const PIN='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l-1 5 3 3v2H7v-2l3-3-1-5z"/><line x1="12" y1="13" x2="12" y2="21"/></svg>';
 /* A board on an easel: "this happens in the room". Deliberately plain -- it
    sits beside the pin at 12px and has to read as a different thing at a
@@ -6179,7 +6198,7 @@ function buildRows(){
           extra: d.warns.map(w=>`<div class="warn">${w}</div>`).join('')+
                  (d.needsSetup?`<span class="noprod" data-setup="${st.slot}">No product attached</span>`:''),
           resched: st.sched?reschedPanel(st.id,ss.from):'',
-          buttons: kitchenBtn(st.id)+linkBtn(st.id)+
+          buttons: kitchenBtn(st.id)+railBtn(st.id)+linkBtn(st.id)+
                    (d.timer?`<button class="timer" data-t="${d.timer}"><span>${fmt(d.timer)}</span></button>`:'')+
                    asideBtns(st.id,keepBtn(st.id,!!st.opt)+(!st.sub&&plannable(st)?planBtn(st.id):''))
         }));
@@ -13756,6 +13775,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.12-a', note:"RAIL BUTTON ON GET DRESSED. The Get dressed step now has a small rail button, like the kitchen one on meals, that opens The Rail so you can see today's fit. On a computer it reuses the Rail tab it opened last time; on a phone it opens a fresh tab each time, because a phone will not let one page switch to another tab. Tapping it does not tick the step. No Worker update."},
   {v:'2026.11.11-c', note:"FOCUS STRIP ON WIDE SCREENS. On a computer the list you keep in view now sits in the open space on the left, under the Protocol, Extras and School counts, instead of at the very bottom of the board. It stacks: the goal on top, Did it and Next below. On a phone it stays a slim strip at the end of Today's steps. It hides while you're in Lists. No Worker update."},
   {v:'2026.11.11-b', note:"FASTER UPDATE CHECK. The new-version bar now looks for an update every 30 seconds while the app is open, instead of only when you open it or come back to it. Each look reads only the file's header, about half a KB, and the full page is downloaded only when it has actually changed."},
   {v:'2026.11.11-a', note:"KEEP A LIST IN VIEW ON TODAY. In Lists, every list has a new button, Show one on Today. Turn it on and one open item from that list shows as a slim strip at the end of Today's steps, below the last one, and it is a different one each day, so goals you never open the Lists tab for (a therapy list, say) meet your eyes anyway. Did it ticks the strip for today only and does not finish the item, since a practice comes back tomorrow; Undo takes it back. Next swaps in another one. Finish an item in its list and it leaves the rotation. The strip is not a step, so it never touches the streak or the Extras count, and it lives on the list itself, so it syncs and backs up with it. No Worker update."},
