@@ -13738,6 +13738,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.11-b', note:"FASTER UPDATE CHECK. The new-version bar now looks for an update every 30 seconds while the app is open, instead of only when you open it or come back to it. Each look reads only the file's header, about half a KB, and the full page is downloaded only when it has actually changed."},
   {v:'2026.11.11-a', note:"KEEP A LIST IN VIEW ON TODAY. In Lists, every list has a new button, Show one on Today. Turn it on and one open item from that list shows as a slim strip at the end of Today's steps, below the last one, and it is a different one each day, so goals you never open the Lists tab for (a therapy list, say) meet your eyes anyway. Did it ticks the strip for today only and does not finish the item, since a practice comes back tomorrow; Undo takes it back. Next swaps in another one. Finish an item in its list and it leaves the rotation. The strip is not a step, so it never touches the streak or the Extras count, and it lives on the list itself, so it syncs and backs up with it. No Worker update."},
   {v:'2026.11.10-c', note:"PRE-MED HOURS: TIME TO YOUR GOAL. A category with a goal now says how long it would take to reach it at your recent pace, under its progress bar (12h of 100h goal · about 25 weeks at this pace). The pace is the last four weeks of that category's hours, or fewer weeks if you started logging more recently, and it says nothing logged in 4 weeks when there is nothing to go on. A goal here is a total with no deadline, so this is not a verdict on being behind, just where the current rate would land you. It disappears once the goal is reached. Nothing new is stored. No Worker update."},
   {v:'2026.11.10-b', note:"BIGGEST SLIP TODAY. Once three steps have a time recorded today, the line under the Started time names the step that ran furthest past its target so far, with how many minutes over (Biggest slip today Breakfast +9 min). It only shows when the overrun is two minutes or more, so a day that is going well stays quiet. It reads the same record the Pace report does, and targets stay a fixed benchmark. Nothing new is stored. No Worker update."},
@@ -13904,14 +13905,20 @@ function printOf(html){
     return ('000000'+h.toString(36)).slice(-6);
   }catch(e){ return null; }
 }
-let UPD={last:0,dismissed:null,shown:null};
+let UPD={last:0,dismissed:null,shown:null,tag:null,miss:0,noTag:false,retry:false};
 async function checkUpdate(force){
   if(!/^https?:$/.test(location.protocol) || !window.fetch) return;
-  if(!force && Date.now()-UPD.last<5*60e3) return;
+  if(!force && Date.now()-UPD.last<(UPD.tag?20e3:5*60e3)) return;
   UPD.last=Date.now();
   try{
-    const r=await fetch(location.pathname+'?_='+Date.now(),{cache:'no-store'});
+    /* Checked every 30 seconds while the app is open. A look is a HEAD request (headers only, about half a KB):
+       the page's ETag is remembered from the last full read, and the whole page is downloaded again only when
+       that tag changes. If the server gives no tag, it goes back to a full read every 5 minutes. */
+    const url=location.pathname+'?_='+Date.now(), viaTag=!force && !!UPD.tag;
+    if(viaTag){ try{ const h=await fetch(url,{method:'HEAD',cache:'no-store'}); const t=h.ok&&(h.headers.get('etag')||h.headers.get('last-modified')); if(t&&t===UPD.tag){ UPD.miss=0; return; } }catch(e){} }
+    const r=await fetch(url,{cache:'no-store'});
     if(!r.ok) return;
+    UPD.tag=UPD.noTag?null:(r.headers.get('etag')||r.headers.get('last-modified')||null);
     const html=await r.text();
     /* Compare BUILD NUMBERS, newer only. The old check compared a fingerprint
        of the code, which (a) a browser that injects its own scripts into the
@@ -13920,11 +13927,13 @@ async function checkUpdate(force){
        raise the bar three times. A build number only ever goes up. */
     const m=html.match(/v:'(\d{4}\.\d\d\.\d\d-[a-z]+)'/); if(!m) return;
     const live=m[1];
+    /* the tag changed but the build did not: twice running means the tag is not reliable here */
+    if(viaTag && live===BUILD){ if(++UPD.miss>=2){ UPD.noTag=true; UPD.tag=null; } }
     if(!(buildKey(live)>buildKey(BUILD)) || live===UPD.dismissed) return;
     /* Just reloaded for this exact build and still got the old copy: GitHub
        has not caught up yet. Try again quietly in a minute instead of asking. */
     let tried=null; try{ tried=sessionStorage.getItem('protocol_upd_tried'); }catch(e){}
-    if(tried===live && !force){ setTimeout(()=>checkUpdate(true),60e3); return; }
+    if(tried===live && !force){ if(!UPD.retry){ UPD.retry=true; setTimeout(()=>{ UPD.retry=false; checkUpdate(true); },60e3); } return; }
     refreshCached();
     showUpdate(live, live);
   }catch(e){}
@@ -13959,6 +13968,7 @@ document.getElementById('updx').addEventListener('click',()=>{
 if(/[?&]v=\d+/.test(location.search)){ refreshCached(); try{ history.replaceState(null,'',location.pathname+location.hash); }catch(e){} }
 setTimeout(()=>checkUpdate(true),2500);
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') checkUpdate(false); });
+setInterval(()=>{ if(document.visibilityState==='visible') checkUpdate(false); },30e3);
 try{
   document.getElementById('buildnote').innerHTML='<b>New:</b> '+esc(CHANGELOG[0].note);
   const hl=document.getElementById('histlist'), hb=document.getElementById('histbtn');
