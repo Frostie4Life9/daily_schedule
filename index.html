@@ -1014,6 +1014,12 @@ body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
 @media (hover:hover) and (pointer:fine){ .eta:hover{color:var(--ink);border-color:rgba(255,255,255,.3);} }
 .eta.late{color:var(--warn);border-color:rgba(242,153,94,.45);}
 .step.cur .eta.late{color:var(--warn);border-color:rgba(242,153,94,.55);}
+/* The shower button's own done-by time, on the button in the list and on the Up Next tile */
+.bulkt,.unbulk .bulkt{display:inline-block;margin:0 0 0 10px;padding:1px 7px;border:1px solid rgba(255,255,255,.14);border-radius:8px;
+  color:var(--dimmer);font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;font-weight:400;letter-spacing:.02em;line-height:1.5;
+  text-transform:none;font-variant-numeric:tabular-nums;white-space:nowrap;vertical-align:middle;}
+.bulkt.was,.unbulk .bulkt.was{color:var(--done);border-color:rgba(94,230,176,.3);}
+.bulkt.late,.unbulk .bulkt.late{color:var(--warn);border-color:rgba(242,153,94,.45);}
 .dtpanel{flex:0 0 100%;margin-top:4px;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.03);}
 .dtpanel .dthint{display:block;margin-bottom:10px;line-height:1.45;}
 .dtrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid rgba(255,255,255,.06);font-size:14px;color:var(--ink);}
@@ -6001,8 +6007,8 @@ function bulkPhase(ph){
   S.rlog=S.rlog||{};
   ids.forEach(id=>{
     const at=S.checked.indexOf(id);
-    if(allOn){ if(at>-1) S.checked.splice(at,1); }
-    else if(at===-1) S.checked.push(id);
+    if(allOn){ if(at>-1){ S.checked.splice(at,1); try{ dtStampQuiet(id,false); }catch(err){} } }
+    else if(at===-1){ S.checked.push(id); try{ dtStampQuiet(id,true); }catch(err){} }
     /* a scheduled step inside the block drives its own interval off rlog,
        so bulk-checking has to stamp it exactly as a single tap would */
     if(sset.some(x=>x.id===id)){
@@ -7198,6 +7204,42 @@ function dtPace(at){
   else if(diff>=-30) s+=' · '+dtSpan(-diff)+' ahead';
   return {s:s,late:late};
 }
+/* The shower button settles a whole block in one tap, so it has no step of its own to carry a
+   target. Its done-by time is where the LAST step it ticks lands in the plan, which is the
+   day's start plus every step above it plus every shower step it covers: the shower steps added
+   up. Once the block is finished it shows when you actually finished instead. Null until the
+   day has started, like every other target. */
+function bulkEta(ph){
+  const p=dtPlan(); if(!p) return null;
+  const ids=bulkTargets(ph).map(st=>st.id), set={}; ids.forEach(id=>{ set[id]=1; });
+  const mine=p.rows.filter(o=>set[o.id]); if(!ids.length || !mine.length) return null;
+  const stamped=(S.tickAt && S.tickAt.d===today()) ? S.tickAt.m : {};
+  const left=ids.filter(id=>S.checked.indexOf(id)===-1).length;
+  const mins=mine.reduce((a,o)=>a+dtMin(o.r),0), at=mine[mine.length-1].at;
+  if(!left){
+    const ts=ids.map(id=>stamped[id]).filter(Boolean); if(!ts.length) return null;
+    return {done:true, at:Math.max.apply(null,ts), tgt:at, mins:mins};
+  }
+  return {done:false, at:at, late:Date.now()>at+6e4, mins:mins, n:mine.length};
+}
+function bulkChip(ph){
+  let e=null; try{ e=bulkEta(ph); }catch(err){}
+  if(!e) return '';
+  const title=e.done ? 'Finished at '+fmtClock(e.at)+' · target was '+fmtClock(e.tgt)
+    : 'Should be done by '+fmtClock(e.at)+' · the '+e.n+' steps add up to about '+dtSpan(e.mins);
+  return `<span class="bulkt${e.done?' was':(e.late?' late':'')}"${e.done?'':` data-at="${e.at}"`} title="${esc(title)}">`+
+    (e.done?'done ':'by ')+esc(fmtClock(e.at))+`</span>`;
+}
+/* Ticks from the shower button are stamped with the time but not learned from (dtStamp would
+   credit the first step in the block with the whole shower, since every step lands at the same
+   instant). Stamping means the chips show when you finished, and the step after the shower
+   measures its pace from the end of it. */
+function dtStampQuiet(n,on){
+  const d=today();
+  if(!S.tickAt || S.tickAt.d!==d) S.tickAt={d:d,m:{}};
+  if(on) S.tickAt.m[n]=Date.now();
+  else { delete S.tickAt.m[n]; if(S.pace && S.pace[n]) delete S.pace[n][d]; }
+}
 function dtStamp(n,on){
   if(n.indexOf('c:')===0 || n.indexOf('l:')===0 || n.indexOf('r:')===0) return;
   const d=today();
@@ -7298,9 +7340,13 @@ function paintDayTime(p){
   if(box.dataset.h!==h){ box.innerHTML=h; box.dataset.h=h; }
 }
 function paintTimes(){
-  document.querySelectorAll('.step .eta').forEach(x=>x.remove());
+  document.querySelectorAll('.step .eta,.bulk .bulkt').forEach(x=>x.remove());
   const p=dtPlan(); paintDayTime(p);
   if(!p) return;
+  document.querySelectorAll('button.bulk[data-bulk]').forEach(b=>{
+    const ph=PHASES.find(x=>x.name===b.dataset.bulk); if(!ph) return;
+    const h=bulkChip(ph); if(h) b.insertAdjacentHTML('beforeend',h);
+  });
   const stamped=(S.tickAt && S.tickAt.d===today()) ? S.tickAt.m : {};
   p.rows.forEach(o=>{
     const isDone=o.r.classList.contains('done'), at=(isDone && stamped[o.id]) ? stamped[o.id] : o.at;
@@ -7346,7 +7392,7 @@ document.addEventListener('click',function(e){
 });
 setInterval(function(){
   const now=Date.now();
-  document.querySelectorAll('.step .eta[data-at]').forEach(c=>c.classList.toggle('late',now>(+c.dataset.at)+6e4));
+  document.querySelectorAll('.step .eta[data-at],.bulkt[data-at]').forEach(c=>c.classList.toggle('late',now>(+c.dataset.at)+6e4));
   const el=document.querySelector('#upnext .unwhen'); if(!el) return;
   const at=+el.dataset.at; if(!at) return;
   const p=dtPace(at); el.textContent=p.s; el.classList.toggle('late',p.late);
@@ -7398,7 +7444,7 @@ function paintUpNext(){
        section's own Finish button is offered right here as well. */
     (()=>{ const ph=PHASES.find(p=>p.bulk && renderedSteps(p).some(st=>st.id===key)); if(!ph) return '';
       const ids=bulkTargets(ph).map(st=>st.id), left=ids.filter(id=>S.checked.indexOf(id)===-1).length;
-      return left>1?`<button class="unbulk" type="button" data-upbulk="${esc(ph.name)}">Finish ${esc(bulkLabel(ph).toLowerCase())}<span>${left} left</span></button>`:''; })();
+      return left>1?`<button class="unbulk" type="button" data-upbulk="${esc(ph.name)}">Finish ${esc(bulkLabel(ph).toLowerCase())}<span>${left} left</span>${bulkChip(ph)}</button>`:''; })();
   const changed=key!==UPKEY;
   const oldQ=(changed && paint.ready)?upqRects():null;
   if(changed || box.dataset.h!==html){ box.innerHTML=html; box.dataset.h=html; }
@@ -13997,6 +14043,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.18-c', note:"SHOWER BUTTON HAS ITS OWN TIME. The Shower done button in the list and the Finish shower button on the Up Next tile now carry a done-by time: the day's start plus every step above the shower plus all the shower steps added up, so it is the time you should be out. It turns orange once you are past it. When you tap the button the time becomes when you actually finished (green). Tapping the button also now stamps each shower step with that time, so their chips show when you finished instead of the target, and the step after the shower measures its pace from the end of it. Like every target it appears once your day has started. No Worker update."},
   {v:'2026.11.18-b', note:"UP NEXT: BRING BACK BUTTON AND A COMING-UP LIST. The Up Next tile now has the Bring back up in button beside Not today, so you can push the step you are looking at without finding its row. Under the tile, the next three steps show smaller and fainter. When you finish, set aside or push the current step, the one that was next scrolls up and grows into the tile while the rest of the list slides up a place. No Worker update."},
   {v:'2026.11.18-a', note:"BRING BACK UP IN. Every daily step and routine now has a Bring back up in button (swipe the row left). Tap it, pick 15 min, 30 min, 1 hour, 2 hours, 3 hours, 4 hours or type your own minutes, and the task steps out of the way, showing back at and the time. It is not skipped and not Not today: it still counts toward your day, leaves no mark in your skip history, and comes back on its own with a note when the time is up. Tick it early, tap bring back now, or Undo to cancel the wait. While it waits it stays out of Up Next and the day clock. Works across your devices. No Worker update."},
   {v:'2026.11.12-a', note:"RAIL BUTTON ON GET DRESSED. The Get dressed step now has a small rail button, like the kitchen one on meals, that opens The Rail so you can see today's fit. On a computer it reuses the Rail tab it opened last time; on a phone it opens a fresh tab each time, because a phone will not let one page switch to another tab. Tapping it does not tick the step. No Worker update."},
