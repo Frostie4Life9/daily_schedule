@@ -1052,6 +1052,21 @@ body.on-lists .dock .tabs::before{transform:translateX(calc(100% + 4px));}
 .untimer svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;}
 .undone:active,.untimer:active{transform:scale(.96);}
 
+.unbtns{flex-wrap:wrap;}
+.undone{flex:1 1 110px;}
+.unlt{flex:0 0 auto;height:48px;padding:0 12px;border:1px solid rgba(142,162,255,.3);border-radius:14px;background:rgba(142,162,255,.06);
+  color:#C9D1FF;font-family:inherit;font-size:12.5px;font-weight:500;line-height:1.15;text-align:center;cursor:pointer;
+  transition:transform .16s ease,background .2s;}
+.unlt:active{transform:scale(.96);background:rgba(142,162,255,.14);}
+/* ---- coming up: the next few steps, smaller, under the Up Next tile ---- */
+.upq{margin:10px 6px 0;display:flex;flex-direction:column;gap:7px;overflow:hidden;}
+.upq[hidden]{display:none;}
+.upqi{display:flex;align-items:baseline;gap:10px;line-height:1.25;color:var(--dim);will-change:transform;}
+.upqi .upqn{flex:0 0 auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.1em;color:var(--dimmer);min-width:18px;}
+.upqi .upql{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.upqi.q0{font-size:15px;opacity:.78;}
+.upqi.q1{font-size:14px;opacity:.55;}
+.upqi.q2{font-size:13px;opacity:.36;}
 /* ---------------- pinned timers ---------------- */
 .timerpin{margin-top:18px;display:flex;flex-direction:column;gap:8px;}
 .timerpin[hidden]{display:none;}
@@ -2838,6 +2853,7 @@ html.g-open .dockin{animation:g-open-dock .5s cubic-bezier(.2,.8,.2,1) .3s both}
   <div class="daytime" id="daytime"></div>
   <div class="timerpin" id="timerpin" hidden></div>
   <div class="upnext" id="upnext" hidden></div>
+  <div class="upq" id="upq" hidden aria-label="Coming up"></div>
   <div class="controls" hidden>
     <button class="ctl" id="optbtn" aria-pressed="false">Optional steps: shown</button>
     <button class="ctl" id="syncchip" aria-pressed="false">Sync: off</button>
@@ -7347,6 +7363,7 @@ function paintUpNext(){
   if(!r){
     if(!box.hidden && paint.ready && !box._shut) shutEl(box,()=>{ box.hidden=true; });
     else if(!box._shut) box.hidden=true;
+    const q0=document.getElementById('upq'); if(q0){ q0.hidden=true; q0.innerHTML=''; q0.dataset.h=''; }
     UPKEY=null; return;
   }
   unshut(box);
@@ -7372,6 +7389,8 @@ function paintUpNext(){
         `<span>${esc(tm.textContent.trim())}</span></button>`:'')+
       /* Not today, right here: the step at the top is the one you are most
          likely to be deciding about. One-offs move to tomorrow, as elsewhere. */
+      (r.querySelector(':scope > .skiprow [data-later]')?
+        `<button class="unlt" type="button" data-uplater="1" aria-label="Bring back up in">Bring back<br>up in\u2026</button>`:'')+
       ((r.querySelector(':scope > .skiprow [data-nt]') || key.indexOf('c:')===0)?
         `<button class="unnt" type="button" data-upnt="1">Not today</button>`:'')+
     `</div>`+
@@ -7381,12 +7400,65 @@ function paintUpNext(){
       const ids=bulkTargets(ph).map(st=>st.id), left=ids.filter(id=>S.checked.indexOf(id)===-1).length;
       return left>1?`<button class="unbulk" type="button" data-upbulk="${esc(ph.name)}">Finish ${esc(bulkLabel(ph).toLowerCase())}<span>${left} left</span></button>`:''; })();
   const changed=key!==UPKEY;
+  const oldQ=(changed && paint.ready)?upqRects():null;
   if(changed || box.dataset.h!==html){ box.innerHTML=html; box.dataset.h=html; }
   box.hidden=false;
-  if(changed && paint.ready){
+  const slid=paintUpQueue(r,changed,oldQ);
+  if(changed && paint.ready && !slid){
     UPFLIP=!UPFLIP; box.classList.remove('in','inB'); void box.offsetWidth; box.classList.add(UPFLIP?'inB':'in');
   }
   UPKEY=key; syncUpTimer();
+}
+/* COMING UP. The next few steps after the one on the tile, smaller and fading
+   out as they go. When the tile moves on to what was first in this list, that
+   step scrolls up into the tile's spot instead of the tile just changing. */
+const UPQ_N=3;
+function upLabel(row){
+  const l=row.querySelector('.label'); if(!l) return '';
+  const c=l.cloneNode(true); c.querySelectorAll('button, .tag, .late').forEach(x=>x.remove());
+  return c.textContent.replace(/\s+\u2014.*$/,'').replace(/\s+/g,' ').trim();
+}
+function upqRects(){
+  const o={};
+  document.querySelectorAll('#upq .upqi').forEach(e=>{
+    o[e.dataset.id]={top:e.getBoundingClientRect().top, op:+getComputedStyle(e).opacity||1};
+  });
+  return o;
+}
+function paintUpQueue(cur,changed,oldQ){
+  const q=document.getElementById('upq'); if(!q) return false;
+  const rows=dailyRows().filter(x=>!x.classList.contains('done') && !x.classList.contains('later') && !x.closest('.phase.folded'));
+  const at=rows.indexOf(cur);
+  const next=at<0?[]:rows.slice(at+1,at+1+UPQ_N);
+  if(!next.length){ q.hidden=true; q.innerHTML=''; q.dataset.h=''; return false; }
+  const html=next.map((x,i)=>`<div class="upqi q${i}" data-id="${esc(x.dataset.n)}">`+
+    `<span class="upqn">${esc((x.querySelector('.num')||{}).textContent||'')}</span>`+
+    `<span class="upql">${esc(upLabel(x))}</span></div>`).join('');
+  if(!changed && q.dataset.h===html){ q.hidden=false; return false; }
+  q.innerHTML=html; q.dataset.h=html; q.hidden=false;
+  if(!oldQ) return false;
+  const key=cur.dataset.n, from=oldQ[key];
+  if(!from || REDUCED()) return false;
+  /* the step that was next scrolls up and grows into the tile */
+  const box=document.getElementById('upnext'), lab=box.querySelector('.unlabel');
+  if(lab){
+    const to=lab.getBoundingClientRect(), dy=from.top-to.top;
+    lab.style.transformOrigin='0 0';
+    anim(lab,[{transform:'translateY('+dy+'px) scale(.7)',opacity:.55},{transform:'none',opacity:1}],{duration:480});
+    box.querySelectorAll('.unhead,.unwhen,.unpin,.unbtns,.unbulk').forEach(el=>
+      anim(el,[{opacity:0},{opacity:1}],{duration:300,delay:200,fill:'backwards'}));
+  }
+  /* the rest of the list slides up one place; whatever is new at the bottom fades in */
+  q.querySelectorAll('.upqi').forEach(el=>{
+    const o=oldQ[el.dataset.id], now=+getComputedStyle(el).opacity||1;
+    if(o){
+      const dy=o.top-el.getBoundingClientRect().top;
+      anim(el,[{transform:'translateY('+dy+'px)',opacity:o.op},{transform:'none',opacity:now}],{duration:480});
+    } else {
+      anim(el,[{transform:'translateY(16px)',opacity:0},{transform:'none',opacity:now}],{duration:420,delay:140,fill:'backwards'});
+    }
+  });
+  return true;
 }
 function syncUpTimer(){
   const box=document.getElementById('upnext'); if(!box||box.hidden||!UPKEY) return;
@@ -7452,6 +7524,7 @@ document.getElementById('timerpin').addEventListener('click',e=>{
 document.getElementById('upnext').addEventListener('click',e=>{
   const r=UPKEY&&document.querySelector('.step[data-n="'+cssEsc(UPKEY)+'"]'); if(!r) return;
   if(e.target.closest('[data-updone]')){ toggle(r); return; }
+  if(e.target.closest('[data-uplater]')){ openLater(r.dataset.n); return; }
   const ub=e.target.closest('[data-upbulk]');
   if(ub){ const ph=PHASES.find(x=>x.name===ub.dataset.upbulk); if(ph){ JUST={k:r.dataset.n,t:Date.now()}; bulkPhase(ph); } return; }
   if(e.target.closest('[data-upnt]')){
@@ -13924,6 +13997,7 @@ document.getElementById('bkrestore').addEventListener('click',()=>{
    rather than presenting a guess as a date. The letter on 09.15-a is order
    only; whether other builds preceded it that day is also not recorded. */
 const CHANGELOG=[
+  {v:'2026.11.18-b', note:"UP NEXT: BRING BACK BUTTON AND A COMING-UP LIST. The Up Next tile now has the Bring back up in button beside Not today, so you can push the step you are looking at without finding its row. Under the tile, the next three steps show smaller and fainter. When you finish, set aside or push the current step, the one that was next scrolls up and grows into the tile while the rest of the list slides up a place. No Worker update."},
   {v:'2026.11.18-a', note:"BRING BACK UP IN. Every daily step and routine now has a Bring back up in button (swipe the row left). Tap it, pick 15 min, 30 min, 1 hour, 2 hours, 3 hours, 4 hours or type your own minutes, and the task steps out of the way, showing back at and the time. It is not skipped and not Not today: it still counts toward your day, leaves no mark in your skip history, and comes back on its own with a note when the time is up. Tick it early, tap bring back now, or Undo to cancel the wait. While it waits it stays out of Up Next and the day clock. Works across your devices. No Worker update."},
   {v:'2026.11.12-a', note:"RAIL BUTTON ON GET DRESSED. The Get dressed step now has a small rail button, like the kitchen one on meals, that opens The Rail so you can see today's fit. On a computer it reuses the Rail tab it opened last time; on a phone it opens a fresh tab each time, because a phone will not let one page switch to another tab. Tapping it does not tick the step. No Worker update."},
   {v:'2026.11.11-c', note:"FOCUS STRIP ON WIDE SCREENS. On a computer the list you keep in view now sits in the open space on the left, under the Protocol, Extras and School counts, instead of at the very bottom of the board. It stacks: the goal on top, Did it and Next below. On a phone it stays a slim strip at the end of Today's steps. It hides while you're in Lists. No Worker update."},
